@@ -12,14 +12,15 @@
   "cover_image": "https://raw.githubusercontent.com/prohand/gladys-appledevicetracker/main/cover.png",
   "categories": ["security", "services"],
   "transports": ["cloud"],
+  "location": true,
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
       "label": { "en": "Your iCloud account", "fr": "Votre compte iCloud" },
       "description": {
-        "en": "This integration signs in to iCloud with your Apple ID and reads the position of the devices visible in Find My. Your credentials stay in Gladys, on your machine. Two-factor authentication is supported: after saving, use the action below to enter the 6-digit code Apple sends you.",
-        "fr": "Cette integration se connecte a iCloud avec votre identifiant Apple et lit la position des appareils visibles dans Localiser. Vos identifiants restent dans Gladys, chez vous. La double authentification est geree : apres avoir enregistre, utilisez l'action ci-dessous pour saisir le code a 6 chiffres envoye par Apple."
+        "en": "This integration signs in to iCloud with your Apple ID and reads the position of the devices visible in Find My. Your credentials stay in Gladys, on your machine. Two-factor authentication is supported: after saving, use the action below to enter the 6-digit code Apple sends you, and the \"Send me a new two-factor code\" action if nothing arrives.",
+        "fr": "Cette integration se connecte a iCloud avec votre identifiant Apple et lit la position des appareils visibles dans Localiser. Vos identifiants restent dans Gladys, chez vous. La double authentification est geree : apres avoir enregistre, utilisez l'action ci-dessous pour saisir le code a 6 chiffres envoye par Apple, et l'action \"M'envoyer un nouveau code\" si rien n'arrive."
       },
       "links": [
         {
@@ -157,6 +158,22 @@
           "required": true
         }
       ]
+    },
+    {
+      "key": "resend_2fa_code",
+      "label": {
+        "en": "Send me a new two-factor code",
+        "fr": "M'envoyer un nouveau code de double authentification"
+      },
+      "timeout_seconds": 60
+    },
+    {
+      "key": "refresh_home_location",
+      "label": {
+        "en": "Get the coordinates of my Gladys house",
+        "fr": "Recuperer les coordonnees de ma maison Gladys"
+      },
+      "timeout_seconds": 30
     },
     {
       "key": "check_connection",

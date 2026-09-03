@@ -42,6 +42,23 @@ const MESSAGES = {
   },
 };
 
+/**
+ * The "waiting for the code" message, naming the destination Apple confirmed
+ * (trusted devices or SMS) so the user knows where to look — and so that "I
+ * received nothing" becomes a readable state instead of a guess.
+ *
+ * @param {{en: string, fr: string}|null} target where Apple says it sent it
+ */
+function twoFactorMessage(target) {
+  if (!target) {
+    return MESSAGES.twoFactorRequired;
+  }
+  return {
+    en: `Apple sent a code to ${target.en}: enter it with the "Send the two-factor code" action.`,
+    fr: `Apple a envoye un code sur ${target.fr} : saisissez-le avec l'action "Envoyer le code de double authentification".`,
+  };
+}
+
 /** Report a failure both in the logs and in the Configuration screen. */
 async function reportFailure(message, err) {
   if (err) {
@@ -111,7 +128,7 @@ async function initialize() {
     const status = await tracker.start(config);
     if (status === TRACKER_STATUS.TWO_FACTOR_REQUIRED) {
       logger.info('Two-factor code required');
-      await reportFailure(MESSAGES.twoFactorRequired);
+      await reportFailure(twoFactorMessage(tracker.twoFactorTarget));
       return;
     }
     await tracker.publishDiscoveredDevices();
@@ -154,6 +171,63 @@ gladys.onAction('submit_2fa_code', async (fields) => {
   };
 });
 
+// Nothing received? Apple only pushes the code when it is asked to: this button
+// asks again (and falls back to an SMS for an account with no trusted device).
+gladys.onAction('resend_2fa_code', async () => {
+  if (tracker.isConnected()) {
+    throw new Error('Already signed in to iCloud: no code is needed.');
+  }
+  if (!hasCredentials(config)) {
+    throw new Error(MESSAGES.missingCredentials.en);
+  }
+
+  if (tracker.hasClient()) {
+    await tracker.requestSecurityCode();
+  } else {
+    // No sign-in attempt yet (fresh start of the container): signing in asks
+    // Apple for a code on its own.
+    await initialize();
+  }
+
+  const target = tracker.twoFactorTarget;
+  await reportFailure(twoFactorMessage(target));
+  return {
+    en: `A new code was sent to ${target?.en ?? 'your trusted Apple devices'}.`,
+    fr: `Un nouveau code a ete envoye sur ${target?.fr ?? 'vos appareils Apple de confiance'}.`,
+  };
+});
+
+// The coordinates are pre-filled at startup, but the fields can stay empty (the
+// house had no position yet, or this integration was not allowed to read it).
+// This button re-runs the pre-fill and, this time, shows what went wrong.
+gladys.onAction('refresh_home_location', async () => {
+  let coordinates;
+  try {
+    coordinates = await fetchGladysHomeCoordinates(gladys, { strict: true });
+  } catch (err) {
+    throw new Error(
+      `Gladys did not give the position of your house (${err.message}). ` +
+        'Check that your house has an address in Settings > House.',
+      { cause: err },
+    );
+  }
+  if (!coordinates) {
+    throw new Error(
+      'Your Gladys house has no position yet: set its address in Settings > House, then try again.',
+    );
+  }
+
+  const filled = {
+    home_latitude: String(coordinates.latitude),
+    home_longitude: String(coordinates.longitude),
+  };
+  await gladys.setConfig(filled);
+  return {
+    en: `Home coordinates updated: ${filled.home_latitude}, ${filled.home_longitude}. Reload the page to see them.`,
+    fr: `Coordonnees du domicile mises a jour : ${filled.home_latitude}, ${filled.home_longitude}. Rechargez la page pour les voir.`,
+  };
+});
+
 gladys.onAction('check_connection', async () => {
   if (!tracker.isConnected()) {
     // Not connected yet (or session lost): try a full sign-in from the action.
@@ -165,7 +239,7 @@ gladys.onAction('check_connection', async () => {
   if (!tracker.isConnected()) {
     throw new Error(
       tracker.status === TRACKER_STATUS.TWO_FACTOR_REQUIRED
-        ? MESSAGES.twoFactorRequired.en
+        ? twoFactorMessage(tracker.twoFactorTarget).en
         : MESSAGES.missingCredentials.en,
     );
   }

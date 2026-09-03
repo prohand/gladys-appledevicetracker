@@ -11,6 +11,7 @@ import {
   ICloudClient,
   LOGIN_STATUS,
   SessionExpiredError,
+  TWO_FACTOR_MODE,
 } from '../src/icloud/client.js';
 
 const SALT = randomBytes(16).toString('base64');
@@ -30,11 +31,16 @@ function createFakeApple(routes) {
       body: options.body ? JSON.parse(options.body) : null,
     });
 
-    const route = Object.keys(routes).find((fragment) => url.includes(fragment));
+    // A key starting with `http` matches the URL exactly (the two-factor info
+    // lives at the root of the auth endpoint, a substring of every other auth
+    // URL); the others are matched as fragments, first one wins.
+    const route =
+      routes[url] ??
+      routes[Object.keys(routes).find((f) => !f.startsWith('http') && url.includes(f)) ?? ''];
     if (!route) {
       throw new Error(`Unexpected call to ${url}`);
     }
-    const { status = 200, body = null, headers = {} } = routes[route];
+    const { status = 200, body = null, headers = {} } = route;
     return new Response(body === null ? null : JSON.stringify(body), {
       status: status === 204 ? 204 : status,
       headers: { 'Content-Type': 'application/json', ...headers },
@@ -46,6 +52,27 @@ function createFakeApple(routes) {
 const SIGNIN_INIT = {
   status: 200,
   body: { salt: SALT, b: SERVER_B, c: 'challenge-token', iteration: 20, protocol: 's2k' },
+};
+
+// After a 409, the client asks Apple to SEND the code: it reads the two-factor
+// info, then pushes to the trusted devices (or sends an SMS). Every scenario
+// going through a 409 needs these routes.
+const AUTH_INFO_URL = 'https://idmsa.apple.com/appleauth/auth';
+
+const TRUSTED_DEVICE_ROUTES = {
+  [AUTH_INFO_URL]: { status: 200, body: { trustedDeviceCount: 2 } },
+  '/verify/trusteddevice': { status: 202 },
+};
+
+const SMS_ROUTES = {
+  [AUTH_INFO_URL]: {
+    status: 200,
+    body: {
+      trustedDeviceCount: 0,
+      trustedPhoneNumbers: [{ id: 3, numberWithDialCode: '+33 •• •• •• 42' }],
+    },
+  },
+  '/verify/phone': { status: 200 },
 };
 
 const ACCOUNT_LOGIN_OK = {
@@ -71,6 +98,7 @@ test('the sign-in sends a 2048-bit public key and the two Apple SRP protocols', 
   const { client, apple } = createClient({
     '/signin/init': SIGNIN_INIT,
     '/signin/complete': { status: 409 },
+    ...TRUSTED_DEVICE_ROUTES,
   });
 
   await client.login();
@@ -104,11 +132,100 @@ test('a 409 on complete means "two-factor code required"', async () => {
   const { client } = createClient({
     '/signin/init': SIGNIN_INIT,
     '/signin/complete': { status: 409, headers: { scnt: 'scnt-value' } },
+    ...TRUSTED_DEVICE_ROUTES,
   });
 
   assert.equal(await client.login(), LOGIN_STATUS.TWO_FACTOR_REQUIRED);
   assert.equal(client.isAuthenticated(), false);
   assert.equal(client.scnt, 'scnt-value');
+});
+
+test('the 409 is followed by an explicit request to SEND the code', async () => {
+  // Apple does not push anything just because the sign-in stopped on a 409:
+  // without this call, the user waits for a code that never arrives.
+  const { client, apple } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    ...TRUSTED_DEVICE_ROUTES,
+  });
+
+  assert.equal(await client.login(), LOGIN_STATUS.TWO_FACTOR_REQUIRED);
+
+  const [push] = apple.find('/verify/trusteddevice');
+  assert.equal(push.method, 'PUT', 'the code is requested, not just awaited');
+  assert.equal(client.twoFactorMode, TWO_FACTOR_MODE.DEVICE);
+  assert.match(client.twoFactorTarget.fr, /appareils Apple/);
+});
+
+test('an account with no trusted device gets the code by SMS', async () => {
+  const { client, apple } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    '/securitycode': { status: 204 },
+    ...SMS_ROUTES,
+    '/2sv/trust': { status: 204, headers: { 'X-Apple-Session-Token': 'session-token' } },
+    '/accountLogin': ACCOUNT_LOGIN_OK,
+  });
+
+  assert.equal(await client.login(), LOGIN_STATUS.TWO_FACTOR_REQUIRED);
+
+  const [sms] = apple.find('/verify/phone');
+  assert.equal(sms.method, 'PUT');
+  assert.deepEqual(sms.body, { phoneNumber: { id: 3 }, mode: 'sms' });
+  assert.equal(client.twoFactorMode, TWO_FACTOR_MODE.SMS);
+  assert.match(client.twoFactorTarget.fr, /\+33/);
+
+  // A code received by SMS is validated on the phone endpoint, with the number
+  // it was sent to: the trusted-device endpoint would reject it.
+  await client.submitSecurityCode('123456');
+  const [validation] = apple.find('/verify/phone/securitycode');
+  assert.deepEqual(validation.body, {
+    phoneNumber: { id: 3 },
+    securityCode: { code: '123456' },
+    mode: 'sms',
+  });
+});
+
+test('the two-factor mode survives a restart of the container', async () => {
+  // The user enters the code minutes later: the container may have restarted in
+  // between, and the SMS mode must be restored from the saved session.
+  const saved = [];
+  const apple = createFakeApple({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    ...SMS_ROUTES,
+  });
+  const client = new ICloudClient({
+    appleId: 'john@example.com',
+    password: 'hunter2',
+    fetchImpl: apple.fetchImpl,
+    onSessionChange: (session) => saved.push(session),
+  });
+
+  await client.login();
+
+  const restored = new ICloudClient({
+    appleId: 'john@example.com',
+    password: 'hunter2',
+    session: saved.at(-1),
+    fetchImpl: apple.fetchImpl,
+  });
+  assert.equal(restored.twoFactorMode, TWO_FACTOR_MODE.SMS);
+  assert.equal(restored.twoFactorPhoneId, 3);
+});
+
+test('Apple refusing to send the code does not break the sign-in', async () => {
+  // The user can still type a code received another way, and use the "send me a
+  // new code" action.
+  const { client } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    [AUTH_INFO_URL]: { status: 200, body: { trustedDeviceCount: 1 } },
+    '/verify/trusteddevice': { status: 412, body: { reason: 'no trusted device' } },
+  });
+
+  assert.equal(await client.login(), LOGIN_STATUS.TWO_FACTOR_REQUIRED);
+  assert.equal(client.twoFactorTarget, null);
 });
 
 test('a wrong password is reported as an authentication error', async () => {
@@ -147,6 +264,7 @@ test('submitting the code trusts the session and saves the trust token', async (
     '/signin/init': SIGNIN_INIT,
     '/signin/complete': { status: 409 },
     '/securitycode': { status: 204 },
+    ...TRUSTED_DEVICE_ROUTES,
     '/2sv/trust': {
       status: 204,
       headers: {
@@ -176,6 +294,7 @@ test('a code that is not 6 digits is refused before calling Apple', async () => 
   const { client, apple } = createClient({
     '/signin/init': SIGNIN_INIT,
     '/signin/complete': { status: 409 },
+    ...TRUSTED_DEVICE_ROUTES,
   });
   await client.login();
 
@@ -219,6 +338,7 @@ test('a session Apple no longer accepts falls back to a full sign-in', async () 
   const apple = createFakeApple({
     '/signin/init': SIGNIN_INIT,
     '/signin/complete': { status: 409 },
+    ...TRUSTED_DEVICE_ROUTES,
   });
   const client = new ICloudClient({
     appleId: 'john@example.com',

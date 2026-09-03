@@ -106,6 +106,28 @@ export class AppleDeviceTracker {
     this.config = config;
   }
 
+  /** True once a sign-in has been attempted: the client can talk to Apple. */
+  hasClient() {
+    return this.client !== null;
+  }
+
+  /** Where Apple sent the two-factor code, to tell the user where to look. */
+  get twoFactorTarget() {
+    return this.client?.twoFactorTarget ?? null;
+  }
+
+  /** Ask Apple to send the two-factor code again (push or SMS). */
+  async requestSecurityCode() {
+    if (!this.client) {
+      throw new Error('Not signed in to iCloud yet');
+    }
+    const target = await this.client.requestSecurityCode();
+    // The mode (and the phone id) drive the endpoint validating the code: keep
+    // them across a restart of the container.
+    await this.client.saveSession();
+    return target;
+  }
+
   /** Validate the two-factor code the user typed in the Configuration screen. */
   async submitSecurityCode(code) {
     if (!this.client) {

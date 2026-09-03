@@ -79,6 +79,22 @@ test('no house at all: the coordinates stay to the user', async () => {
   assert.equal(await fetchGladysHomeCoordinates({}), null);
 });
 
+test('strict mode surfaces the reason instead of an empty field', async () => {
+  // What a missing `"location": true` in the manifest looks like: the host API
+  // refuses, and the user deserves to read why when they press the button.
+  const forbidden = Object.assign(new Error('Forbidden'), { status: 403 });
+  const gladys = {
+    httpClient: {
+      async get() {
+        throw forbidden;
+      },
+    },
+  };
+
+  assert.equal(await fetchGladysHomeCoordinates(gladys), null, 'startup stays best effort');
+  await assert.rejects(() => fetchGladysHomeCoordinates(gladys, { strict: true }), /Forbidden/);
+});
+
 test('hasHomeCoordinates tells a filled config from an empty one', () => {
   assert.equal(hasHomeCoordinates({ home_latitude: '48.8566', home_longitude: '2.3522' }), true);
   assert.equal(hasHomeCoordinates({ home_latitude: 48.8566, home_longitude: 2.3522 }), true);
