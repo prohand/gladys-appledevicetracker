@@ -195,6 +195,44 @@ test('unchanged values are not published again', async () => {
   );
 });
 
+test('an unchanged value is published again once Gladys would call it outdated', async () => {
+  const { gladys, client, tracker, advance } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+  const firstBatch = gladys.published.length;
+
+  // Nothing moved for half an hour: Gladys must still hear about it, otherwise
+  // the dashboard ends up showing "no recent value" on a device that is simply
+  // sitting at home.
+  client.devices = [fakeFindMyDevice()];
+  advance(30 * 60 * 1000);
+  await tracker.refresh({ force: true });
+
+  const republished = gladys.published.slice(firstBatch).map((s) => s.featureExternalId);
+  assert.ok(republished.some((id) => id.endsWith(':presence')));
+  assert.ok(republished.some((id) => id.endsWith(':battery')));
+});
+
+test('the first poll of a device publishes its states again, straight from the cache', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+  const firstBatch = gladys.published.length;
+  const externalId = tracker.externalIdOf(tracker.devices[0]);
+
+  // The user has just created the device in Gladys: the states published before
+  // that were dropped by the host, so the first poll republishes everything —
+  // without calling Apple again, the cache is still fresh.
+  await tracker.pollDevice(externalId);
+
+  const republished = gladys.published.slice(firstBatch).map((s) => s.featureExternalId);
+  assert.ok(republished.some((id) => id.endsWith(':presence')));
+  assert.equal(client.calls.fetchDevices, 1, 'no extra call to Apple');
+
+  // The next polls are ordinary ticks again.
+  const secondBatch = gladys.published.length;
+  await tracker.pollDevice(externalId);
+  assert.equal(gladys.published.length, secondBatch, 'nothing changed, nothing published');
+});
+
 test('the catalog is re-published when a new Apple device shows up', async () => {
   const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
   await tracker.start(CONFIG);

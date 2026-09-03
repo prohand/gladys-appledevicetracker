@@ -56,6 +56,11 @@ Gladys polls **per device** while Find My answers for **all** devices at once,
 so [`src/tracker.js`](./src/tracker.js) collapses the per-device polls into a
 single call to Apple (in-flight de-duplication + a freshness window), and only
 publishes the values that actually changed — the host API rate-limits states.
+Every value is still re-published at least every **30 minutes**, unchanged or
+not: Gladys marks a value it has not heard about in a while as outdated and
+shows "no recent value" instead of it. Same idea when Gladys polls a device for
+the first time: the user has just created it, everything published before that
+was dropped, so its states are sent again straight away.
 Gladys accepts only its own enum of poll frequencies (milliseconds, one minute
 at most), so the devices are published with that one-minute tick and the
 freshness window is what enforces your `poll_frequency`.

@@ -35,6 +35,13 @@ const POLL_TOLERANCE_MS = 5_000;
 // The host API accepts up to 100 states per POST /state.
 const STATES_PER_BATCH = 100;
 
+// Gladys marks a value as outdated when nothing has been published for it for a
+// while (48 h by default, less if the user lowered the setting) and then shows
+// "no recent value" instead of the value. A device that does not move publishes
+// nothing — same position, same battery — so every value is re-published at
+// least this often, even unchanged, to keep it alive on the dashboard.
+const STATE_HEARTBEAT_MS = 30 * 60 * 1000;
+
 export const TRACKER_STATUS = {
   DISCONNECTED: 'disconnected',
   CONNECTED: 'connected',
@@ -59,8 +66,12 @@ export class AppleDeviceTracker {
     this.devices = [];
     /** Presence per Apple device id, feeding the hysteresis. */
     this.presence = new Map();
-    /** Last value published per feature, so we only publish what changed. */
+    /** `{ value, publishedAt }` per feature, so we only publish what changed. */
     this.lastValues = new Map();
+    /** Apple device ids whose states must be published again, unchanged or not. */
+    this.pendingFullPublish = new Set();
+    /** Gladys external_ids already polled, to spot a device the user just created. */
+    this.polledDevices = new Set();
 
     this.lastRefreshAt = 0;
     this.inflightRefresh = null;
@@ -163,12 +174,39 @@ export class AppleDeviceTracker {
     this.devices = [];
     this.presence.clear();
     this.lastValues.clear();
+    this.pendingFullPublish.clear();
+    this.polledDevices.clear();
     this.lastRefreshAt = 0;
     this.deviceSignature = null;
   }
 
   isConnected() {
     return this.status === TRACKER_STATUS.CONNECTED;
+  }
+
+  /**
+   * Gladys polls ONE device: refresh like any other tick, but treat the first
+   * poll of a device as the moment the user created it in Gladys.
+   *
+   * Discovered devices only become real devices when the user adds them, and
+   * the host API silently drops the states of a feature that does not exist
+   * yet: everything published before that add is lost, and the dedup below
+   * would then keep quiet until a value moves — the device would sit on the
+   * dashboard with no recent value for hours. So its states are published
+   * again, from the cache, without waiting for the next call to Apple.
+   *
+   * @param {string} externalId the Gladys external_id of the polled device
+   */
+  async pollDevice(externalId) {
+    if (externalId && !this.polledDevices.has(externalId)) {
+      this.polledDevices.add(externalId);
+      const device = this.findByExternalId(externalId);
+      if (device) {
+        this.pendingFullPublish.add(device.id);
+        await this.publishStates();
+      }
+    }
+    return this.refresh();
   }
 
   /**
@@ -236,11 +274,22 @@ export class AppleDeviceTracker {
     return this.devices;
   }
 
-  /** Publish the states of every known device, skipping unchanged values. */
+  /**
+   * Publish the states of every known device.
+   *
+   * An unchanged value is normally skipped — the host API rate-limits states —
+   * but not forever: past STATE_HEARTBEAT_MS it is published again so Gladys
+   * keeps considering it recent, and a device flagged by `pollDevice` is
+   * published in full straight away.
+   */
   async publishStates() {
     const states = [];
+    const now = this.now();
 
     for (const device of this.devices) {
+      // The user just created this device in Gladys: it missed everything
+      // published before, so send it the whole picture.
+      const republishAll = this.pendingFullPublish.delete(device.id);
       const wasPresent = this.presence.has(device.id) ? this.presence.get(device.id) : null;
       const result = buildStates(this.gladys, this.config, device, wasPresent);
 
@@ -256,10 +305,12 @@ export class AppleDeviceTracker {
 
       for (const state of result.states) {
         const value = state.state ?? state.text;
-        if (this.lastValues.get(state.device_feature_external_id) === value) {
-          continue; // unchanged: do not spend the state rate limit on it
+        const last = this.lastValues.get(state.device_feature_external_id);
+        const unchanged = last !== undefined && last.value === value;
+        if (!republishAll && unchanged && now - last.publishedAt < STATE_HEARTBEAT_MS) {
+          continue; // unchanged and still recent for Gladys: not worth a state
         }
-        this.lastValues.set(state.device_feature_external_id, value);
+        this.lastValues.set(state.device_feature_external_id, { value, publishedAt: now });
         states.push(state);
       }
     }

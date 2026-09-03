@@ -119,6 +119,13 @@ appareil éteint ou hors ligne depuis longtemps peut aussi ne remonter aucune
 position ; il apparaîtra dans Gladys mais sans présence tant qu'Apple n'a rien
 de récent.
 
+**« Pas de valeur récente » sur le tableau de bord** : Gladys considère une
+valeur comme périmée quand plus rien n'a été publié dessus depuis un moment
+(48 heures par défaut). L'intégration republie chaque valeur au moins toutes les
+30 minutes : ce message ne devrait donc apparaître que si l'intégration est
+arrêtée, si elle n'arrive plus à se connecter à iCloud (regardez l'onglet
+Configuration) ou si l'appareil ne remonte aucune position.
+
 **La présence ne bouge pas** : regardez la mesure _Précision_. Si elle est
 proche ou au-dessus de votre réglage « Précision maximale », les positions sont
 ignorées — augmentez le seuil, ou le rayon du domicile.
