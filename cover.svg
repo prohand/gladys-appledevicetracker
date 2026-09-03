@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="534" viewBox="0 0 800 534" font-family="DejaVu Sans, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d2247"/>
+      <stop offset="0.55" stop-color="#0a1a35"/>
+      <stop offset="1" stop-color="#050f1f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.34" cy="0.36" r="0.6">
+      <stop offset="0" stop-color="#2b6fd6" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#2b6fd6" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="phoneScreen"><rect x="243" y="103" width="114" height="234" rx="18"/></clipPath>
+    <clipPath id="padScreen"><rect x="104" y="152" width="88" height="166" rx="8"/></clipPath>
+  </defs>
+
+  <rect width="800" height="534" fill="url(#bg)"/>
+  <rect width="800" height="534" fill="url(#glow)"/>
+
+  <g transform="translate(0,-16)">
+  <!-- Find My radar, centred on the phone's pin -->
+  <g fill="none" stroke="#8fbaff">
+    <circle cx="300" cy="212" r="120" stroke-opacity="0.14"/>
+    <circle cx="300" cy="212" r="185" stroke-opacity="0.11"/>
+    <circle cx="300" cy="212" r="255" stroke-opacity="0.08"/>
+    <circle cx="300" cy="212" r="335" stroke-opacity="0.06"/>
+    <circle cx="300" cy="212" r="425" stroke-opacity="0.04"/>
+  </g>
+
+  <!-- iPad -->
+  <g>
+    <rect x="94" y="140" width="108" height="190" rx="12" fill="#c9dcf6"/>
+    <rect x="104" y="152" width="88" height="166" rx="8" fill="#16305c"/>
+    <g clip-path="url(#padScreen)" stroke="#ffffff" stroke-opacity="0.10" stroke-width="1">
+      <path d="M104 190h88M104 235h88M104 280h88M133 152v166M162 152v166"/>
+    </g>
+    <circle cx="148" cy="324" r="3.2" fill="#8fa9cd"/>
+  </g>
+
+  <!-- Apple Watch -->
+  <g>
+    <path d="M424 92h60v42h-60z" fill="#a9c3e6"/>
+    <path d="M424 232h60v42h-60z" fill="#a9c3e6"/>
+    <rect x="414" y="124" width="80" height="118" rx="26" fill="#c9dcf6"/>
+    <rect x="424" y="134" width="60" height="98" rx="18" fill="#16305c"/>
+    <circle cx="454" cy="183" r="20" fill="none" stroke="#4b9bff" stroke-width="5"/>
+    <circle cx="454" cy="183" r="6.5" fill="#e8f1ff"/>
+  </g>
+
+  <!-- MacBook -->
+  <g>
+    <rect x="404" y="290" width="216" height="132" rx="10" fill="#c9dcf6"/>
+    <rect x="414" y="300" width="196" height="112" rx="5" fill="#16305c"/>
+    <circle cx="512" cy="356" r="9" fill="#3ecf8e"/>
+    <rect x="384" y="424" width="256" height="13" rx="6.5" fill="#a9c3e6"/>
+  </g>
+
+  <!-- iPhone -->
+  <g>
+    <rect x="231" y="88" width="138" height="264" rx="26" fill="#dbe7fb"/>
+    <rect x="243" y="103" width="114" height="234" rx="18" fill="#16305c"/>
+    <g clip-path="url(#phoneScreen)" stroke="#ffffff" stroke-opacity="0.12" stroke-width="1">
+      <path d="M243 145h114M243 190h114M243 235h114M243 280h114M272 103v234M300 103v234M328 103v234"/>
+    </g>
+    <rect x="284" y="94" width="32" height="6" rx="3" fill="#16305c"/>
+    <!-- location pin -->
+    <path d="M300 152c-16 0-29 13-29 29 0 21 29 55 29 55s29-34 29-55c0-16-13-29-29-29z" fill="#ffffff"/>
+    <circle cx="300" cy="181" r="10.5" fill="#16305c"/>
+  </g>
+
+  </g>
+
+  <text x="400" y="468" text-anchor="middle" font-size="46" font-weight="bold" fill="#ffffff">Apple Device Tracker</text>
+  <text x="400" y="506" text-anchor="middle" font-size="20" fill="#9fbbe4" letter-spacing="1.5">iPhone &#183; iPad &#183; Apple Watch &#183; Mac</text>
+</svg>
