@@ -1,6 +1,6 @@
 {
   "name": "gladys-integration-apple-device-tracker",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Apple Device Tracker: track the location of your Apple devices (Find My) in Gladys Assistant and use them for presence.",
   "type": "module",

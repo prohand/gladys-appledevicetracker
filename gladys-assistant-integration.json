@@ -6,8 +6,8 @@
     "en": "Track your Apple devices with Find My and use them as presence sensors in Gladys.",
     "fr": "Suivez vos appareils Apple via Localiser et utilisez-les comme capteurs de présence."
   },
-  "version": "1.0.1",
-  "docker_image": "ghcr.io/prohand/gladys-appledevicetracker:1.0.1",
+  "version": "1.0.2",
+  "docker_image": "ghcr.io/prohand/gladys-appledevicetracker:1.0.2",
   "gladys_version": ">=4.86.0",
   "cover_image": "https://raw.githubusercontent.com/prohand/gladys-appledevicetracker/main/cover.png",
   "categories": ["security", "services"],
