@@ -228,8 +228,66 @@ test('a position vaguer than max_accuracy keeps the previous presence', () => {
 
   assert.equal(ignored, true);
   assert.equal(presence, true, 'the device stays where it was');
-  assert.equal(stateOf(states, FEATURE.PRESENCE), undefined, 'no presence state is published');
+  assert.equal(stateOf(states, FEATURE.PRESENCE).state, 1, 'the kept presence is republished');
   assert.ok(stateOf(states, FEATURE.BATTERY), 'the battery is still published');
+});
+
+test('a vague position still publishes the distance, the position and its accuracy', () => {
+  const [device] = normalizeAppleDevices([
+    fakeFindMyDevice({
+      location: {
+        latitude: 45.764,
+        longitude: 4.8357,
+        horizontalAccuracy: 3000,
+        timeStamp: Date.now() - 5 * 60_000,
+      },
+    }),
+  ]);
+  const { states } = buildStates(gladys, config, device, true);
+
+  assert.ok(Math.abs(stateOf(states, FEATURE.DISTANCE).state - 392) < 2);
+  assert.equal(stateOf(states, FEATURE.POSITION).text, '45.764000,4.835700');
+  assert.equal(stateOf(states, FEATURE.ACCURACY).state, 3000);
+  assert.equal(stateOf(states, FEATURE.LAST_SEEN).state, 5);
+});
+
+test('a vague position still gives a first presence to a device that has none', () => {
+  const [device] = normalizeAppleDevices([
+    fakeFindMyDevice({
+      location: {
+        latitude: 48.8566,
+        longitude: 2.3522,
+        horizontalAccuracy: 4000,
+        timeStamp: Date.now(),
+      },
+    }),
+  ]);
+  const { states, presence } = buildStates(gladys, config, device, null);
+
+  assert.equal(presence, true);
+  assert.equal(stateOf(states, FEATURE.PRESENCE).state, 1);
+});
+
+test('a device Apple could not locate publishes its battery and nothing else', () => {
+  const [device] = normalizeAppleDevices([fakeFindMyDevice({ location: null })]);
+  const { states, presence, ignored } = buildStates(gladys, config, device, null);
+
+  assert.equal(ignored, true);
+  assert.equal(presence, null);
+  assert.equal(stateOf(states, FEATURE.PRESENCE), undefined);
+  assert.equal(stateOf(states, FEATURE.BATTERY).state, 87);
+});
+
+test('a position at (0, 0) is not a position', () => {
+  const [device] = normalizeAppleDevices([
+    fakeFindMyDevice({
+      location: { latitude: 0, longitude: 0, horizontalAccuracy: 10, timeStamp: Date.now() },
+    }),
+  ]);
+  const { states, ignored } = buildStates(gladys, config, device, null);
+
+  assert.equal(ignored, true);
+  assert.equal(stateOf(states, FEATURE.DISTANCE), undefined);
 });
 
 test('the position age is published in minutes', () => {

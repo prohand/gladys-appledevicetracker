@@ -380,3 +380,56 @@ test('refresh() does nothing while the integration is not connected', async () =
   await tracker.refresh({ force: true });
   assert.equal(client.calls.fetchDevices, 0);
 });
+
+test('the last known position survives a refresh where Apple locates nothing', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+
+  // Same device, but Apple could not reach it this time: no `location` at all.
+  client.devices = [fakeFindMyDevice({ location: null })];
+  gladys.published.length = 0;
+  await tracker.refresh({ force: true });
+
+  const [device] = tracker.devices;
+  assert.ok(device.location, 'the device keeps the position of the previous refresh');
+  assert.equal(device.location.latitude, 48.8566);
+});
+
+test('a slow call to Apple does not make the next tick skip a refresh', async () => {
+  const { client, tracker, advance } = createTracker({ devices: [fakeFindMyDevice()] });
+  const config = normalizeConfig({ ...CONFIG, poll_frequency: 60 });
+
+  // Apple answers in 8 s: measured from the END of the call, the next tick (60 s
+  // after the previous one) looked too early and the values were refreshed
+  // every 120 s instead of every 60 s.
+  const slowFetch = client.fetchDevices;
+  client.fetchDevices = async (...args) => {
+    advance(8_000);
+    return slowFetch(...args);
+  };
+
+  await tracker.start(config);
+  assert.equal(client.calls.fetchDevices, 1);
+
+  // 60 s after the tick that started that slow call.
+  advance(52_000);
+  await tracker.refresh();
+  assert.equal(client.calls.fetchDevices, 2, 'the tick refreshes on time');
+
+  tracker.stopPolling();
+});
+
+test('a failed refresh does not hold the next tick back', async () => {
+  const { client, tracker, advance } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+
+  client.failNextFetchWith = new Error('Apple is down');
+  advance(300_000);
+  await assert.rejects(() => tracker.refresh());
+
+  advance(1_000);
+  await tracker.refresh();
+  assert.equal(client.calls.fetchDevices, 3, 'the failure is retried on the next tick');
+
+  tracker.stopPolling();
+});

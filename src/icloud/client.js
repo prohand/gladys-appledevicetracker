@@ -40,6 +40,14 @@ const USER_AGENT =
 
 const REQUEST_TIMEOUT_MS = 20_000;
 
+// Apple locates the devices ASYNCHRONOUSLY: `refreshClient` answers right away
+// with the device list, but the positions of the devices it is still waking up
+// are missing from that first answer. The Find My web app simply keeps asking
+// every few seconds — so do we, otherwise the first refresh after a sign-in
+// publishes a battery level and nothing else.
+const LOCATE_RETRIES = 2;
+const LOCATE_RETRY_DELAY_MS = 5_000;
+
 /** Sign-in outcomes returned by `login()`. */
 export const LOGIN_STATUS = {
   CONNECTED: 'connected',
@@ -77,6 +85,12 @@ function readErrorMessage(body, status) {
   return `HTTP ${status}`;
 }
 
+/** Did Apple manage to locate this device on this call? */
+function hasLocation(raw) {
+  const location = raw && raw.location;
+  return Boolean(location) && Number.isFinite(Number(location.latitude));
+}
+
 export class ICloudClient {
   /**
    * @param {object} options
@@ -86,12 +100,21 @@ export class ICloudClient {
    * @param {(session: object) => Promise<void>} [options.onSessionChange] called
    *   whenever the session changes, so the caller can persist it
    * @param {typeof fetch} [options.fetchImpl] injected in tests
+   * @param {(ms: number) => Promise<void>} [options.sleepImpl] injected in tests
    */
-  constructor({ appleId, password, session = {}, onSessionChange, fetchImpl = fetch }) {
+  constructor({
+    appleId,
+    password,
+    session = {},
+    onSessionChange,
+    fetchImpl = fetch,
+    sleepImpl = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  }) {
     this.appleId = appleId;
     this.password = password;
     this.onSessionChange = onSessionChange;
     this.fetchImpl = fetchImpl;
+    this.sleepImpl = sleepImpl;
 
     // Restored session (may be empty on a first run).
     this.clientId = session.clientId || `auth-${randomUUID().toLowerCase()}`;
@@ -670,16 +693,8 @@ export class ICloudClient {
     });
   }
 
-  /**
-   * Ask Find My for the current position of every device of the account.
-   * @param {{ includeFamily?: boolean }} [options]
-   * @returns {Promise<object[]>} the raw device entries reported by Apple
-   */
-  async fetchDevices({ includeFamily = true } = {}) {
-    if (!this.findMyUrl()) {
-      throw new SessionExpiredError('Not signed in to Find My');
-    }
-
+  /** One `refreshClient` round-trip: the device list Apple currently holds. */
+  async refreshClient(includeFamily) {
     const response = await this.findMyRequest('refreshClient', {
       clientContext: this.clientContext(includeFamily),
     });
@@ -694,6 +709,37 @@ export class ICloudClient {
     }
 
     return Array.isArray(response.body.content) ? response.body.content : [];
+  }
+
+  /**
+   * Ask Find My for the current position of every device of the account.
+   *
+   * Apple answers the FIRST call with the devices it knows and the positions it
+   * already has — often none at all, because locating them takes a few seconds
+   * on their side. Asking again is the only way to get those positions (there
+   * is no "wait for it" flag), so a list that carries no position at all is
+   * retried a couple of times before giving up on this cycle.
+   *
+   * @param {{ includeFamily?: boolean }} [options]
+   * @returns {Promise<object[]>} the raw device entries reported by Apple
+   */
+  async fetchDevices({ includeFamily = true } = {}) {
+    if (!this.findMyUrl()) {
+      throw new SessionExpiredError('Not signed in to Find My');
+    }
+
+    let content = await this.refreshClient(includeFamily);
+
+    for (let attempt = 0; attempt < LOCATE_RETRIES; attempt += 1) {
+      if (content.length === 0 || content.some(hasLocation)) {
+        break;
+      }
+      logger.debug('Find My is still locating the devices, asking again');
+      await this.sleepImpl(LOCATE_RETRY_DELAY_MS);
+      content = await this.refreshClient(includeFamily);
+    }
+
+    return content;
   }
 
   /** Make one device play the Find My sound. */
