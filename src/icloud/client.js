@@ -109,6 +109,9 @@ export class ICloudClient {
     this.twoFactorMode = session.twoFactorMode || TWO_FACTOR_MODE.DEVICE;
     this.twoFactorPhoneId = session.twoFactorPhoneId ?? null;
     this.twoFactorTarget = session.twoFactorTarget || null;
+    // Why Apple did not send anything, when it did not: shown in the
+    // Configuration screen instead of a "a code was sent" that never arrived.
+    this.twoFactorError = null;
   }
 
   /** The part of the state worth persisting between two container restarts. */
@@ -262,6 +265,7 @@ export class ICloudClient {
       try {
         await this.requestSecurityCode();
       } catch (err) {
+        this.twoFactorError = err.message;
         logger.warn(`Could not ask Apple to send the two-factor code: ${err.message}`);
       }
       await this.saveSession();
@@ -367,19 +371,27 @@ export class ICloudClient {
     return response.body;
   }
 
-  /** Push a new code on the trusted Apple devices. @returns {Promise<boolean>} */
+  /**
+   * Push a new code on the trusted Apple devices.
+   *
+   * GET, not PUT: `idmsa.apple.com` answers `405 Method Not Allowed` with
+   * `Allow: GET, POST, OPTIONS` on every `/appleauth/auth/*` endpoint. A PUT
+   * here is exactly how you end up waiting for a code Apple never sent.
+   *
+   * @returns {Promise<boolean>}
+   */
   async pushCodeToTrustedDevices() {
     const response = await this.request(`${AUTH_ENDPOINT}/verify/trusteddevice`, {
-      method: 'PUT',
+      method: 'GET',
       headers: this.authHeaders(),
     });
     this.rememberAuthHeaders(response.headers);
 
     if (response.status < 200 || response.status >= 300) {
-      logger.warn(
-        `Apple did not push the code to the trusted devices: ` +
-          `${readErrorMessage(response.body, response.status)}`,
-      );
+      this.twoFactorError =
+        `Apple did not push the code to the trusted devices ` +
+        `(${readErrorMessage(response.body, response.status)})`;
+      logger.warn(`${this.twoFactorError} [HTTP ${response.status}]`);
       return false;
     }
 
@@ -393,20 +405,26 @@ export class ICloudClient {
     return true;
   }
 
-  /** Send a code by SMS to one trusted phone number. @returns {Promise<boolean>} */
+  /**
+   * Send a code by SMS to one trusted phone number.
+   *
+   * POST, not PUT, for the same reason as the trusted-device push above.
+   *
+   * @returns {Promise<boolean>}
+   */
   async sendCodeBySms(phone) {
     const response = await this.request(`${AUTH_ENDPOINT}/verify/phone`, {
-      method: 'PUT',
+      method: 'POST',
       headers: this.authHeaders(),
       body: { phoneNumber: { id: phone.id }, mode: 'sms' },
     });
     this.rememberAuthHeaders(response.headers);
 
     if (response.status < 200 || response.status >= 300) {
-      logger.warn(
-        `Apple refused to send the code by SMS: ` +
-          `${readErrorMessage(response.body, response.status)}`,
-      );
+      this.twoFactorError =
+        `Apple refused to send the code by SMS ` +
+        `(${readErrorMessage(response.body, response.status)})`;
+      logger.warn(`${this.twoFactorError} [HTTP ${response.status}]`);
       return false;
     }
 
@@ -427,33 +445,69 @@ export class ICloudClient {
    *
    * @returns {Promise<{en: string, fr: string}>} where the code was sent
    */
-  async requestSecurityCode() {
+  async requestSecurityCode({ preferSms = false } = {}) {
+    this.twoFactorError = null;
+
     const info = await this.fetchAuthInfo();
-    const deviceCount = Number(info?.trustedDeviceCount ?? 0);
     const phones = [
       ...(info?.trustedPhoneNumber ? [info.trustedPhoneNumber] : []),
       ...(Array.isArray(info?.trustedPhoneNumbers) ? info.trustedPhoneNumbers : []),
     ].filter((phone) => phone && phone.id !== undefined);
 
-    // The usual case: at least one trusted device (or no details at all, so we
-    // assume the usual case). SMS is the fallback, for an account whose only
-    // second factor is a phone number.
-    if (!info || deviceCount > 0 || phones.length === 0) {
-      if (await this.pushCodeToTrustedDevices()) {
-        return this.twoFactorTarget;
-      }
+    // Apple describes the trusted devices in two different ways depending on
+    // the account (`trustedDeviceCount` on the older two-step accounts,
+    // `hasTrustedDevices` on the two-factor ones) — and sometimes in no way at
+    // all. So we only give up on the push when Apple EXPLICITLY says there is
+    // no device: assuming "no device" from a missing field is how an account
+    // that has an iPhone ends up never being pushed anything.
+    const noTrustedDevice =
+      info?.hasTrustedDevices === false ||
+      (info?.trustedDeviceCount !== undefined && Number(info.trustedDeviceCount) === 0);
+
+    logger.info(
+      `Apple two-factor state: ${
+        noTrustedDevice ? 'no trusted device' : 'trusted device(s) available'
+      }, ${phones.length} trusted phone number(s)`,
+    );
+
+    if (info?.securityCode?.securityCodeLocked || info?.securityCode?.tooManyCodesSent) {
+      throw new AuthenticationError(
+        'Apple is blocking new codes for this account (too many attempts): ' +
+          'wait a few hours, or sign in once on icloud.com to unlock it',
+      );
     }
 
-    for (const phone of phones) {
-      if (await this.sendCodeBySms(phone)) {
+    // Trusted devices first — that is where the user expects the code — unless
+    // an SMS was explicitly asked for, or Apple says there is no device.
+    const attempts =
+      preferSms || noTrustedDevice
+        ? [() => this.sendCodeToFirstPhone(phones), () => this.pushCodeToTrustedDevices()]
+        : [() => this.pushCodeToTrustedDevices(), () => this.sendCodeToFirstPhone(phones)];
+
+    for (const attempt of attempts) {
+      if (await attempt()) {
+        this.twoFactorError = null;
         return this.twoFactorTarget;
       }
     }
 
     throw new AuthenticationError(
-      'Apple did not send a two-factor code: check that your Apple ID has a ' +
-        'trusted device or a trusted phone number',
+      this.twoFactorError
+        ? `${this.twoFactorError}. Check that your Apple ID has a trusted device or a ` +
+            'trusted phone number'
+        : 'Apple did not send a two-factor code: check that your Apple ID has a ' +
+            'trusted device or a trusted phone number',
     );
+  }
+
+  /** Try every trusted phone number in turn. @returns {Promise<boolean>} */
+  async sendCodeToFirstPhone(phones) {
+    for (const phone of phones) {
+      if (await this.sendCodeBySms(phone)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -577,6 +631,7 @@ export class ICloudClient {
     this.twoFactorMode = TWO_FACTOR_MODE.DEVICE;
     this.twoFactorPhoneId = null;
     this.twoFactorTarget = null;
+    this.twoFactorError = null;
     this.clientId = `auth-${randomUUID().toLowerCase()}`;
     await this.saveSession();
   }

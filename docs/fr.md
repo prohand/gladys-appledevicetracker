@@ -56,8 +56,10 @@ reçoit par **SMS**.
    confiance environ 30 jours, parfois moins).
 
 Si rien n'arrive, cliquez sur **M'envoyer un nouveau code de double
-authentification** : Apple renvoie un code (push, puis SMS en secours) sans
-repartir de zéro.
+authentification** : Apple renvoie un code (push sur les appareils, puis SMS en
+secours) sans repartir de zéro. Et si la notification n'arrive toujours pas sur
+vos appareils, **M'envoyer le code par SMS** force l'envoi sur un numéro de
+confiance.
 
 ## Réglages avancés
 
@@ -89,6 +91,8 @@ de zone déclenche vos scènes en boucle à cause du bruit GPS.
 - **M'envoyer un nouveau code de double authentification** — redemande un code
   à Apple : push sur les appareils de confiance, ou SMS si le compte n'en a
   aucun.
+- **M'envoyer le code par SMS** — force l'envoi sur un numéro de téléphone de
+  confiance, même quand le compte a des appareils de confiance.
 - **Récupérer les coordonnées de ma maison Gladys** — remplit la latitude et la
   longitude depuis votre maison Gladys, et affiche l'erreur exacte si Gladys ne
   les donne pas. Rechargez la page pour voir les champs remplis.
@@ -117,7 +121,9 @@ proche ou au-dessus de votre réglage « Précision maximale », les positions s
 ignorées — augmentez le seuil, ou le rayon du domicile.
 
 **Je ne reçois aucun code 2FA** : utilisez **M'envoyer un nouveau code de
-double authentification**. Vérifiez ensuite sur appleid.apple.com qu'un
+double authentification**, puis **M'envoyer le code par SMS**. Le message
+affiché dans la Configuration reprend la raison donnée par Apple quand celui-ci
+refuse d'envoyer quoi que ce soit. Vérifiez ensuite sur appleid.apple.com qu'un
 appareil de confiance ou un numéro de téléphone de confiance est bien
 enregistré : sans l'un des deux, Apple n'a nulle part où envoyer le code.
 

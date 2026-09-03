@@ -152,9 +152,78 @@ test('the 409 is followed by an explicit request to SEND the code', async () => 
   assert.equal(await client.login(), LOGIN_STATUS.TWO_FACTOR_REQUIRED);
 
   const [push] = apple.find('/verify/trusteddevice');
-  assert.equal(push.method, 'PUT', 'the code is requested, not just awaited');
+  // GET: idmsa.apple.com answers 405 (Allow: GET, POST, OPTIONS) on a PUT, and
+  // the code is then never sent.
+  assert.equal(push.method, 'GET', 'the code is requested, not just awaited');
   assert.equal(client.twoFactorMode, TWO_FACTOR_MODE.DEVICE);
   assert.match(client.twoFactorTarget.fr, /appareils Apple/);
+});
+
+test('an account that only reports hasTrustedDevices still gets the push', async () => {
+  // Apple describes the trusted devices with `hasTrustedDevices` on a modern
+  // two-factor account, and never sends `trustedDeviceCount`. Reading only the
+  // count made the client skip the push and jump to the SMS: the user with an
+  // iPhone in front of them received nothing at all.
+  const { client, apple } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    [AUTH_INFO_URL]: {
+      status: 200,
+      body: {
+        hasTrustedDevices: true,
+        trustedPhoneNumbers: [{ id: 3, numberWithDialCode: '+33 •• •• •• 42' }],
+      },
+    },
+    '/verify/trusteddevice': { status: 202 },
+  });
+
+  assert.equal(await client.login(), LOGIN_STATUS.TWO_FACTOR_REQUIRED);
+
+  assert.equal(apple.find('/verify/phone').length, 0, 'no SMS while a device can be pushed');
+  assert.equal(apple.find('/verify/trusteddevice').length, 1);
+  assert.equal(client.twoFactorMode, TWO_FACTOR_MODE.DEVICE);
+});
+
+test('the SMS can be asked for explicitly, even with trusted devices', async () => {
+  const { client } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    [AUTH_INFO_URL]: {
+      status: 200,
+      body: {
+        hasTrustedDevices: true,
+        trustedPhoneNumbers: [{ id: 3, numberWithDialCode: '+33 •• •• •• 42' }],
+      },
+    },
+    '/verify/trusteddevice': { status: 202 },
+    '/verify/phone': { status: 200 },
+  });
+
+  await client.login();
+  await client.requestSecurityCode({ preferSms: true });
+
+  assert.equal(client.twoFactorMode, TWO_FACTOR_MODE.SMS);
+  assert.equal(client.twoFactorPhoneId, 3);
+});
+
+test('the client never sends a method the Apple auth endpoint refuses', async () => {
+  // `idmsa.apple.com` allows GET, POST and OPTIONS only: any other verb comes
+  // back as a 405, silently, and no code is ever sent.
+  const { client, apple } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    '/securitycode': { status: 204 },
+    ...SMS_ROUTES,
+    '/2sv/trust': { status: 204, headers: { 'X-Apple-Session-Token': 'session-token' } },
+    '/accountLogin': ACCOUNT_LOGIN_OK,
+  });
+
+  await client.login();
+  await client.submitSecurityCode('123456');
+
+  for (const call of apple.calls.filter((c) => c.url.includes('idmsa.apple.com'))) {
+    assert.ok(['GET', 'POST'].includes(call.method), `${call.method} ${call.url} would be a 405`);
+  }
 });
 
 test('an account with no trusted device gets the code by SMS', async () => {
@@ -170,7 +239,7 @@ test('an account with no trusted device gets the code by SMS', async () => {
   assert.equal(await client.login(), LOGIN_STATUS.TWO_FACTOR_REQUIRED);
 
   const [sms] = apple.find('/verify/phone');
-  assert.equal(sms.method, 'PUT');
+  assert.equal(sms.method, 'POST');
   assert.deepEqual(sms.body, { phoneNumber: { id: 3 }, mode: 'sms' });
   assert.equal(client.twoFactorMode, TWO_FACTOR_MODE.SMS);
   assert.match(client.twoFactorTarget.fr, /\+33/);

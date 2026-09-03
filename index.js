@@ -49,7 +49,15 @@ const MESSAGES = {
  *
  * @param {{en: string, fr: string}|null} target where Apple says it sent it
  */
-function twoFactorMessage(target) {
+function twoFactorMessage(target, error = null) {
+  // Apple refused to send anything: say so, instead of asking for a code that
+  // is never going to arrive.
+  if (error) {
+    return {
+      en: `Apple did not send a code: ${error}. Try the "Send me the code by SMS" action.`,
+      fr: `Apple n'a pas envoye de code : ${error}. Essayez l'action "M'envoyer le code par SMS".`,
+    };
+  }
   if (!target) {
     return MESSAGES.twoFactorRequired;
   }
@@ -128,7 +136,7 @@ async function initialize() {
     const status = await tracker.start(config);
     if (status === TRACKER_STATUS.TWO_FACTOR_REQUIRED) {
       logger.info('Two-factor code required');
-      await reportFailure(twoFactorMessage(tracker.twoFactorTarget));
+      await reportFailure(twoFactorMessage(tracker.twoFactorTarget, tracker.twoFactorError));
       return;
     }
     await tracker.publishDiscoveredDevices();
@@ -190,10 +198,34 @@ gladys.onAction('resend_2fa_code', async () => {
   }
 
   const target = tracker.twoFactorTarget;
-  await reportFailure(twoFactorMessage(target));
+  await reportFailure(twoFactorMessage(target, tracker.twoFactorError));
   return {
     en: `A new code was sent to ${target?.en ?? 'your trusted Apple devices'}.`,
     fr: `Un nouveau code a ete envoye sur ${target?.fr ?? 'vos appareils Apple de confiance'}.`,
+  };
+});
+
+// The push to the Apple devices can stay silent (a device that never comes
+// online, a notification the user cannot see): this button asks Apple for an
+// SMS on a trusted phone number instead.
+gladys.onAction('send_2fa_code_by_sms', async () => {
+  if (tracker.isConnected()) {
+    throw new Error('Already signed in to iCloud: no code is needed.');
+  }
+  if (!hasCredentials(config)) {
+    throw new Error(MESSAGES.missingCredentials.en);
+  }
+  if (!tracker.hasClient()) {
+    // No sign-in attempt yet (fresh start of the container): sign in first, so
+    // Apple has a session to attach the SMS to.
+    await initialize();
+  }
+
+  const target = await tracker.requestSecurityCode({ preferSms: true });
+  await reportFailure(twoFactorMessage(target, tracker.twoFactorError));
+  return {
+    en: `A code was sent to ${target?.en ?? 'your trusted phone number'}.`,
+    fr: `Un code a ete envoye par ${target?.fr ?? 'SMS sur votre numero de confiance'}.`,
   };
 });
 
@@ -239,7 +271,7 @@ gladys.onAction('check_connection', async () => {
   if (!tracker.isConnected()) {
     throw new Error(
       tracker.status === TRACKER_STATUS.TWO_FACTOR_REQUIRED
-        ? twoFactorMessage(tracker.twoFactorTarget).en
+        ? twoFactorMessage(tracker.twoFactorTarget, tracker.twoFactorError).en
         : MESSAGES.missingCredentials.en,
     );
   }
