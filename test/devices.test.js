@@ -92,6 +92,52 @@ test('every device carries a poll frequency Gladys accepts', () => {
   assert.equal(device.poll_frequency, 60_000);
 });
 
+test('every feature declares the min/max Gladys requires', () => {
+  // Gladys stores t_device_feature.min and .max as NOT NULL and rejects the whole
+  // device with a 422 when a single feature omits them, binary and text included.
+  const [device] = buildDiscoveredDevices(
+    gladys,
+    config,
+    normalizeAppleDevices([fakeFindMyDevice()]),
+  );
+  for (const feature of device.features) {
+    assert.equal(typeof feature.min, 'number', `${feature.name} has no min`);
+    assert.equal(typeof feature.max, 'number', `${feature.name} has no max`);
+    assert.ok(feature.max >= feature.min, `${feature.name} has max < min`);
+  }
+});
+
+test('every feature uses a category/type pair Gladys knows how to name', () => {
+  // A pair the interface does not know displays as an unnamed feature attached to
+  // nothing: a distance sensor is a DECIMAL, never an INTEGER.
+  const [device] = buildDiscoveredDevices(
+    gladys,
+    config,
+    normalizeAppleDevices([fakeFindMyDevice()]),
+  );
+  const known = {
+    [DEVICE_FEATURE_CATEGORIES.PRESENCE_SENSOR]: [DEVICE_FEATURE_TYPES.SENSOR.BINARY],
+    [DEVICE_FEATURE_CATEGORIES.DISTANCE_SENSOR]: [DEVICE_FEATURE_TYPES.SENSOR.DECIMAL],
+    [DEVICE_FEATURE_CATEGORIES.TEXT]: [DEVICE_FEATURE_TYPES.TEXT.TEXT],
+    [DEVICE_FEATURE_CATEGORIES.DURATION]: [
+      DEVICE_FEATURE_TYPES.DURATION.INTEGER,
+      DEVICE_FEATURE_TYPES.DURATION.DECIMAL,
+    ],
+    [DEVICE_FEATURE_CATEGORIES.BATTERY]: [
+      DEVICE_FEATURE_TYPES.BATTERY.INTEGER,
+      DEVICE_FEATURE_TYPES.BATTERY.CHARGING,
+    ],
+  };
+  for (const feature of device.features) {
+    const types = known[feature.category];
+    assert.ok(types, `${feature.name} uses an unexpected category ${feature.category}`);
+    assert.ok(
+      types.includes(feature.type),
+      `${feature.name}: Gladys has no name for ${feature.category}/${feature.type}`,
+    );
+  }
+});
+
 test('the presence feature is a plain binary sensor, usable as a scene trigger', () => {
   const [device] = buildDiscoveredDevices(
     gladys,
