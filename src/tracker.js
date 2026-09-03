@@ -4,9 +4,11 @@
 //
 // It exists because Gladys polls PER DEVICE while Find My answers for ALL
 // devices in one call: polling five iPhones must not mean five calls to Apple
-// every cycle. `refresh()` therefore de-duplicates — a call started less than
-// half a poll interval ago is reused, and concurrent calls share the same
-// in-flight request.
+// every cycle. `refresh()` therefore de-duplicates — a call younger than the
+// configured interval is reused, and concurrent calls share the same in-flight
+// request. That cache is also what makes the configured interval real: Gladys
+// cannot tick slower than once a minute, so a 300 s setting means four ticks
+// out of five are answered from memory.
 // -----------------------------------------------------------------------------
 
 import { createLogger } from '@gladysassistant/integration-sdk';
@@ -24,6 +26,11 @@ const logger = createLogger({ name: 'tracker' });
 // Never call Apple more often than this, whatever Gladys asks: Find My is rate
 // limited on their side, and a fleet of devices all polling at once would hit it.
 const MIN_REFRESH_INTERVAL_MS = 30_000;
+
+// Gladys ticks at most once a minute (its poll_frequency enum stops there), so
+// the configured interval is enforced HERE: a tick landing a few seconds early
+// must still refresh, otherwise a 300 s interval would drift to 360 s.
+const POLL_TOLERANCE_MS = 5_000;
 
 // The host API accepts up to 100 states per POST /state.
 const STATES_PER_BATCH = 100;
@@ -179,7 +186,10 @@ export class AppleDeviceTracker {
       return this.inflightRefresh;
     }
 
-    const maxAge = Math.max(MIN_REFRESH_INTERVAL_MS, (this.config.poll_frequency * 1000) / 2);
+    const maxAge = Math.max(
+      MIN_REFRESH_INTERVAL_MS,
+      this.config.poll_frequency * 1000 - POLL_TOLERANCE_MS,
+    );
     if (!force && this.now() - this.lastRefreshAt < maxAge) {
       return this.devices;
     }

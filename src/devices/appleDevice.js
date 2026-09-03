@@ -3,8 +3,8 @@
 //
 // One Gladys device per device visible in Find My. Everything here is read-only
 // sensors refreshed by POLLING (`poll_frequency`), because Apple offers no push
-// channel: Gladys calls `onPoll` on each device at the configured interval and
-// the integration answers with the states below.
+// channel: Gladys calls `onPoll` on each device at the interval declared here
+// and the integration answers with the states below.
 //
 // The feature that matters for automations is `presence`: a plain binary
 // sensor, so "when my iPhone arrives at home" is a normal Gladys scene trigger.
@@ -17,6 +17,7 @@ import {
 } from '@gladysassistant/integration-sdk';
 import { createHash } from 'node:crypto';
 import { distanceInMeters, isPositionUsable, resolvePresence } from '../presence.js';
+import { gladysPollFrequency } from '../config.js';
 
 export const DEVICE_TYPE = 'apple-device';
 
@@ -180,8 +181,10 @@ export function buildDevice(gladys, config, device) {
   return {
     name: device.name,
     external_id: ids.device,
-    // Gladys calls onPoll on this device at this interval (in seconds).
-    poll_frequency: config.poll_frequency,
+    // Gladys calls onPoll on this device at this interval, in MILLISECONDS and
+    // only among the values it accepts (see gladysPollFrequency): the user
+    // interval in seconds is honoured by the tracker, not by Gladys.
+    poll_frequency: gladysPollFrequency(config.poll_frequency),
     params: [
       { name: 'apple_device_id', value: String(device.id) },
       ...(device.model ? [{ name: 'apple_model', value: String(device.model) }] : []),

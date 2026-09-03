@@ -60,6 +60,29 @@ function toNumber(raw, key) {
   return Math.min(max, Math.max(min, value));
 }
 
+// Gladys stores `poll_frequency` on a device as an ENUM of MILLISECONDS
+// (DEVICE_POLL_FREQUENCIES): 1000, 2000, 10000, 15000, 30000 and 60000. Any
+// other value is rejected when publishing the devices, with
+// `devices[0].poll_frequency: invalid poll frequency`.
+//
+// The user setting is in seconds and goes up to an hour, so it cannot be sent
+// as-is: we ask Gladys for the SLOWEST tick it accepts (one minute) and the
+// tracker throttles the real Find My calls to the configured interval. Gladys
+// calling onPoll more often than needed is free — the tracker just answers with
+// its cache.
+export const GLADYS_POLL_FREQUENCIES_MS = [1000, 2000, 10000, 15000, 30000, 60000];
+
+/**
+ * The largest poll frequency Gladys accepts that is not slower than the
+ * configured interval, in milliseconds.
+ * @param {number} seconds the user interval, in seconds
+ */
+export function gladysPollFrequency(seconds) {
+  const wanted = Number(seconds) * 1000;
+  const allowed = GLADYS_POLL_FREQUENCIES_MS.filter((value) => value <= wanted);
+  return allowed.length > 0 ? Math.max(...allowed) : Math.min(...GLADYS_POLL_FREQUENCIES_MS);
+}
+
 /**
  * Merge the user config with the defaults and force the types.
  * @param {Record<string, unknown>} raw config returned by the SDK

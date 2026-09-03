@@ -60,12 +60,14 @@ forces it to a trusted phone number.
 
 ## Advanced settings
 
-- **Refresh interval** (`poll_frequency`, 300 s by default): how often Gladys
-  asks for a new position. This is the first knob to turn — shorter means a
-  more reactive presence, but more calls to Apple and more battery used on your
-  devices. The minimum is 60 s. Whatever the setting, the integration never
-  calls Apple more than once every 30 seconds, and a single call covers all
-  your devices.
+- **Refresh interval** (`poll_frequency`, 300 s by default): how often the
+  integration asks Apple for a new position. This is the first knob to turn —
+  shorter means a more reactive presence, but more calls to Apple and more
+  battery used on your devices. The minimum is 60 s. Gladys itself cannot poll
+  slower than once a minute: between two real refreshes the integration simply
+  answers with the last known position. Whatever the setting, it never calls
+  Apple more than once every 30 seconds, and a single call covers all your
+  devices.
 - **Maximum accuracy** (500 m by default): a position reported with a wider
   uncertainty radius is **ignored**. Without that guard, a position derived
   from a carrier Wi-Fi network would make your presence jump by kilometers.
