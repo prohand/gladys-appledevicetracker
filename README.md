@@ -88,8 +88,8 @@ code.
 | ---------------- | ------- | ------------------------------------------ |
 | `apple_id`       | —       | Apple ID email (required)                  |
 | `apple_password` | —       | Apple ID password, stored as a secret      |
-| `home_latitude`  | 48.8566 | Home position                              |
-| `home_longitude` | 2.3522  | Home position                              |
+| `home_latitude`  | 48.8566 | Home position, decimal degrees (required)  |
+| `home_longitude` | 2.3522  | Home position, decimal degrees (required)  |
 | `home_radius`    | 150     | Meters, radius marking a device as present |
 | `poll_frequency` | 300     | Seconds between two refreshes (60–3600)    |
 | `max_accuracy`   | 500     | Meters, above which a position is ignored  |

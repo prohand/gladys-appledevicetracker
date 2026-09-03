@@ -29,9 +29,10 @@ un AirTag n'en a pas.
 2. Renseignez votre **identifiant Apple** (l'e-mail du compte iCloud) et votre
    **mot de passe**. Ils sont stockés chiffrés par Gladys et ne sont envoyés
    qu'à Apple.
-3. Renseignez la **latitude** et la **longitude** de votre domicile, ainsi que
-   le **rayon** dans lequel un appareil est considéré comme présent (150 m par
-   défaut, à augmenter si votre terrain est grand ou si vos appareils sont
+3. Renseignez la **latitude** et la **longitude** de votre domicile, en degrés
+   décimaux (`48.8566`, `2.3522`, à copier depuis n'importe quelle carte), ainsi
+   que le **rayon** dans lequel un appareil est considéré comme présent (150 m
+   par défaut, à augmenter si votre terrain est grand ou si vos appareils sont
    souvent localisés par le Wi-Fi).
 4. Enregistrez.
 

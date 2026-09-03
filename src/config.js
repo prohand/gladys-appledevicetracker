@@ -15,6 +15,8 @@
 export const DEFAULT_CONFIG = {
   apple_id: '',
   apple_password: '',
+  // The coordinates are required text fields in the manifest (no `default`
+  // there): these values only cover a config saved before they were filled in.
   home_latitude: 48.8566, // Paris
   home_longitude: 2.3522,
   home_radius: 150, // meters, radius marking a device as "at home"
@@ -37,8 +39,19 @@ const BOUNDS = {
   max_accuracy: [10, 20000],
 };
 
+// The coordinates are text fields in the manifest (a `number` input rounds
+// 48.8566 to 49, and the manifest has no `step`), so the value arrives as a
+// string typed by hand: trim it, and accept the comma used as a decimal
+// separator in French.
 function toNumber(raw, key) {
-  const value = Number(raw ?? DEFAULT_CONFIG[key]);
+  let input = raw ?? DEFAULT_CONFIG[key];
+  if (typeof input === 'string') {
+    input = input.trim().replace(',', '.');
+    if (input === '') {
+      return DEFAULT_CONFIG[key];
+    }
+  }
+  const value = Number(input);
   if (!Number.isFinite(value)) {
     return DEFAULT_CONFIG[key];
   }

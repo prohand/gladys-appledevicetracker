@@ -19,6 +19,18 @@ test('normalizeConfig coerces the numeric strings coming from the form', () => {
   assert.equal(typeof config.poll_frequency, 'number');
 });
 
+test('normalizeConfig accepts the coordinates typed with a comma or spaces', () => {
+  const config = normalizeConfig({ home_latitude: ' 48,8566 ', home_longitude: '2,3522' });
+  assert.equal(config.home_latitude, 48.8566);
+  assert.equal(config.home_longitude, 2.3522);
+});
+
+test('an empty coordinate falls back to the default instead of 0', () => {
+  const config = normalizeConfig({ home_latitude: '', home_longitude: '   ' });
+  assert.equal(config.home_latitude, DEFAULT_CONFIG.home_latitude);
+  assert.equal(config.home_longitude, DEFAULT_CONFIG.home_longitude);
+});
+
 test('normalizeConfig clamps the values to the manifest bounds', () => {
   const config = normalizeConfig({ poll_frequency: 5, home_radius: 999999, max_accuracy: 1 });
   assert.equal(config.poll_frequency, 60, 'never hammer Apple every 5 seconds');

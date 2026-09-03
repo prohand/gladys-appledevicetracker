@@ -28,7 +28,8 @@ neither.
 1. Open the **Configuration** tab of the integration.
 2. Fill in your **Apple ID** (the email of the iCloud account) and your
    **password**. Gladys stores them encrypted and only sends them to Apple.
-3. Fill in the **latitude** and **longitude** of your home, plus the **radius**
+3. Fill in the **latitude** and **longitude** of your home, in decimal degrees
+   (`48.8566`, `2.3522` — copy them from any map service), plus the **radius**
    inside which a device counts as present (150 m by default — raise it if you
    have a large property, or if your devices are often located through Wi-Fi).
 4. Save.
