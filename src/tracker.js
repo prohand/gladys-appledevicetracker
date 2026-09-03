@@ -66,6 +66,8 @@ export class AppleDeviceTracker {
     this.devices = [];
     /** Presence per Apple device id, feeding the hysteresis. */
     this.presence = new Map();
+    /** Last position Apple gave us per device id (see keepLastKnownLocations). */
+    this.lastLocations = new Map();
     /** `{ value, publishedAt }` per feature, so we only publish what changed. */
     this.lastValues = new Map();
     /** Apple device ids whose states must be published again, unchanged or not. */
@@ -211,6 +213,7 @@ export class AppleDeviceTracker {
     this.status = TRACKER_STATUS.DISCONNECTED;
     this.devices = [];
     this.presence.clear();
+    this.lastLocations.clear();
     this.lastValues.clear();
     this.pendingFullPublish.clear();
     this.polledDevices.clear();
@@ -325,6 +328,12 @@ export class AppleDeviceTracker {
   }
 
   async doRefresh() {
+    // Measured BEFORE calling Apple, not after: the refresh loop ticks every
+    // `poll_frequency` seconds from the tick, so a call that takes a few
+    // seconds used to push `lastRefreshAt` past the next tick — that tick was
+    // then judged "too early" and skipped, and a 60 s interval updated the
+    // values every 120 s.
+    const startedAt = this.now();
     let rawDevices;
     try {
       rawDevices = await this.client.fetchDevices({ includeFamily: this.config.include_family });
@@ -343,7 +352,9 @@ export class AppleDeviceTracker {
     }
 
     this.devices = normalizeAppleDevices(rawDevices);
-    this.lastRefreshAt = this.now();
+    this.keepLastKnownLocations();
+    // Only on success: a failed call must not hold the next tick back.
+    this.lastRefreshAt = startedAt;
     logger.info(`Find My returned ${this.devices.length} device(s)`);
 
     // A device added to (or removed from) the account shows up here: re-publish
@@ -356,6 +367,29 @@ export class AppleDeviceTracker {
 
     await this.publishStates();
     return this.devices;
+  }
+
+  /**
+   * Carry the last known position over to a refresh that carries none.
+   *
+   * Apple drops `location` from the payload of a device it could not reach on
+   * that cycle (asleep, no network, still being located). Publishing nothing
+   * for it makes Gladys show "no recent value" on every position feature a few
+   * hours later, when the device has simply not moved. Find My itself shows the
+   * last known position in that case — so do we, and `Position age` keeps
+   * growing since it is computed from Apple's own timestamp.
+   */
+  keepLastKnownLocations() {
+    for (const device of this.devices) {
+      if (device.location) {
+        this.lastLocations.set(device.id, device.location);
+      } else {
+        const known = this.lastLocations.get(device.id);
+        if (known) {
+          device.location = known;
+        }
+      }
+    }
   }
 
   /**

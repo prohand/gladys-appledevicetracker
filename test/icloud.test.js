@@ -90,6 +90,8 @@ function createClient(routes, session = {}) {
     password: 'hunter2',
     session,
     fetchImpl: apple.fetchImpl,
+    // The client waits between two locate attempts: not in the tests.
+    sleepImpl: async () => {},
   });
   return { client, apple };
 }
@@ -462,6 +464,51 @@ test('fetchDevices returns the Find My content and honors the family flag', asyn
   const [refresh] = apple.find('/refreshClient');
   assert.equal(refresh.body.clientContext.fmly, false);
   assert.equal(refresh.body.clientContext.shouldLocate, true);
+});
+
+test('fetchDevices asks again while Apple has not located anything yet', async () => {
+  const located = {
+    id: 'A',
+    location: { latitude: 48.8566, longitude: 2.3522, horizontalAccuracy: 12 },
+  };
+  let call = 0;
+  const { client, apple } = createClient(
+    {
+      '/accountLogin': ACCOUNT_LOGIN_OK,
+      // Apple locates on its side: the first answers carry no position at all.
+      get '/refreshClient'() {
+        call += 1;
+        return { status: 200, body: { content: call < 3 ? [{ id: 'A' }] : [located] } };
+      },
+    },
+    { sessionToken: 'session-token' },
+  );
+
+  await client.login();
+  const devices = await client.fetchDevices();
+
+  assert.equal(apple.find('/refreshClient').length, 3);
+  assert.ok(devices[0].location, 'the position of the last answer is the one returned');
+});
+
+test('fetchDevices stops asking as soon as one device is located', async () => {
+  const { client, apple } = createClient(
+    {
+      '/accountLogin': ACCOUNT_LOGIN_OK,
+      '/refreshClient': {
+        status: 200,
+        body: {
+          content: [{ id: 'A', location: { latitude: 48.8566, longitude: 2.3522 } }, { id: 'B' }],
+        },
+      },
+    },
+    { sessionToken: 'session-token' },
+  );
+
+  await client.login();
+  await client.fetchDevices();
+
+  assert.equal(apple.find('/refreshClient').length, 1);
 });
 
 test('an expired session while reading Find My is reported as such', async () => {

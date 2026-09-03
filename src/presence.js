@@ -38,22 +38,34 @@ export function distanceInMeters(from, to) {
 }
 
 /**
- * Is this position trustworthy enough to move the presence state?
- * @param {{ latitude: number, longitude: number, accuracy: number }|null} location
- * @param {number} maxAccuracy accuracy radius above which we ignore the fix
+ * Do we have a position at all? A device Apple could not locate has no
+ * `location`, and one it located with no fix reports (0, 0).
+ * @param {{ latitude: number, longitude: number }|null} location
  */
-export function isPositionUsable(location, maxAccuracy) {
+export function isPositionKnown(location) {
   if (!location) {
     return false;
   }
-  const { latitude, longitude, accuracy } = location;
+  const { latitude, longitude } = location;
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return false;
   }
   // Apple reports (0, 0) when it has no fix at all.
-  if (latitude === 0 && longitude === 0) {
+  return !(latitude === 0 && longitude === 0);
+}
+
+/**
+ * Is this position trustworthy enough to MOVE the presence state? A vague fix
+ * is still worth showing (distance, position, age); it is only presence — the
+ * value automations react to — that must not flip on a kilometer-wide fix.
+ * @param {{ latitude: number, longitude: number, accuracy: number }|null} location
+ * @param {number} maxAccuracy accuracy radius above which we ignore the fix
+ */
+export function isPositionUsable(location, maxAccuracy) {
+  if (!isPositionKnown(location)) {
     return false;
   }
+  const { accuracy } = location;
   if (Number.isFinite(accuracy) && accuracy > maxAccuracy) {
     return false;
   }

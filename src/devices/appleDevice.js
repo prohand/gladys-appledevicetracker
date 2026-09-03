@@ -16,7 +16,12 @@ import {
   DEVICE_FEATURE_UNITS,
 } from '@gladysassistant/integration-sdk';
 import { createHash } from 'node:crypto';
-import { distanceInMeters, isPositionUsable, resolvePresence } from '../presence.js';
+import {
+  distanceInMeters,
+  isPositionKnown,
+  isPositionUsable,
+  resolvePresence,
+} from '../presence.js';
 import { gladysPollFrequency } from '../config.js';
 
 export const DEVICE_TYPE = 'apple-device';
@@ -216,7 +221,8 @@ export function buildDevice(gladys, config, device) {
  * @param {object} device output of normalizeAppleDevice()
  * @param {boolean|null} wasPresent previous presence, for the hysteresis
  * @returns {{ states: object[], presence: boolean|null, ignored: boolean }}
- *   `ignored` is true when the position was too vague to be used.
+ *   `ignored` is true when the position was missing, or too vague to move the
+ *   presence sensor.
  */
 export function buildStates(gladys, config, device, wasPresent = null) {
   const ids = gladys.externalIds(DEVICE_TYPE, platformId(device.id));
@@ -235,8 +241,8 @@ export function buildStates(gladys, config, device, wasPresent = null) {
     });
   }
 
-  if (!isPositionUsable(device.location, config.max_accuracy)) {
-    // Keep the last known presence rather than publishing a wrong one.
+  // No position at all: nothing to compute, and no presence to invent.
+  if (!isPositionKnown(device.location)) {
     return { states, presence: wasPresent, ignored: true };
   }
 
@@ -245,7 +251,20 @@ export function buildStates(gladys, config, device, wasPresent = null) {
     { latitude: config.home_latitude, longitude: config.home_longitude },
     { latitude, longitude },
   );
-  const presence = resolvePresence({ distance, radius: config.home_radius, wasPresent });
+
+  // A fix vaguer than max_accuracy must not MOVE the presence sensor — that is
+  // what would fire the automations wrongly — but the informative sensors below
+  // are published all the same: a device located by Wi-Fi (often 1 to 3 km of
+  // accuracy) used to publish nothing but its battery, and Gladys showed "no
+  // recent value" on every other feature, forever.
+  const accurate = isPositionUsable(device.location, config.max_accuracy);
+  // wasPresent === null: nothing has ever been resolved for this device, so a
+  // vague fix is still better than an empty sensor. The hysteresis takes over
+  // from the next accurate fix on.
+  const presence =
+    accurate || wasPresent === null
+      ? resolvePresence({ distance, radius: config.home_radius, wasPresent })
+      : wasPresent;
 
   states.push(
     { device_feature_external_id: ids.feature(FEATURE.PRESENCE), state: presence ? 1 : 0 },
@@ -274,5 +293,5 @@ export function buildStates(gladys, config, device, wasPresent = null) {
     });
   }
 
-  return { states, presence, ignored: false };
+  return { states, presence, ignored: !accurate };
 }
