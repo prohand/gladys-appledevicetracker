@@ -32,8 +32,9 @@ un AirTag n'en a pas.
 3. La **latitude** et la **longitude** de votre domicile sont pré-remplies avec
    la position de votre maison Gladys : n'y touchez que si vous voulez un autre
    point de référence. Si elles restent vides — maison créée sans adresse —
-   saisissez-les en degrés décimaux (`48.8566`, `2.3522`, à copier depuis
-   n'importe quelle carte). Réglez le **rayon** dans lequel un appareil est
+   cliquez sur **Récupérer les coordonnées de ma maison Gladys** (l'action vous
+   dit ce qui bloque), ou saisissez-les en degrés décimaux (`48.8566`,
+   `2.3522`, à copier depuis n'importe quelle carte). Réglez le **rayon** dans lequel un appareil est
    considéré comme présent (150 m par défaut, à augmenter si votre terrain est
    grand ou si vos appareils sont souvent localisés par le Wi-Fi).
 4. Enregistrez.
@@ -42,17 +43,21 @@ un AirTag n'en a pas.
 
 Si votre compte utilise la double authentification — c'est le cas par défaut
 chez Apple — un code à 6 chiffres s'affiche sur vos appareils Apple juste après
-l'enregistrement.
+l'enregistrement. L'intégration **demande explicitement** ce code à Apple :
+un compte sans appareil de confiance (uniquement un numéro de téléphone) le
+reçoit par **SMS**.
 
-1. Notez le code.
+1. Notez le code. Le message affiché dans la Configuration précise où il a été
+   envoyé (appareils de confiance, ou numéro de téléphone).
 2. Dans l'onglet **Configuration**, cliquez sur **Envoyer le code de double
    authentification**, saisissez-le, validez.
 3. L'intégration demande alors à Apple de **faire confiance** à cette session :
    le code n'est plus redemandé aux redémarrages suivants (Apple garde cette
    confiance environ 30 jours, parfois moins).
 
-Si le code n'apparaît pas, cliquez sur **Tester la connexion iCloud** : la
-connexion est relancée et Apple renvoie un code.
+Si rien n'arrive, cliquez sur **M'envoyer un nouveau code de double
+authentification** : Apple renvoie un code (push, puis SMS en secours) sans
+repartir de zéro.
 
 ## Réglages avancés
 
@@ -81,6 +86,12 @@ de zone déclenche vos scènes en boucle à cause du bruit GPS.
 
 - **Envoyer le code de double authentification** — valide le code à 6 chiffres
   et fait approuver la session par Apple.
+- **M'envoyer un nouveau code de double authentification** — redemande un code
+  à Apple : push sur les appareils de confiance, ou SMS si le compte n'en a
+  aucun.
+- **Récupérer les coordonnées de ma maison Gladys** — remplit la latitude et la
+  longitude depuis votre maison Gladys, et affiche l'erreur exacte si Gladys ne
+  les donne pas. Rechargez la page pour voir les champs remplis.
 - **Tester la connexion iCloud** — relance une connexion et affiche le nombre
   d'appareils trouvés avec leurs noms.
 - **Oublier la session enregistrée** — efface les jetons stockés. À utiliser si
@@ -104,6 +115,17 @@ de récent.
 **La présence ne bouge pas** : regardez la mesure _Précision_. Si elle est
 proche ou au-dessus de votre réglage « Précision maximale », les positions sont
 ignorées — augmentez le seuil, ou le rayon du domicile.
+
+**Je ne reçois aucun code 2FA** : utilisez **M'envoyer un nouveau code de
+double authentification**. Vérifiez ensuite sur appleid.apple.com qu'un
+appareil de confiance ou un numéro de téléphone de confiance est bien
+enregistré : sans l'un des deux, Apple n'a nulle part où envoyer le code.
+
+**Les coordonnées restent vides** : l'intégration lit la position de votre
+maison via l'API de Gladys, ce qui demande l'autorisation `location` (déclarée
+dans son manifeste) et une maison avec une adresse (Réglages → Maison).
+L'action **Récupérer les coordonnées de ma maison Gladys** affiche la raison
+exacte du refus.
 
 **Le code 2FA est redemandé souvent** : c'est Apple qui décide de la durée de
 confiance d'une session. Évitez de changer le mot de passe ou de révoquer les

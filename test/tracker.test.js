@@ -18,7 +18,7 @@ const CONFIG = normalizeConfig({
 /** A stand-in for ICloudClient: no network, fully scripted. */
 function createFakeClient({ loginStatus = LOGIN_STATUS.CONNECTED, devices = [] } = {}) {
   const client = {
-    calls: { login: 0, fetchDevices: 0, playSound: [], forget: 0 },
+    calls: { login: 0, fetchDevices: 0, playSound: [], forget: 0, requestCode: 0, saveSession: 0 },
     devices,
     loginStatus,
     failNextFetchWith: null,
@@ -42,6 +42,15 @@ function createFakeClient({ loginStatus = LOGIN_STATUS.CONNECTED, devices = [] }
       client.calls.forget += 1;
     },
     async submitSecurityCode() {},
+    twoFactorTarget: null,
+    async requestSecurityCode() {
+      client.calls.requestCode += 1;
+      client.twoFactorTarget = { en: 'your trusted Apple devices', fr: 'vos appareils' };
+      return client.twoFactorTarget;
+    },
+    async saveSession() {
+      client.calls.saveSession += 1;
+    },
   };
   return client;
 }
@@ -66,6 +75,20 @@ test('start() signs in, publishes the devices and their states', async () => {
   assert.equal(tracker.devices.length, 1);
   assert.equal(gladys.discovered.length, 1, 'the catalog is published once');
   assert.ok(gladys.published.some((s) => s.featureExternalId.endsWith(':presence')));
+});
+
+test('requestSecurityCode() asks Apple again and persists the mode', async () => {
+  const { client, tracker } = createTracker({ loginStatus: LOGIN_STATUS.TWO_FACTOR_REQUIRED });
+
+  assert.equal(tracker.hasClient(), false, 'nothing to ask before a sign-in');
+  await assert.rejects(() => tracker.requestSecurityCode());
+
+  await tracker.start(CONFIG);
+  const target = await tracker.requestSecurityCode();
+
+  assert.equal(client.calls.requestCode, 1);
+  assert.equal(client.calls.saveSession, 1, 'the SMS mode must survive a restart');
+  assert.equal(tracker.twoFactorTarget, target);
 });
 
 test('start() stops at the two-factor step without calling Find My', async () => {

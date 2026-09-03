@@ -31,8 +31,9 @@ neither.
 3. The **latitude** and **longitude** of your home are pre-filled with the
    position of your Gladys house: leave them alone unless you want another
    reference point. If they stay empty — a house created without an address —
-   type them in decimal degrees (`48.8566`, `2.3522`, copied from any map
-   service). Set the **radius** inside which a device counts as present (150 m
+   click **Get the coordinates of my Gladys house** (the action tells you what
+   is blocking), or type them in decimal degrees (`48.8566`, `2.3522`, copied
+   from any map service). Set the **radius** inside which a device counts as present (150 m
    by default — raise it if you have a large property, or if your devices are
    often located through Wi-Fi).
 4. Save.
@@ -40,17 +41,20 @@ neither.
 ### Two-factor authentication
 
 If your account uses two-factor authentication — Apple's default — a 6-digit
-code appears on your Apple devices right after you save.
+code appears on your Apple devices right after you save. The integration
+**explicitly asks** Apple to send it: an account with no trusted device (only a
+phone number) receives it by **SMS**.
 
-1. Note the code.
+1. Note the code. The message shown in the Configuration tab says where it was
+   sent (trusted devices, or phone number).
 2. In the **Configuration** tab, click **Send the two-factor code**, type it in
    and validate.
 3. The integration then asks Apple to **trust** this session, so the code is not
    requested again on the next restarts (Apple keeps that trust for roughly 30
    days, sometimes less).
 
-If no code shows up, click **Test the iCloud connection**: the sign-in runs
-again and Apple sends a new code.
+If nothing arrives, click **Send me a new two-factor code**: Apple sends
+another one (push first, SMS as a fallback) without starting over.
 
 ## Advanced settings
 
@@ -77,6 +81,11 @@ zone from firing your scenes over and over because of GPS noise.
 
 - **Send the two-factor code** — validates the 6-digit code and gets the
   session trusted by Apple.
+- **Send me a new two-factor code** — asks Apple for another code: a push to the
+  trusted devices, or an SMS when the account has none.
+- **Get the coordinates of my Gladys house** — fills the latitude and longitude
+  from your Gladys house, and shows the exact error when Gladys does not serve
+  them. Reload the page to see the filled fields.
 - **Test the iCloud connection** — signs in again and shows how many devices
   were found, with their names.
 - **Forget the saved session** — deletes the stored tokens. Use it when the
@@ -90,6 +99,15 @@ zone from firing your scenes over and over because of GPS noise.
 **"iCloud connection failed: ..."**: the message repeats Apple's own answer.
 The usual causes are a changed password, an account temporarily locked after
 too many attempts, or a session that needs approving again.
+
+**No two-factor code arrives**: use **Send me a new two-factor code**. Then
+check on appleid.apple.com that the account really has a trusted device or a
+trusted phone number — without one of the two, Apple has nowhere to send it.
+
+**The coordinates stay empty**: the integration reads the position of your
+house through the Gladys API, which needs the `location` permission (declared
+in its manifest) and a house with an address (Settings → House). The **Get the
+coordinates of my Gladys house** action shows the exact reason it was refused.
 
 **No device shows up**: check that **Find My iPhone** is enabled on those
 devices (Settings → your name → Find My). A device that has been off or offline

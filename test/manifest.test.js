@@ -158,6 +158,20 @@ test('declaring catalog categories requires Gladys >= 4.86.0', () => {
   assert.ok(major > 4 || (major === 4 && minor >= 86), `got "${manifest.gladys_version}"`);
 });
 
+test('the manifest asks for the "location" permission', () => {
+  // Without it, GET /house answers 403 and the coordinates stay empty: this one
+  // line IS the pre-fill feature.
+  assert.equal(manifest.location, true);
+});
+
+test('the two-factor flow offers a way to ask for a new code', () => {
+  // Apple only sends the code when it is asked to: the user must be able to
+  // trigger it again without restarting the whole integration.
+  const keys = (manifest.actions ?? []).map((a) => a.key);
+  assert.ok(keys.includes('resend_2fa_code'));
+  assert.ok(keys.includes('refresh_home_location'));
+});
+
 test('index.js pre-fills the home coordinates from the Gladys house', () => {
   // The manifest promises it in the description of the "home" section: without
   // this call the fields would just stay empty.

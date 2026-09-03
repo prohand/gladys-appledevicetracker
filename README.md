@@ -95,6 +95,11 @@ code.
 | `max_accuracy`   | 500     | Meters, above which a position is ignored   |
 | `include_family` | true    | Include the Family Sharing devices          |
 
+The coordinates are pre-filled from the position of your Gladys house
+(`GET /house` on the host API), which is why the manifest declares
+`"location": true` — without that permission Gladys answers 403 and the fields
+stay empty.
+
 ## Run it locally
 
 ```bash
