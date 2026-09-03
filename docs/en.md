@@ -7,8 +7,9 @@ is here any more".
 
 ## What you get
 
-One Gladys device per Apple device (iPhone, iPad, Mac, Apple Watch, AirPods,
-AirTag…), with these measurements:
+One Gladys device per device visible in **Find My** on iCloud.com (iPhone,
+iPad, Mac, Apple Watch, and the AirPods Apple lists there), with these
+measurements:
 
 | Measurement        | Type          | What it is for                                  |
 | ------------------ | ------------- | ----------------------------------------------- |
@@ -20,8 +21,16 @@ AirTag…), with these measurements:
 | Battery            | Integer (%)   | Alert on a low battery                          |
 | Charging           | Binary        | Know whether the device is plugged in           |
 
-Battery and charging only show up on devices that report them: an AirTag has
+Battery and charging only show up on devices that report them: an accessory has
 neither.
+
+> **AirTags are not reported.** Apple does not serve them through the Find My
+> web API: their position is end-to-end encrypted and only ever decrypted by
+> the Find My app on an Apple device. iCloud.com itself only shows the
+> "Devices" tab, never the "Items" one — so no integration signing in to an
+> iCloud account can see them. The integration still reads the accessory lists
+> in case Apple starts serving them: they would then be discovered without a
+> new release.
 
 ## Configuration
 
@@ -116,6 +125,12 @@ trusted phone number — without one of the two, Apple has nowhere to send it.
 house through the Gladys API, which needs the `location` permission (declared
 in its manifest) and a house with an address (Settings → House). The **Get the
 coordinates of my Gladys house** action shows the exact reason it was refused.
+
+**My AirTag does not show up**: expected, and nothing the integration can fix
+(see the note above). Apple only gives the position of Find My items to the
+Find My app on an Apple device. To trigger a scene on an object, track a device
+that does report its position (iPhone, Apple Watch), or use a tracker from
+another brand with its own integration.
 
 **No device shows up**: check that **Find My iPhone** is enabled on those
 devices (Settings → your name → Find My). A device that has been off or offline

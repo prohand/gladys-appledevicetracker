@@ -466,6 +466,31 @@ test('fetchDevices returns the Find My content and honors the family flag', asyn
   assert.equal(refresh.body.clientContext.shouldLocate, true);
 });
 
+test('fetchDevices also reads the accessory lists Find My may return', async () => {
+  const { client } = createClient(
+    {
+      '/accountLogin': ACCOUNT_LOGIN_OK,
+      '/refreshClient': {
+        status: 200,
+        body: {
+          content: [{ id: 'A' }],
+          items: [{ identifier: 'AIRTAG-1' }],
+          accessories: [{ identifier: 'AIRTAG-2' }],
+        },
+      },
+    },
+    { sessionToken: 'session-token' },
+  );
+
+  await client.login();
+  const devices = await client.fetchDevices();
+
+  assert.deepEqual(
+    devices.map((device) => device.id || device.identifier),
+    ['A', 'AIRTAG-1', 'AIRTAG-2'],
+  );
+});
+
 test('fetchDevices asks again while Apple has not located anything yet', async () => {
   const located = {
     id: 'A',

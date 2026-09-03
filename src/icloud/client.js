@@ -85,6 +85,24 @@ function readErrorMessage(body, status) {
   return `HTTP ${status}`;
 }
 
+// Where Apple can put the entries of a Find My answer. `content` is the device
+// list every account gets; the others only ever show up on accounts (and Apple
+// builds) that serve the "Items" of Find My through the web API. They are read
+// defensively so the day Apple starts returning them, AirTags and third-party
+// Find My accessories are discovered without another release.
+const DEVICE_LIST_KEYS = ['content', 'items', 'accessories', 'fmlyContent', 'fmlyItems'];
+
+/** Every device-looking entry of a `refreshClient` answer, whatever the key. */
+function collectEntries(body) {
+  const entries = [];
+  for (const key of DEVICE_LIST_KEYS) {
+    if (Array.isArray(body?.[key])) {
+      entries.push(...body[key]);
+    }
+  }
+  return entries;
+}
+
 /** Did Apple manage to locate this device on this call? */
 function hasLocation(raw) {
   const location = raw && raw.location;
@@ -708,7 +726,16 @@ export class ICloudClient {
       );
     }
 
-    return Array.isArray(response.body.content) ? response.body.content : [];
+    const entries = collectEntries(response.body);
+    // Apple's answer is undocumented and changes without notice: knowing which
+    // keys it carried is the only way to tell "the account has nothing" from
+    // "Apple moved the list somewhere we do not read yet".
+    logger.debug(
+      `Find My answered with ${entries.length} entry(ies) [keys: ${Object.keys(response.body).join(
+        ', ',
+      )}]`,
+    );
+    return entries;
   }
 
   /**

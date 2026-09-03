@@ -56,6 +56,24 @@ test('an accessory without battery or location is still a valid device', () => {
   assert.equal(device.charging, null);
 });
 
+test('an accessory keyed on identifier is kept, like the AirTags of Find My', () => {
+  const [device] = normalizeAppleDevices([
+    {
+      identifier: 'AIRTAG-2',
+      name: 'AirTag valise',
+      batteryStatus: 2,
+      productType: { productInformation: { modelName: 'AirTag' } },
+      location: { latitude: 48.8566, longitude: 2.3522, horizontalAccuracy: 20 },
+    },
+  ]);
+  assert.equal(device.id, 'AIRTAG-2');
+  assert.equal(device.name, 'AirTag valise');
+  assert.equal(device.model, 'AirTag');
+  // A level, not a charging state: an AirTag is never "on power".
+  assert.equal(device.charging, null);
+  assert.equal(device.location.latitude, 48.8566);
+});
+
 test('buildDiscoveredDevices exposes one Gladys device per Apple device', () => {
   const devices = normalizeAppleDevices([
     fakeFindMyDevice(),

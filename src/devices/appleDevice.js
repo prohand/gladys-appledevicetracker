@@ -45,6 +45,20 @@ export function platformId(appleDeviceId) {
   return createHash('sha1').update(String(appleDeviceId)).digest('hex').slice(0, 16);
 }
 
+/**
+ * The id Apple gave to one entry of the Find My answer.
+ *
+ * Devices are keyed on `id`, while the accessory entries of Find My (AirTag,
+ * third-party trackers) are keyed on `identifier` — reading `id` only is how an
+ * accessory ends up dropped before it is ever discovered.
+ *
+ * @param {object} raw one entry of the Find My answer
+ * @returns {string|null} the id, or null when the entry carries none
+ */
+export function appleDeviceId(raw = {}) {
+  return raw.id || raw.identifier || raw.deviceDiscoveryId || null;
+}
+
 /** The Gladys external_id of an Apple device. */
 export function deviceExternalId(gladys, appleDeviceId) {
   return gladys.externalIds(DEVICE_TYPE, platformId(appleDeviceId)).device;
@@ -59,6 +73,25 @@ function toPercent(batteryLevel) {
 }
 
 /**
+ * Is this device on power?
+ *
+ * Apple describes the battery of a DEVICE with a word (`Charging` while plugged
+ * in, `Charged` once full), and the battery of an ACCESSORY with a level (a
+ * number, or `Low`/`Medium`/`High`): an accessory has no charging state at all,
+ * so anything we do not recognise stays unknown rather than becoming a "not
+ * charging" feature that never moves.
+ */
+function normalizeCharging(batteryStatus) {
+  if (typeof batteryStatus !== 'string') {
+    return null;
+  }
+  if (batteryStatus === 'Charging' || batteryStatus === 'Charged') {
+    return true;
+  }
+  return batteryStatus === 'NotCharging' ? false : null;
+}
+
+/**
  * Reduce one raw Find My entry to the fields this integration uses. Nothing is
  * assumed present: Apple omits `location` on a device that has never reported,
  * and omits the battery on accessories.
@@ -70,12 +103,16 @@ export function normalizeAppleDevice(raw = {}) {
   const batteryStatus = raw.batteryStatus || null;
 
   return {
-    id: raw.id,
+    id: appleDeviceId(raw),
     name: raw.name || raw.deviceDisplayName || 'Apple device',
-    model: raw.deviceDisplayName || raw.rawDeviceModel || raw.deviceModel || null,
+    model:
+      raw.deviceDisplayName ||
+      raw.rawDeviceModel ||
+      raw.deviceModel ||
+      raw.productType?.productInformation?.modelName ||
+      null,
     batteryLevel: toPercent(raw.batteryLevel),
-    // `Charging` while plugged in, `Charged` once full: both mean "on power".
-    charging: batteryStatus ? batteryStatus === 'Charging' || batteryStatus === 'Charged' : null,
+    charging: normalizeCharging(batteryStatus),
     location: location
       ? {
           latitude: Number(location.latitude),

@@ -81,6 +81,7 @@ freshness window is what enforces your `poll_frequency`.
 │     ├─ index.js                    #   registry: raw Find My list <-> Gladys devices
 │     └─ appleDevice.js              #   one Apple device: features and states
 ├─ docs/en.md, docs/fr.md            # user documentation, linked from Gladys
+├─ cover.svg, cover.png              # store cover: the SVG is the source (see below)
 ├─ gladys-assistant-integration.json # manifest (config schema, actions, image…)
 ├─ Dockerfile                        # Node 24 Alpine, read-only rootfs ready
 └─ .github/workflows/                # CI, multi-arch build, UI-driven release
@@ -135,6 +136,19 @@ exchange is verified against an independent SRP-6a server implementation, the
 iCloud client against a scripted Apple (status codes, headers, cookies, expired
 sessions), and the presence rules, the device mapping and the polling
 de-duplication against fixtures.
+
+## The store cover
+
+`cover.png` is the image the Gladys store shows (referenced by `cover_image` in
+the manifest). It is generated from `cover.svg`, the source to edit — never the
+PNG:
+
+```bash
+chromium --headless --screenshot=cover.png --window-size=800,534 cover.svg
+```
+
+Keep the 800×534 size: the manifest points at the file in `main`, so a new
+cover is live as soon as it is merged.
 
 ## Publishing a new version
 
