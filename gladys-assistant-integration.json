@@ -1,0 +1,182 @@
+{
+  "manifest_version": 1,
+  "type": "device",
+  "name": "Apple Device Tracker",
+  "description": {
+    "en": "Track your Apple devices with Find My and use them as presence sensors in Gladys.",
+    "fr": "Suivez vos appareils Apple via Localiser et utilisez-les comme capteurs de présence."
+  },
+  "version": "1.0.0",
+  "docker_image": "ghcr.io/prohand/gladys-appledevicetracker:1.0.0",
+  "gladys_version": ">=4.86.0",
+  "cover_image": "https://raw.githubusercontent.com/prohand/gladys-appledevicetracker/main/cover.png",
+  "categories": ["security", "services"],
+  "transports": ["cloud"],
+  "config_schema": [
+    {
+      "key": "intro",
+      "type": "section",
+      "label": { "en": "Your iCloud account", "fr": "Votre compte iCloud" },
+      "description": {
+        "en": "This integration signs in to iCloud with your Apple ID and reads the position of the devices visible in Find My. Your credentials stay in Gladys, on your machine. Two-factor authentication is supported: after saving, use the action below to enter the 6-digit code Apple sends you.",
+        "fr": "Cette integration se connecte a iCloud avec votre identifiant Apple et lit la position des appareils visibles dans Localiser. Vos identifiants restent dans Gladys, chez vous. La double authentification est geree : apres avoir enregistre, utilisez l'action ci-dessous pour saisir le code a 6 chiffres envoye par Apple."
+      },
+      "links": [
+        {
+          "url": "https://support.apple.com/en-us/HT204756",
+          "label": { "en": "About Find My", "fr": "A propos de Localiser" }
+        }
+      ]
+    },
+    {
+      "key": "apple_id",
+      "type": "string",
+      "label": { "en": "Apple ID", "fr": "Identifiant Apple" },
+      "description": {
+        "en": "The email address of the iCloud account that owns the devices.",
+        "fr": "L'adresse e-mail du compte iCloud proprietaire des appareils."
+      },
+      "placeholder": { "en": "john@example.com", "fr": "jean@exemple.com" },
+      "required": true
+    },
+    {
+      "key": "apple_password",
+      "type": "secret",
+      "label": { "en": "Apple ID password", "fr": "Mot de passe Apple" },
+      "description": {
+        "en": "Stored encrypted by Gladys and only sent to Apple. Changing it forces a new sign-in.",
+        "fr": "Stocke chiffre par Gladys et envoye uniquement a Apple. Le modifier force une nouvelle connexion."
+      },
+      "required": true
+    },
+    {
+      "key": "home",
+      "type": "section",
+      "label": { "en": "Your home", "fr": "Votre domicile" },
+      "description": {
+        "en": "A device is considered present when it is inside the radius below. Copy the coordinates of your home from any map service.",
+        "fr": "Un appareil est considere present quand il se trouve dans le rayon ci-dessous. Copiez les coordonnees de votre domicile depuis n'importe quelle carte."
+      }
+    },
+    {
+      "key": "home_latitude",
+      "type": "number",
+      "label": { "en": "Home latitude", "fr": "Latitude du domicile" },
+      "required": true,
+      "default": 48.8566,
+      "min": -90,
+      "max": 90
+    },
+    {
+      "key": "home_longitude",
+      "type": "number",
+      "label": { "en": "Home longitude", "fr": "Longitude du domicile" },
+      "required": true,
+      "default": 2.3522,
+      "min": -180,
+      "max": 180
+    },
+    {
+      "key": "home_radius",
+      "type": "number",
+      "label": { "en": "Home radius (m)", "fr": "Rayon du domicile (m)" },
+      "description": {
+        "en": "Radius around your home marking a device as present. A device leaves only once it is 25% beyond it, to avoid flapping.",
+        "fr": "Rayon autour du domicile marquant un appareil comme present. Un appareil n'est absent qu'au dela de 25% de ce rayon, pour eviter les allers-retours."
+      },
+      "required": false,
+      "default": 150,
+      "min": 20,
+      "max": 10000
+    },
+    {
+      "key": "advanced",
+      "type": "section",
+      "label": { "en": "Advanced", "fr": "Avance" },
+      "description": {
+        "en": "Apple rate-limits Find My: keep the refresh interval reasonable. Positions less accurate than the threshold below are ignored instead of moving your presence around.",
+        "fr": "Apple limite les appels a Localiser : gardez un intervalle de rafraichissement raisonnable. Les positions moins precises que le seuil ci-dessous sont ignorees plutot que de faire bouger votre presence."
+      }
+    },
+    {
+      "key": "poll_frequency",
+      "type": "number",
+      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraichissement (s)" },
+      "description": {
+        "en": "How often Gladys asks the integration to refresh the position of each device, in seconds.",
+        "fr": "Frequence a laquelle Gladys demande a l'integration de rafraichir la position de chaque appareil, en secondes."
+      },
+      "required": false,
+      "default": 300,
+      "min": 60,
+      "max": 3600
+    },
+    {
+      "key": "max_accuracy",
+      "type": "number",
+      "label": { "en": "Maximum accuracy (m)", "fr": "Precision maximale (m)" },
+      "description": {
+        "en": "Positions reported with a worse accuracy radius than this are ignored.",
+        "fr": "Les positions dont le rayon de precision depasse cette valeur sont ignorees."
+      },
+      "required": false,
+      "default": 500,
+      "min": 10,
+      "max": 20000
+    },
+    {
+      "key": "include_family",
+      "type": "boolean",
+      "label": { "en": "Include family devices", "fr": "Inclure les appareils de la famille" },
+      "description": {
+        "en": "Also expose the devices shared with you through Family Sharing.",
+        "fr": "Exposer aussi les appareils partages via le partage familial."
+      },
+      "required": false,
+      "default": true
+    }
+  ],
+  "actions": [
+    {
+      "key": "submit_2fa_code",
+      "label": {
+        "en": "Send the two-factor code",
+        "fr": "Envoyer le code de double authentification"
+      },
+      "timeout_seconds": 60,
+      "fields": [
+        {
+          "key": "code",
+          "type": "string",
+          "label": { "en": "6-digit code", "fr": "Code a 6 chiffres" },
+          "placeholder": { "en": "123456", "fr": "123456" },
+          "required": true
+        }
+      ]
+    },
+    {
+      "key": "check_connection",
+      "label": { "en": "Test the iCloud connection", "fr": "Tester la connexion iCloud" },
+      "timeout_seconds": 60
+    },
+    {
+      "key": "forget_session",
+      "label": { "en": "Forget the saved session", "fr": "Oublier la session enregistree" },
+      "timeout_seconds": 30
+    },
+    {
+      "key": "identify",
+      "label": { "en": "Make a device ring", "fr": "Faire sonner un appareil" },
+      "timeout_seconds": 60,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": { "en": "Device", "fr": "Appareil" },
+          "required": true
+        }
+      ]
+    }
+  ]
+}

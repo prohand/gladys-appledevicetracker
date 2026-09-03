@@ -1,0 +1,260 @@
+// -----------------------------------------------------------------------------
+// Device type: APPLE DEVICE (iPhone, iPad, Mac, Apple Watch, AirPods...).
+//
+// One Gladys device per device visible in Find My. Everything here is read-only
+// sensors refreshed by POLLING (`poll_frequency`), because Apple offers no push
+// channel: Gladys calls `onPoll` on each device at the configured interval and
+// the integration answers with the states below.
+//
+// The feature that matters for automations is `presence`: a plain binary
+// sensor, so "when my iPhone arrives at home" is a normal Gladys scene trigger.
+// -----------------------------------------------------------------------------
+
+import {
+  DEVICE_FEATURE_CATEGORIES,
+  DEVICE_FEATURE_TYPES,
+  DEVICE_FEATURE_UNITS,
+} from '@gladysassistant/integration-sdk';
+import { createHash } from 'node:crypto';
+import { distanceInMeters, isPositionUsable, resolvePresence } from '../presence.js';
+
+export const DEVICE_TYPE = 'apple-device';
+
+export const FEATURE = {
+  PRESENCE: 'presence',
+  DISTANCE: 'distance',
+  ACCURACY: 'accuracy',
+  POSITION: 'position',
+  LAST_SEEN: 'last-seen',
+  BATTERY: 'battery',
+  CHARGING: 'charging',
+};
+
+/**
+ * Apple device ids are long opaque strings that may contain `+`, `/` or `=`.
+ * Hash them into a short, stable, id-safe token: the external_id of a device
+ * must never change once Gladys has created it.
+ */
+export function platformId(appleDeviceId) {
+  return createHash('sha1').update(String(appleDeviceId)).digest('hex').slice(0, 16);
+}
+
+/** The Gladys external_id of an Apple device. */
+export function deviceExternalId(gladys, appleDeviceId) {
+  return gladys.externalIds(DEVICE_TYPE, platformId(appleDeviceId)).device;
+}
+
+function toPercent(batteryLevel) {
+  // Apple reports a 0..1 ratio, Gladys wants 0..100.
+  if (!Number.isFinite(batteryLevel) || batteryLevel < 0) {
+    return null;
+  }
+  return Math.round(batteryLevel * 100);
+}
+
+/**
+ * Reduce one raw Find My entry to the fields this integration uses. Nothing is
+ * assumed present: Apple omits `location` on a device that has never reported,
+ * and omits the battery on accessories.
+ *
+ * @param {object} raw one entry of the `content` array returned by Find My
+ */
+export function normalizeAppleDevice(raw = {}) {
+  const location = raw.location || null;
+  const batteryStatus = raw.batteryStatus || null;
+
+  return {
+    id: raw.id,
+    name: raw.name || raw.deviceDisplayName || 'Apple device',
+    model: raw.deviceDisplayName || raw.rawDeviceModel || raw.deviceModel || null,
+    batteryLevel: toPercent(raw.batteryLevel),
+    // `Charging` while plugged in, `Charged` once full: both mean "on power".
+    charging: batteryStatus ? batteryStatus === 'Charging' || batteryStatus === 'Charged' : null,
+    location: location
+      ? {
+          latitude: Number(location.latitude),
+          longitude: Number(location.longitude),
+          accuracy: Number(location.horizontalAccuracy),
+          // Apple timestamps in milliseconds since the epoch.
+          timestamp: Number(location.timeStamp) || null,
+        }
+      : null,
+  };
+}
+
+/**
+ * Build the discovery payload Gladys stores for this device.
+ *
+ * @param {object} gladys the SDK instance
+ * @param {object} config normalized integration config
+ * @param {object} device output of normalizeAppleDevice()
+ */
+export function buildDevice(gladys, config, device) {
+  const ids = gladys.externalIds(DEVICE_TYPE, platformId(device.id));
+
+  const features = [
+    {
+      name: 'Presence',
+      external_id: ids.feature(FEATURE.PRESENCE),
+      category: DEVICE_FEATURE_CATEGORIES.PRESENCE_SENSOR,
+      type: DEVICE_FEATURE_TYPES.SENSOR.BINARY,
+      read_only: true,
+      has_feedback: false,
+      keep_history: true,
+    },
+    {
+      name: 'Distance from home',
+      external_id: ids.feature(FEATURE.DISTANCE),
+      category: DEVICE_FEATURE_CATEGORIES.DISTANCE_SENSOR,
+      type: DEVICE_FEATURE_TYPES.SENSOR.DECIMAL,
+      unit: DEVICE_FEATURE_UNITS.KM,
+      min: 0,
+      max: 20000,
+      read_only: true,
+      has_feedback: false,
+      keep_history: true,
+    },
+    {
+      name: 'Position accuracy',
+      external_id: ids.feature(FEATURE.ACCURACY),
+      category: DEVICE_FEATURE_CATEGORIES.DISTANCE_SENSOR,
+      type: DEVICE_FEATURE_TYPES.SENSOR.INTEGER,
+      unit: DEVICE_FEATURE_UNITS.M,
+      min: 0,
+      max: 100000,
+      read_only: true,
+      has_feedback: false,
+      keep_history: false,
+    },
+    {
+      name: 'Position',
+      external_id: ids.feature(FEATURE.POSITION),
+      category: DEVICE_FEATURE_CATEGORIES.TEXT,
+      type: DEVICE_FEATURE_TYPES.TEXT.TEXT,
+      read_only: true,
+      has_feedback: false,
+      keep_history: false,
+    },
+    {
+      name: 'Position age',
+      external_id: ids.feature(FEATURE.LAST_SEEN),
+      category: DEVICE_FEATURE_CATEGORIES.DURATION,
+      type: DEVICE_FEATURE_TYPES.DURATION.INTEGER,
+      unit: DEVICE_FEATURE_UNITS.MINUTES,
+      min: 0,
+      max: 100000,
+      read_only: true,
+      has_feedback: false,
+      keep_history: false,
+    },
+  ];
+
+  // Accessories (AirTag, AirPods) report no battery percentage: only declare the
+  // battery features on the devices that actually have them.
+  if (device.batteryLevel !== null) {
+    features.push({
+      name: 'Battery',
+      external_id: ids.feature(FEATURE.BATTERY),
+      category: DEVICE_FEATURE_CATEGORIES.BATTERY,
+      type: DEVICE_FEATURE_TYPES.BATTERY.INTEGER,
+      unit: DEVICE_FEATURE_UNITS.PERCENT,
+      min: 0,
+      max: 100,
+      read_only: true,
+      has_feedback: false,
+      keep_history: true,
+    });
+  }
+  if (device.charging !== null) {
+    features.push({
+      name: 'Charging',
+      external_id: ids.feature(FEATURE.CHARGING),
+      category: DEVICE_FEATURE_CATEGORIES.BATTERY,
+      type: DEVICE_FEATURE_TYPES.BATTERY.CHARGING,
+      read_only: true,
+      has_feedback: false,
+      keep_history: false,
+    });
+  }
+
+  return {
+    name: device.name,
+    external_id: ids.device,
+    // Gladys calls onPoll on this device at this interval (in seconds).
+    poll_frequency: config.poll_frequency,
+    params: [
+      { name: 'apple_device_id', value: String(device.id) },
+      ...(device.model ? [{ name: 'apple_model', value: String(device.model) }] : []),
+    ],
+    features,
+  };
+}
+
+/**
+ * Build the states to publish for one device.
+ *
+ * @param {object} gladys the SDK instance
+ * @param {object} config normalized integration config
+ * @param {object} device output of normalizeAppleDevice()
+ * @param {boolean|null} wasPresent previous presence, for the hysteresis
+ * @returns {{ states: object[], presence: boolean|null, ignored: boolean }}
+ *   `ignored` is true when the position was too vague to be used.
+ */
+export function buildStates(gladys, config, device, wasPresent = null) {
+  const ids = gladys.externalIds(DEVICE_TYPE, platformId(device.id));
+  const states = [];
+
+  if (device.batteryLevel !== null) {
+    states.push({
+      device_feature_external_id: ids.feature(FEATURE.BATTERY),
+      state: device.batteryLevel,
+    });
+  }
+  if (device.charging !== null) {
+    states.push({
+      device_feature_external_id: ids.feature(FEATURE.CHARGING),
+      state: device.charging ? 1 : 0,
+    });
+  }
+
+  if (!isPositionUsable(device.location, config.max_accuracy)) {
+    // Keep the last known presence rather than publishing a wrong one.
+    return { states, presence: wasPresent, ignored: true };
+  }
+
+  const { latitude, longitude, accuracy, timestamp } = device.location;
+  const distance = distanceInMeters(
+    { latitude: config.home_latitude, longitude: config.home_longitude },
+    { latitude, longitude },
+  );
+  const presence = resolvePresence({ distance, radius: config.home_radius, wasPresent });
+
+  states.push(
+    { device_feature_external_id: ids.feature(FEATURE.PRESENCE), state: presence ? 1 : 0 },
+    {
+      device_feature_external_id: ids.feature(FEATURE.DISTANCE),
+      // Kilometers, rounded to the meter: enough for a distance sensor.
+      state: Math.round(distance) / 1000,
+    },
+    {
+      device_feature_external_id: ids.feature(FEATURE.POSITION),
+      text: `${latitude.toFixed(6)},${longitude.toFixed(6)}`,
+    },
+  );
+
+  if (Number.isFinite(accuracy)) {
+    states.push({
+      device_feature_external_id: ids.feature(FEATURE.ACCURACY),
+      state: Math.round(accuracy),
+    });
+  }
+  if (Number.isFinite(timestamp) && timestamp > 0) {
+    const ageMinutes = Math.max(0, Math.round((Date.now() - timestamp) / 60000));
+    states.push({
+      device_feature_external_id: ids.feature(FEATURE.LAST_SEEN),
+      state: ageMinutes,
+    });
+  }
+
+  return { states, presence, ignored: false };
+}

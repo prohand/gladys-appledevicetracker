@@ -1,0 +1,123 @@
+# Apple Device Tracker
+
+Cette intégration se connecte à votre compte iCloud, lit la position des
+appareils visibles dans **Localiser** (Find My) et les expose dans Gladys comme
+des **capteurs de présence**. Vous pouvez ensuite déclencher vos scènes sur
+« mon iPhone arrive à la maison » ou « plus personne n'est là ».
+
+## Ce que vous obtenez
+
+Un appareil Gladys par appareil Apple (iPhone, iPad, Mac, Apple Watch,
+AirPods, AirTag…), avec ces mesures :
+
+| Mesure               | Type         | À quoi ça sert                                    |
+| -------------------- | ------------ | ------------------------------------------------- |
+| Présence             | Binaire      | Le déclencheur de vos scènes (1 = à la maison)    |
+| Distance du domicile | Décimal (km) | Suivre l'éloignement, déclencher un pré-chauffage |
+| Précision            | Entier (m)   | Savoir si la position vient du GPS ou du Wi-Fi    |
+| Position             | Texte        | « latitude,longitude », pratique en debug         |
+| Âge de la position   | Entier (min) | Détecter un appareil éteint qui ne remonte plus   |
+| Batterie             | Entier (%)   | Alerter sur une batterie faible                   |
+| En charge            | Binaire      | Savoir si l'appareil est branché                  |
+
+Batterie et charge n'apparaissent que sur les appareils qui les remontent :
+un AirTag n'en a pas.
+
+## Configuration
+
+1. Ouvrez l'onglet **Configuration** de l'intégration.
+2. Renseignez votre **identifiant Apple** (l'e-mail du compte iCloud) et votre
+   **mot de passe**. Ils sont stockés chiffrés par Gladys et ne sont envoyés
+   qu'à Apple.
+3. Renseignez la **latitude** et la **longitude** de votre domicile, ainsi que
+   le **rayon** dans lequel un appareil est considéré comme présent (150 m par
+   défaut, à augmenter si votre terrain est grand ou si vos appareils sont
+   souvent localisés par le Wi-Fi).
+4. Enregistrez.
+
+### Double authentification (2FA)
+
+Si votre compte utilise la double authentification — c'est le cas par défaut
+chez Apple — un code à 6 chiffres s'affiche sur vos appareils Apple juste après
+l'enregistrement.
+
+1. Notez le code.
+2. Dans l'onglet **Configuration**, cliquez sur **Envoyer le code de double
+   authentification**, saisissez-le, validez.
+3. L'intégration demande alors à Apple de **faire confiance** à cette session :
+   le code n'est plus redemandé aux redémarrages suivants (Apple garde cette
+   confiance environ 30 jours, parfois moins).
+
+Si le code n'apparaît pas, cliquez sur **Tester la connexion iCloud** : la
+connexion est relancée et Apple renvoie un code.
+
+## Réglages avancés
+
+- **Intervalle de rafraîchissement** (`poll_frequency`, 300 s par défaut) :
+  la fréquence à laquelle Gladys demande une nouvelle position. C'est le
+  réglage à ajuster en premier — plus court = présence plus réactive, mais
+  plus d'appels chez Apple et plus de batterie consommée sur vos appareils.
+  Le minimum accepté est 60 s. Quel que soit le réglage, l'intégration
+  n'interroge jamais Apple plus d'une fois toutes les 30 secondes, et un seul
+  appel suffit pour tous vos appareils.
+- **Précision maximale** (500 m par défaut) : une position annoncée avec un
+  rayon d'incertitude supérieur est **ignorée**. Sans ce garde-fou, une
+  position déduite du Wi-Fi de l'opérateur ferait « voyager » votre présence
+  de plusieurs kilomètres.
+- **Inclure les appareils de la famille** : expose aussi les appareils
+  partagés via le partage familial.
+
+### Anti-rebond de la présence
+
+Un appareil devient présent dès qu'il entre dans le rayon, mais il ne devient
+absent qu'à **125 % du rayon**. Avec un rayon de 150 m, il faut donc dépasser
+187 m pour être déclaré parti. C'est ce qui évite qu'un téléphone posé en bord
+de zone déclenche vos scènes en boucle à cause du bruit GPS.
+
+## Actions disponibles
+
+- **Envoyer le code de double authentification** — valide le code à 6 chiffres
+  et fait approuver la session par Apple.
+- **Tester la connexion iCloud** — relance une connexion et affiche le nombre
+  d'appareils trouvés avec leurs noms.
+- **Oublier la session enregistrée** — efface les jetons stockés. À utiliser si
+  la connexion est bloquée dans un état bizarre : la connexion suivante repart
+  de zéro (et redemandera un code 2FA).
+- **Faire sonner un appareil** — choisissez un de vos appareils, il joue le son
+  de Localiser. Pratique pour retrouver un téléphone dans le canapé.
+
+## Dépannage
+
+**« Connexion à iCloud impossible : ... »** : le message reprend la réponse
+d'Apple. Les causes les plus fréquentes sont un mot de passe changé, un compte
+temporairement verrouillé après trop d'essais, ou une session à réapprouver.
+
+**Aucun appareil n'apparaît** : vérifiez que **Localiser mon iPhone** est
+activé sur les appareils concernés (Réglages → votre nom → Localiser). Un
+appareil éteint ou hors ligne depuis longtemps peut aussi ne remonter aucune
+position ; il apparaîtra dans Gladys mais sans présence tant qu'Apple n'a rien
+de récent.
+
+**La présence ne bouge pas** : regardez la mesure _Précision_. Si elle est
+proche ou au-dessus de votre réglage « Précision maximale », les positions sont
+ignorées — augmentez le seuil, ou le rayon du domicile.
+
+**Le code 2FA est redemandé souvent** : c'est Apple qui décide de la durée de
+confiance d'une session. Évitez de changer le mot de passe ou de révoquer les
+sessions depuis appleid.apple.com.
+
+L'intégration journalise tout ce qu'elle fait : consultez ses logs depuis
+l'interface Gladys (ou `docker logs` sur l'hôte), avec `LOG_LEVEL=debug` pour
+le détail complet.
+
+## À savoir
+
+Apple ne publie **aucune API officielle** pour Localiser. Cette intégration
+utilise la même interface que le site web icloud.com, avec le même mécanisme de
+connexion sécurisée (SRP : votre mot de passe ne quitte jamais votre machine,
+seule une preuve cryptographique est envoyée). Apple peut modifier cette
+interface sans prévenir : si l'intégration cesse de fonctionner du jour au
+lendemain, c'est la cause la plus probable.
+
+Vos identifiants restent chez vous, dans votre instance Gladys, et ne
+transitent par aucun service tiers.
