@@ -65,7 +65,13 @@
       "required": true,
       "default": 48.8566,
       "min": -90,
-      "max": 90
+      "max": 90,
+      "step": "any",
+      "placeholder": { "en": "48.8566", "fr": "48.8566" },
+      "description": {
+        "en": "Decimal degrees, with a dot as decimal separator (example: 48.8566).",
+        "fr": "Degres decimaux, avec un point comme separateur (exemple : 48.8566)."
+      }
     },
     {
       "key": "home_longitude",
@@ -74,7 +80,13 @@
       "required": true,
       "default": 2.3522,
       "min": -180,
-      "max": 180
+      "max": 180,
+      "step": "any",
+      "placeholder": { "en": "2.3522", "fr": "2.3522" },
+      "description": {
+        "en": "Decimal degrees, with a dot as decimal separator (example: 2.3522).",
+        "fr": "Degres decimaux, avec un point comme separateur (exemple : 2.3522)."
+      }
     },
     {
       "key": "home_radius",
