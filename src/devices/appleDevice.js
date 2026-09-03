@@ -99,6 +99,9 @@ export function buildDevice(gladys, config, device) {
       external_id: ids.feature(FEATURE.PRESENCE),
       category: DEVICE_FEATURE_CATEGORIES.PRESENCE_SENSOR,
       type: DEVICE_FEATURE_TYPES.SENSOR.BINARY,
+      // Gladys refuses a feature whose min/max is null, binary included: 0 = away, 1 = home.
+      min: 0,
+      max: 1,
       read_only: true,
       has_feedback: false,
       keep_history: true,
@@ -119,7 +122,9 @@ export function buildDevice(gladys, config, device) {
       name: 'Position accuracy',
       external_id: ids.feature(FEATURE.ACCURACY),
       category: DEVICE_FEATURE_CATEGORIES.DISTANCE_SENSOR,
-      type: DEVICE_FEATURE_TYPES.SENSOR.INTEGER,
+      // A distance sensor is a DECIMAL in Gladys: the INTEGER type has no name in the
+      // interface and the feature is displayed blank.
+      type: DEVICE_FEATURE_TYPES.SENSOR.DECIMAL,
       unit: DEVICE_FEATURE_UNITS.M,
       min: 0,
       max: 100000,
@@ -132,6 +137,9 @@ export function buildDevice(gladys, config, device) {
       external_id: ids.feature(FEATURE.POSITION),
       category: DEVICE_FEATURE_CATEGORIES.TEXT,
       type: DEVICE_FEATURE_TYPES.TEXT.TEXT,
+      // The value is a string, but Gladys still requires numeric bounds.
+      min: 0,
+      max: 0,
       read_only: true,
       has_feedback: false,
       keep_history: false,
@@ -172,6 +180,8 @@ export function buildDevice(gladys, config, device) {
       external_id: ids.feature(FEATURE.CHARGING),
       category: DEVICE_FEATURE_CATEGORIES.BATTERY,
       type: DEVICE_FEATURE_TYPES.BATTERY.CHARGING,
+      min: 0,
+      max: 1,
       read_only: true,
       has_feedback: false,
       keep_history: false,
