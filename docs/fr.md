@@ -7,8 +7,9 @@ des **capteurs de présence**. Vous pouvez ensuite déclencher vos scènes sur
 
 ## Ce que vous obtenez
 
-Un appareil Gladys par appareil Apple (iPhone, iPad, Mac, Apple Watch,
-AirPods, AirTag…), avec ces mesures :
+Un appareil Gladys par appareil visible dans **Localiser** sur iCloud.com
+(iPhone, iPad, Mac, Apple Watch, et les AirPods qu'Apple y liste), avec ces
+mesures :
 
 | Mesure               | Type         | À quoi ça sert                                    |
 | -------------------- | ------------ | ------------------------------------------------- |
@@ -21,7 +22,15 @@ AirPods, AirTag…), avec ces mesures :
 | En charge            | Binaire      | Savoir si l'appareil est branché                  |
 
 Batterie et charge n'apparaissent que sur les appareils qui les remontent :
-un AirTag n'en a pas.
+un accessoire n'en a pas.
+
+> **Les AirTag ne sont pas remontés.** Apple ne les expose pas dans l'API web
+> de Localiser : leur position est chiffrée de bout en bout et n'est déchiffrée
+> que par l'app Localiser sur un appareil Apple. iCloud.com lui-même n'affiche
+> que l'onglet « Appareils », jamais les « Objets » — aucune intégration
+> passant par le compte iCloud ne peut donc les voir. L'intégration lit malgré
+> tout les listes d'accessoires si Apple se met un jour à les servir : elles
+> seront découvertes sans nouvelle version.
 
 ## Configuration
 
@@ -112,6 +121,13 @@ de zone déclenche vos scènes en boucle à cause du bruit GPS.
 **« Connexion à iCloud impossible : ... »** : le message reprend la réponse
 d'Apple. Les causes les plus fréquentes sont un mot de passe changé, un compte
 temporairement verrouillé après trop d'essais, ou une session à réapprouver.
+
+**Mon AirTag n'apparaît pas** : c'est attendu, et ce n'est pas réparable côté
+intégration (voir l'encadré plus haut). Apple ne donne la position des objets
+Localiser qu'à l'app Localiser d'un appareil Apple. Pour déclencher une scène
+sur un objet, la solution est de suivre un appareil qui, lui, remonte sa
+position (iPhone, Apple Watch), ou un traqueur d'une autre marque avec sa
+propre intégration.
 
 **Aucun appareil n'apparaît** : vérifiez que **Localiser mon iPhone** est
 activé sur les appareils concernés (Réglages → votre nom → Localiser). Un

@@ -10,11 +10,17 @@
 // Apple side (opaque device ids) and the Gladys side (external_ids).
 // -----------------------------------------------------------------------------
 
-import { buildDevice, deviceExternalId, normalizeAppleDevice } from './appleDevice.js';
+import {
+  appleDeviceId,
+  buildDevice,
+  deviceExternalId,
+  normalizeAppleDevice,
+} from './appleDevice.js';
 
 export {
   DEVICE_TYPE,
   FEATURE,
+  appleDeviceId,
   buildStates,
   deviceExternalId,
   normalizeAppleDevice,
@@ -24,10 +30,12 @@ export {
  * Normalize the raw Find My payload, dropping the entries we cannot use.
  * A device with no id can never get a stable external_id.
  *
- * @param {object[]} rawDevices the `content` array returned by Find My
+ * @param {object[]} rawDevices the entries returned by Find My
  */
 export function normalizeAppleDevices(rawDevices = []) {
-  return rawDevices.filter((raw) => raw && raw.id).map((raw) => normalizeAppleDevice(raw));
+  return rawDevices
+    .filter((raw) => raw && appleDeviceId(raw))
+    .map((raw) => normalizeAppleDevice(raw));
 }
 
 /**
