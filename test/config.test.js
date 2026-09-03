@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_CONFIG,
+  GLADYS_POLL_FREQUENCIES_MS,
+  gladysPollFrequency,
   hasCredentials,
   normalizeConfig,
   sameAccount,
@@ -78,4 +80,18 @@ test('saving the iCloud session is not a settings change', () => {
 
   const moved = normalizeConfig({ apple_id: 'a@b.c', apple_password: 'x', home_radius: 900 });
   assert.equal(sameSettings(before, moved), false);
+});
+
+test('the poll frequency sent to Gladys is one of the values it accepts', () => {
+  // Gladys stores it as an enum of milliseconds; anything else is rejected with
+  // "invalid poll frequency" when the devices are published.
+  assert.equal(gladysPollFrequency(300), 60_000);
+  assert.equal(gladysPollFrequency(3600), 60_000);
+  assert.equal(gladysPollFrequency(60), 60_000);
+  assert.equal(gladysPollFrequency(30), 30_000);
+  // Below the smallest allowed value, fall back to it rather than to zero.
+  assert.equal(gladysPollFrequency(0.5), 1_000);
+  for (const seconds of [60, 120, 300, 900, 3600]) {
+    assert.ok(GLADYS_POLL_FREQUENCIES_MS.includes(gladysPollFrequency(seconds)));
+  }
 });

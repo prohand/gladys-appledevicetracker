@@ -56,6 +56,9 @@ Gladys polls **per device** while Find My answers for **all** devices at once,
 so [`src/tracker.js`](./src/tracker.js) collapses the per-device polls into a
 single call to Apple (in-flight de-duplication + a freshness window), and only
 publishes the values that actually changed — the host API rate-limits states.
+Gladys accepts only its own enum of poll frequencies (milliseconds, one minute
+at most), so the devices are published with that one-minute tick and the
+freshness window is what enforces your `poll_frequency`.
 
 ## Project structure
 
@@ -91,7 +94,7 @@ code.
 | `home_latitude`  | 48.8566 | Home position, decimal degrees (pre-filled) |
 | `home_longitude` | 2.3522  | Home position, decimal degrees (pre-filled) |
 | `home_radius`    | 150     | Meters, radius marking a device as present  |
-| `poll_frequency` | 300     | Seconds between two refreshes (60–3600)     |
+| `poll_frequency` | 300     | Seconds between two Find My calls (60–3600) |
 | `max_accuracy`   | 500     | Meters, above which a position is ignored   |
 | `include_family` | true    | Include the Family Sharing devices          |
 

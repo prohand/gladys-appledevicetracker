@@ -153,15 +153,17 @@ test('Gladys polling every device only triggers ONE call to Apple', async () => 
   assert.equal(client.calls.fetchDevices, 1, 'the cached result is reused');
 });
 
-test('a refresh past half the poll interval calls Apple again', async () => {
+test('a refresh past the poll interval calls Apple again', async () => {
   const { client, tracker, advance } = createTracker({ devices: [fakeFindMyDevice()] });
   await tracker.start(CONFIG);
 
-  advance(149_000); // less than poll_frequency / 2
+  // Gladys ticks every minute whatever the setting: those early ticks are
+  // answered from the cache.
+  advance(240_000); // 4 minutes, still under the 300 s interval
   await tracker.refresh();
   assert.equal(client.calls.fetchDevices, 1);
 
-  advance(2_000); // past it
+  advance(60_000); // the fifth tick, past it
   await tracker.refresh();
   assert.equal(client.calls.fetchDevices, 2);
 });

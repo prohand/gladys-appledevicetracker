@@ -64,12 +64,15 @@ confiance.
 ## Réglages avancés
 
 - **Intervalle de rafraîchissement** (`poll_frequency`, 300 s par défaut) :
-  la fréquence à laquelle Gladys demande une nouvelle position. C'est le
-  réglage à ajuster en premier — plus court = présence plus réactive, mais
-  plus d'appels chez Apple et plus de batterie consommée sur vos appareils.
-  Le minimum accepté est 60 s. Quel que soit le réglage, l'intégration
-  n'interroge jamais Apple plus d'une fois toutes les 30 secondes, et un seul
-  appel suffit pour tous vos appareils.
+  la fréquence à laquelle l'intégration demande une nouvelle position à Apple.
+  C'est le réglage à ajuster en premier — plus court = présence plus réactive,
+  mais plus d'appels chez Apple et plus de batterie consommée sur vos
+  appareils. Le minimum accepté est 60 s. Gladys, de son côté, ne sait pas
+  interroger plus lentement qu'une fois par minute : entre deux
+  rafraîchissements réels, l'intégration répond simplement avec la dernière
+  position connue. Quel que soit le réglage, elle n'interroge jamais Apple plus
+  d'une fois toutes les 30 secondes, et un seul appel suffit pour tous vos
+  appareils.
 - **Précision maximale** (500 m par défaut) : une position annoncée avec un
   rayon d'incertitude supérieur est **ignorée**. Sans ce garde-fou, une
   position déduite du Wi-Fi de l'opérateur ferait « voyager » votre présence

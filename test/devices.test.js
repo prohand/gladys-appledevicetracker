@@ -80,14 +80,16 @@ test('the external_id stays stable and id-safe whatever the Apple id looks like'
   assert.match(first, /^apple-device:[0-9a-f]{16}$/);
 });
 
-test('every device carries the configured poll frequency', () => {
+test('every device carries a poll frequency Gladys accepts', () => {
+  // Gladys only accepts an enum of milliseconds, capped at one minute: sending
+  // the configured seconds would fail with "invalid poll frequency".
   const devices = normalizeAppleDevices([fakeFindMyDevice()]);
   const [device] = buildDiscoveredDevices(
     gladys,
     normalizeConfig({ poll_frequency: 600 }),
     devices,
   );
-  assert.equal(device.poll_frequency, 600);
+  assert.equal(device.poll_frequency, 60_000);
 });
 
 test('the presence feature is a plain binary sensor, usable as a scene trigger', () => {

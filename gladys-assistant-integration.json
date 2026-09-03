@@ -108,8 +108,8 @@
       "type": "number",
       "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraichissement (s)" },
       "description": {
-        "en": "How often Gladys asks the integration to refresh the position of each device, in seconds.",
-        "fr": "Frequence a laquelle Gladys demande a l'integration de rafraichir la position de chaque appareil, en secondes."
+        "en": "How often the integration asks Apple for a new position, in seconds. Gladys itself ticks every minute (its own limit) and the integration answers from its cache until this interval has passed.",
+        "fr": "Frequence a laquelle l'integration demande une nouvelle position a Apple, en secondes. Gladys interroge l'integration chaque minute (sa propre limite) et l'integration repond depuis son cache tant que cet intervalle n'est pas ecoule."
       },
       "required": false,
       "default": 300,
