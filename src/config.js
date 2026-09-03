@@ -15,8 +15,9 @@
 export const DEFAULT_CONFIG = {
   apple_id: '',
   apple_password: '',
-  // The coordinates are required text fields in the manifest (no `default`
-  // there): these values only cover a config saved before they were filled in.
+  // The coordinates are optional text fields in the manifest (no `default`
+  // there): they are pre-filled from the Gladys house at startup, and these
+  // values are the last resort when Gladys itself has no position.
   home_latitude: 48.8566, // Paris
   home_longitude: 2.3522,
   home_radius: 150, // meters, radius marking a device as "at home"
@@ -78,6 +79,23 @@ export function normalizeConfig(raw = {}) {
     include_family: raw.include_family !== false,
     icloud_session: String(raw.icloud_session ?? ''),
   };
+}
+
+/**
+ * True when the raw config already carries a usable home position, i.e. the
+ * user typed it or we pre-filled it from the Gladys house. Reads the RAW
+ * config on purpose: `normalizeConfig` replaces a missing coordinate by the
+ * default, so a normalized config can never look empty.
+ * @param {Record<string, unknown>} raw config returned by the SDK
+ */
+export function hasHomeCoordinates(raw = {}) {
+  return ['home_latitude', 'home_longitude'].every((key) => {
+    const value = raw[key];
+    if (typeof value === 'string') {
+      return value.trim() !== '' && Number.isFinite(Number(value.trim().replace(',', '.')));
+    }
+    return Number.isFinite(value);
+  });
 }
 
 /**
