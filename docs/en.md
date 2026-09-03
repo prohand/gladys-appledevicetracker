@@ -54,7 +54,9 @@ phone number) receives it by **SMS**.
    days, sometimes less).
 
 If nothing arrives, click **Send me a new two-factor code**: Apple sends
-another one (push first, SMS as a fallback) without starting over.
+another one (push first, SMS as a fallback) without starting over. And when the
+notification still does not show up on your devices, **Send me the code by SMS**
+forces it to a trusted phone number.
 
 ## Advanced settings
 
@@ -83,6 +85,8 @@ zone from firing your scenes over and over because of GPS noise.
   session trusted by Apple.
 - **Send me a new two-factor code** — asks Apple for another code: a push to the
   trusted devices, or an SMS when the account has none.
+- **Send me the code by SMS** — forces the code to a trusted phone number, even
+  when the account has trusted devices.
 - **Get the coordinates of my Gladys house** — fills the latitude and longitude
   from your Gladys house, and shows the exact error when Gladys does not serve
   them. Reload the page to see the filled fields.
@@ -100,7 +104,9 @@ zone from firing your scenes over and over because of GPS noise.
 The usual causes are a changed password, an account temporarily locked after
 too many attempts, or a session that needs approving again.
 
-**No two-factor code arrives**: use **Send me a new two-factor code**. Then
+**No two-factor code arrives**: use **Send me a new two-factor code**, then
+**Send me the code by SMS**. The message shown in the Configuration tab repeats
+the reason Apple gave when it refused to send anything. Then
 check on appleid.apple.com that the account really has a trusted device or a
 trusted phone number — without one of the two, Apple has nowhere to send it.
 

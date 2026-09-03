@@ -168,6 +168,14 @@
       "timeout_seconds": 60
     },
     {
+      "key": "send_2fa_code_by_sms",
+      "label": {
+        "en": "Send me the code by SMS",
+        "fr": "M'envoyer le code par SMS"
+      },
+      "timeout_seconds": 60
+    },
+    {
       "key": "refresh_home_location",
       "label": {
         "en": "Get the coordinates of my Gladys house",
