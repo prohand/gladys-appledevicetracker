@@ -114,11 +114,12 @@ test('config_schema fields only use keys the manifest schema knows', () => {
 test('the home coordinates are text fields, so decimals survive the form', () => {
   // A `number` input without a `step` rounds 48.8566 to 49, and `step` is not
   // part of the manifest schema: the coordinates are typed as text and parsed
-  // by normalizeConfig.
+  // by normalizeConfig. They are optional: left empty, index.js fills them with
+  // the position of the Gladys house.
   for (const key of ['home_latitude', 'home_longitude']) {
     const field = manifest.config_schema.find((f) => f.key === key);
     assert.equal(field.type, 'string', `"${key}" must stay a text field`);
-    assert.equal(field.required, true);
+    assert.equal(field.required, false, `"${key}" is pre-filled, so it cannot be required`);
     assert.equal(field.min, undefined, 'min/max are for number fields only');
     assert.equal(field.max, undefined, 'min/max are for number fields only');
   }
@@ -155,4 +156,12 @@ test('declaring catalog categories requires Gladys >= 4.86.0', () => {
   assert.ok(minVersion, 'gladys_version must declare a minimum version');
   const [, major, minor] = minVersion.map(Number);
   assert.ok(major > 4 || (major === 4 && minor >= 86), `got "${manifest.gladys_version}"`);
+});
+
+test('index.js pre-fills the home coordinates from the Gladys house', () => {
+  // The manifest promises it in the description of the "home" section: without
+  // this call the fields would just stay empty.
+  assert.ok(indexSource.includes('fetchGladysHomeCoordinates'));
+  const home = manifest.config_schema.find((f) => f.key === 'home');
+  assert.match(home.description.en, /pre-filled/i);
 });

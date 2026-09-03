@@ -15,7 +15,14 @@
 // -----------------------------------------------------------------------------
 
 import { GladysIntegration, logger } from '@gladysassistant/integration-sdk';
-import { hasCredentials, normalizeConfig, sameAccount, sameSettings } from './src/config.js';
+import {
+  hasCredentials,
+  hasHomeCoordinates,
+  normalizeConfig,
+  sameAccount,
+  sameSettings,
+} from './src/config.js';
+import { fetchGladysHomeCoordinates } from './src/homeLocation.js';
 import { AppleDeviceTracker, TRACKER_STATUS } from './src/tracker.js';
 
 const gladys = new GladysIntegration();
@@ -45,10 +52,42 @@ async function reportFailure(message, err) {
     .catch((e) => logger.error('setConnectionStatus failed', e));
 }
 
+/**
+ * Pre-fill the home coordinates with the position of the Gladys house, when the
+ * user has not set them yet. Written back with `setConfig` so the Configuration
+ * screen shows the fields filled in (and the user can still correct them).
+ *
+ * @param {Record<string, unknown>} raw the config as returned by the SDK
+ * @returns {Promise<Record<string, unknown>>} the config to use from now on
+ */
+async function prefillHomeCoordinates(raw) {
+  if (hasHomeCoordinates(raw)) {
+    return raw;
+  }
+
+  const coordinates = await fetchGladysHomeCoordinates(gladys);
+  if (!coordinates) {
+    logger.info('Gladys has no house position: fill in the home coordinates by hand');
+    return raw;
+  }
+
+  // Saved as text: the fields are `string` in the manifest, and a string keeps
+  // every decimal (a `number` input would round them).
+  const filled = {
+    home_latitude: String(coordinates.latitude),
+    home_longitude: String(coordinates.longitude),
+  };
+  logger.info(
+    `Home coordinates pre-filled from the Gladys house (${filled.home_latitude}, ${filled.home_longitude})`,
+  );
+  await gladys.setConfig(filled).catch((err) => logger.error('Saving the coordinates failed', err));
+  return { ...raw, ...filled };
+}
+
 /** Sign in to iCloud and publish what Find My reports. */
 async function initialize() {
   const previous = config;
-  config = normalizeConfig(await gladys.getConfig());
+  config = normalizeConfig(await prefillHomeCoordinates(await gladys.getConfig()));
   tracker.updateConfig(config);
 
   // This runs on every (re)connection to Gladys, including a WebSocket that

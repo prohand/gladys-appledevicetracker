@@ -84,16 +84,16 @@ Everything is filled in from the Gladys Configuration screen — see
 [`docs/en.md`](./docs/en.md) for the step-by-step, including the two-factor
 code.
 
-| Key              | Default | Meaning                                    |
-| ---------------- | ------- | ------------------------------------------ |
-| `apple_id`       | —       | Apple ID email (required)                  |
-| `apple_password` | —       | Apple ID password, stored as a secret      |
-| `home_latitude`  | 48.8566 | Home position, decimal degrees (required)  |
-| `home_longitude` | 2.3522  | Home position, decimal degrees (required)  |
-| `home_radius`    | 150     | Meters, radius marking a device as present |
-| `poll_frequency` | 300     | Seconds between two refreshes (60–3600)    |
-| `max_accuracy`   | 500     | Meters, above which a position is ignored  |
-| `include_family` | true    | Include the Family Sharing devices         |
+| Key              | Default | Meaning                                     |
+| ---------------- | ------- | ------------------------------------------- |
+| `apple_id`       | —       | Apple ID email (required)                   |
+| `apple_password` | —       | Apple ID password, stored as a secret       |
+| `home_latitude`  | 48.8566 | Home position, decimal degrees (pre-filled) |
+| `home_longitude` | 2.3522  | Home position, decimal degrees (pre-filled) |
+| `home_radius`    | 150     | Meters, radius marking a device as present  |
+| `poll_frequency` | 300     | Seconds between two refreshes (60–3600)     |
+| `max_accuracy`   | 500     | Meters, above which a position is ignored   |
+| `include_family` | true    | Include the Family Sharing devices          |
 
 ## Run it locally
 

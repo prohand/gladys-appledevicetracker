@@ -54,30 +54,30 @@
       "type": "section",
       "label": { "en": "Your home", "fr": "Votre domicile" },
       "description": {
-        "en": "A device is considered present when it is inside the radius below. Copy the coordinates of your home from any map service.",
-        "fr": "Un appareil est considere present quand il se trouve dans le rayon ci-dessous. Copiez les coordonnees de votre domicile depuis n'importe quelle carte."
+        "en": "A device is considered present when it is inside the radius below. The coordinates are pre-filled with the position of your Gladys house: correct them only if you want another reference point.",
+        "fr": "Un appareil est considere present quand il se trouve dans le rayon ci-dessous. Les coordonnees sont pre-remplies avec la position de votre maison Gladys : corrigez-les seulement si vous voulez un autre point de reference."
       }
     },
     {
       "key": "home_latitude",
       "type": "string",
       "label": { "en": "Home latitude", "fr": "Latitude du domicile" },
-      "required": true,
+      "required": false,
       "placeholder": { "en": "48.8566", "fr": "48.8566" },
       "description": {
-        "en": "Decimal degrees between -90 and 90 (example: 48.8566). A text field, so the decimals are never rounded.",
-        "fr": "Degres decimaux entre -90 et 90 (exemple : 48.8566). Un champ texte, pour que les decimales ne soient jamais arrondies."
+        "en": "Decimal degrees between -90 and 90 (example: 48.8566). Pre-filled from your Gladys house when left empty. A text field, so the decimals are never rounded.",
+        "fr": "Degres decimaux entre -90 et 90 (exemple : 48.8566). Pre-remplie depuis votre maison Gladys si le champ est vide. Un champ texte, pour que les decimales ne soient jamais arrondies."
       }
     },
     {
       "key": "home_longitude",
       "type": "string",
       "label": { "en": "Home longitude", "fr": "Longitude du domicile" },
-      "required": true,
+      "required": false,
       "placeholder": { "en": "2.3522", "fr": "2.3522" },
       "description": {
-        "en": "Decimal degrees between -180 and 180 (example: 2.3522). A text field, so the decimals are never rounded.",
-        "fr": "Degres decimaux entre -180 et 180 (exemple : 2.3522). Un champ texte, pour que les decimales ne soient jamais arrondies."
+        "en": "Decimal degrees between -180 and 180 (example: 2.3522). Pre-filled from your Gladys house when left empty. A text field, so the decimals are never rounded.",
+        "fr": "Degres decimaux entre -180 et 180 (exemple : 2.3522). Pre-remplie depuis votre maison Gladys si le champ est vide. Un champ texte, pour que les decimales ne soient jamais arrondies."
       }
     },
     {
