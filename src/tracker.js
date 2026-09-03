@@ -75,6 +75,8 @@ export class AppleDeviceTracker {
 
     this.lastRefreshAt = 0;
     this.inflightRefresh = null;
+    /** Handle of the integration's own refresh loop (see startPolling). */
+    this.pollTimer = null;
     /** Signature of the device list, to re-publish only when it changes. */
     this.deviceSignature = null;
   }
@@ -107,7 +109,36 @@ export class AppleDeviceTracker {
 
     this.status = TRACKER_STATUS.CONNECTED;
     await this.refresh({ force: true });
+    this.startPolling();
     return this.status;
+  }
+
+  /**
+   * The integration's OWN refresh loop.
+   *
+   * Gladys polls the devices it has created, and that used to be the only clock
+   * here — so nothing was ever refreshed while no device existed yet, and a
+   * Gladys that stops polling (a device the user never created, a scheduler
+   * that skipped it) meant a dashboard frozen forever. The loop below is that
+   * clock: `refresh()` still de-duplicates, so a tick landing on top of a
+   * Gladys poll costs nothing.
+   */
+  startPolling() {
+    this.stopPolling();
+    const interval = Math.max(MIN_REFRESH_INTERVAL_MS, this.config.poll_frequency * 1000);
+    this.pollTimer = setInterval(() => {
+      this.refresh().catch((err) => logger.error('Scheduled refresh failed', err));
+    }, interval);
+    // A timer must never be the reason the process stays alive.
+    this.pollTimer.unref?.();
+  }
+
+  /** Stop the refresh loop (sign-out, or before re-arming it). */
+  stopPolling() {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
   }
 
   /** Persist the iCloud session in the integration config (key outside the schema). */
@@ -121,7 +152,12 @@ export class AppleDeviceTracker {
 
   /** Apply a config change that does not require signing in again. */
   updateConfig(config) {
+    const previousFrequency = this.config?.poll_frequency;
     this.config = config;
+    // The user moved the interval: the loop must tick at the new pace.
+    if (this.pollTimer && previousFrequency !== config.poll_frequency) {
+      this.startPolling();
+    }
   }
 
   /** True once a sign-in has been attempted: the client can talk to Apple. */
@@ -162,11 +198,13 @@ export class AppleDeviceTracker {
     await this.client.submitSecurityCode(code);
     this.status = TRACKER_STATUS.CONNECTED;
     await this.refresh({ force: true });
+    this.startPolling();
     return this.devices.length;
   }
 
   /** Drop the saved session, so the next start() runs a full sign-in. */
   async forgetSession() {
+    this.stopPolling();
     if (this.client) {
       await this.client.forgetSession();
     }
@@ -185,27 +223,73 @@ export class AppleDeviceTracker {
   }
 
   /**
-   * Gladys polls ONE device: refresh like any other tick, but treat the first
-   * poll of a device as the moment the user created it in Gladys.
+   * The user just created one of the discovered devices in Gladys: give it its
+   * values NOW.
    *
    * Discovered devices only become real devices when the user adds them, and
    * the host API silently drops the states of a feature that does not exist
-   * yet: everything published before that add is lost, and the dedup below
-   * would then keep quiet until a value moves — the device would sit on the
-   * dashboard with no recent value for hours. So its states are published
-   * again, from the cache, without waiting for the next call to Apple.
+   * yet: everything published before that add is lost, and the dedup in
+   * `publishStates` would then keep quiet until a value moves — the device
+   * would sit on the dashboard with no value at all for hours. So its states
+   * are published again, from the cache when it is still fresh.
+   *
+   * Called both from the `device-created` event (immediate) and from the first
+   * poll of a device (the catch-up path, for a creation we did not hear about:
+   * container restarted, WebSocket down at that moment).
+   *
+   * @param {string} externalId the Gladys external_id of the created device
+   */
+  async deviceCreated(externalId) {
+    if (!externalId || this.polledDevices.has(externalId)) {
+      return;
+    }
+    this.polledDevices.add(externalId);
+
+    let device = this.findByExternalId(externalId);
+    if (!device && this.isConnected()) {
+      // Gladys knows a device our cache does not: ask Apple before giving up.
+      await this.refresh({ force: true });
+      device = this.findByExternalId(externalId);
+    }
+    if (!device) {
+      logger.warn(`Device ${externalId} is not in the Find My list: no state to publish`);
+      return;
+    }
+
+    this.pendingFullPublish.add(device.id);
+    await this.publishStates();
+  }
+
+  /**
+   * Publish the states of every device the user has ALREADY created in Gladys,
+   * unchanged or not.
+   *
+   * Runs on each (re)connection to Gladys: a device created while the container
+   * was down (or while the WebSocket was) never triggered `deviceCreated`, and
+   * the values published before it existed were dropped by the host. The SDK
+   * keeps the list of real devices up to date (`gladys.devices`, refreshed on
+   * every reconnection), so it tells us exactly which ones to serve.
+   */
+  async resync() {
+    const known = Array.isArray(this.gladys.devices) ? this.gladys.devices : [];
+    for (const gladysDevice of known) {
+      const device = this.findByExternalId(gladysDevice.external_id);
+      if (device) {
+        this.polledDevices.add(gladysDevice.external_id);
+        this.pendingFullPublish.add(device.id);
+      }
+    }
+    await this.publishStates();
+  }
+
+  /**
+   * Gladys polls ONE device: refresh like any other tick, but treat the first
+   * poll of a device as the moment the user created it in Gladys.
    *
    * @param {string} externalId the Gladys external_id of the polled device
    */
   async pollDevice(externalId) {
-    if (externalId && !this.polledDevices.has(externalId)) {
-      this.polledDevices.add(externalId);
-      const device = this.findByExternalId(externalId);
-      if (device) {
-        this.pendingFullPublish.add(device.id);
-        await this.publishStates();
-      }
-    }
+    await this.deviceCreated(externalId);
     return this.refresh();
   }
 

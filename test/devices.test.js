@@ -90,6 +90,9 @@ test('every device carries a poll frequency Gladys accepts', () => {
     devices,
   );
   assert.equal(device.poll_frequency, 60_000);
+  // Gladys schedules a poll only for a device that asks for it: without this
+  // flag onPoll is never called and the device stays empty on the dashboard.
+  assert.equal(device.should_poll, true);
 });
 
 test('every feature declares the min/max Gladys requires', () => {

@@ -123,6 +123,9 @@ async function initialize() {
     await tracker.publishDiscoveredDevices();
     await gladys.setConnectionStatus(true);
     await tracker.refresh();
+    // The user may have created a device while we were not listening: its
+    // features exist now, so send them their values.
+    await tracker.resync();
     return;
   }
 
@@ -141,6 +144,7 @@ async function initialize() {
     }
     await tracker.publishDiscoveredDevices();
     await gladys.setConnectionStatus(true);
+    await tracker.resync();
     logger.info(`Connected to iCloud, tracking ${tracker.devices.length} device(s)`);
   } catch (err) {
     await reportFailure(
@@ -160,13 +164,22 @@ gladys.onScanRequest(async () => {
   await tracker.publishDiscoveredDevices();
 });
 
+// --- Device created: the user added a discovered device to Gladys ------------
+// This is the moment its features start existing: everything published before
+// was dropped by the host API, so the device gets its values right away instead
+// of waiting for the first poll.
+gladys.onDeviceCreated(async (device) => {
+  logger.info(`onDeviceCreated <- ${device.external_id}`);
+  await tracker.deviceCreated(device.external_id);
+});
+
 // --- Polling: Gladys asks to refresh a device --------------------------------
 // Gladys calls this once per device, at the `poll_frequency` declared on it.
 // The tracker collapses those calls into a single Find My request.
 gladys.onPoll(async (device) => {
   logger.debug(`onPoll <- ${device.external_id}`);
-  // pollDevice, not refresh: the first poll of a device is also how we learn the
-  // user has just created it in Gladys, and it deserves its states right away.
+  // pollDevice, not refresh: the first poll of a device is the catch-up path
+  // for a creation we did not hear about (container restarted since).
   await tracker.pollDevice(device.external_id);
 });
 
@@ -175,6 +188,7 @@ gladys.onAction('submit_2fa_code', async (fields) => {
   const count = await tracker.submitSecurityCode(fields.code);
   await tracker.publishDiscoveredDevices();
   await gladys.setConnectionStatus(true);
+  await tracker.resync();
   return {
     en: `Code accepted: ${count} device(s) found. This session is now trusted by Apple.`,
     fr: `Code accepte : ${count} appareil(s) trouve(s). Cette session est maintenant approuvee par Apple.`,
