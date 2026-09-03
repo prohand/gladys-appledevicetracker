@@ -60,32 +60,24 @@
     },
     {
       "key": "home_latitude",
-      "type": "number",
+      "type": "string",
       "label": { "en": "Home latitude", "fr": "Latitude du domicile" },
       "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90,
-      "step": "any",
       "placeholder": { "en": "48.8566", "fr": "48.8566" },
       "description": {
-        "en": "Decimal degrees, with a dot as decimal separator (example: 48.8566).",
-        "fr": "Degres decimaux, avec un point comme separateur (exemple : 48.8566)."
+        "en": "Decimal degrees between -90 and 90 (example: 48.8566). A text field, so the decimals are never rounded.",
+        "fr": "Degres decimaux entre -90 et 90 (exemple : 48.8566). Un champ texte, pour que les decimales ne soient jamais arrondies."
       }
     },
     {
       "key": "home_longitude",
-      "type": "number",
+      "type": "string",
       "label": { "en": "Home longitude", "fr": "Longitude du domicile" },
       "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180,
-      "step": "any",
       "placeholder": { "en": "2.3522", "fr": "2.3522" },
       "description": {
-        "en": "Decimal degrees, with a dot as decimal separator (example: 2.3522).",
-        "fr": "Degres decimaux, avec un point comme separateur (exemple : 2.3522)."
+        "en": "Decimal degrees between -180 and 180 (example: 2.3522). A text field, so the decimals are never rounded.",
+        "fr": "Degres decimaux entre -180 et 180 (exemple : 2.3522). Un champ texte, pour que les decimales ne soient jamais arrondies."
       }
     },
     {

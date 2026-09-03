@@ -82,6 +82,48 @@ test('section fields are purely presentational', () => {
   }
 });
 
+// Keys the store indexer accepts on a config_schema field. An unknown one
+// ("step", for instance) rejects the whole manifest, so list them here.
+const ALLOWED_FIELD_KEYS = new Set([
+  'key',
+  'type',
+  'label',
+  'description',
+  'placeholder',
+  'required',
+  'default',
+  'min',
+  'max',
+  'options',
+  'source',
+  'links',
+]);
+
+test('config_schema fields only use keys the manifest schema knows', () => {
+  const allFields = [
+    ...manifest.config_schema,
+    ...(manifest.actions ?? []).flatMap((a) => a.fields ?? []),
+  ];
+  for (const field of allFields) {
+    for (const key of Object.keys(field)) {
+      assert.ok(ALLOWED_FIELD_KEYS.has(key), `unknown field "${key}" on "${field.key}"`);
+    }
+  }
+});
+
+test('the home coordinates are text fields, so decimals survive the form', () => {
+  // A `number` input without a `step` rounds 48.8566 to 49, and `step` is not
+  // part of the manifest schema: the coordinates are typed as text and parsed
+  // by normalizeConfig.
+  for (const key of ['home_latitude', 'home_longitude']) {
+    const field = manifest.config_schema.find((f) => f.key === key);
+    assert.equal(field.type, 'string', `"${key}" must stay a text field`);
+    assert.equal(field.required, true);
+    assert.equal(field.min, undefined, 'min/max are for number fields only');
+    assert.equal(field.max, undefined, 'min/max are for number fields only');
+  }
+});
+
 test('the credentials field is a secret, never a plain string', () => {
   const password = manifest.config_schema.find((f) => f.key === 'apple_password');
   assert.equal(password.type, 'secret');
