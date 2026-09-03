@@ -119,6 +119,12 @@ appareil éteint ou hors ligne depuis longtemps peut aussi ne remonter aucune
 position ; il apparaîtra dans Gladys mais sans présence tant qu'Apple n'a rien
 de récent.
 
+**L'appareil que je viens d'ajouter reste vide** : ses mesures sont publiées
+dès sa création, puis à chaque rafraîchissement. S'il reste vide, regardez
+l'onglet Configuration (l'intégration doit être connectée à iCloud) et le champ
+_Précision_ : un appareil dont Apple ne donne aucune position n'a ni présence,
+ni distance.
+
 **« Pas de valeur récente » sur le tableau de bord** : Gladys considère une
 valeur comme périmée quand plus rien n'a été publié dessus depuis un moment
 (48 heures par défaut). L'intégration republie chaque valeur au moins toutes les

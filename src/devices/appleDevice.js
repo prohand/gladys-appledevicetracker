@@ -191,6 +191,11 @@ export function buildDevice(gladys, config, device) {
   return {
     name: device.name,
     external_id: ids.device,
+    // Gladys only schedules a poll for a device that ASKS for it: `poll_frequency`
+    // alone is just a number stored on the row, the scheduler picks the devices
+    // on `should_poll`. Without this flag onPoll was never called and a freshly
+    // created device stayed empty on the dashboard.
+    should_poll: true,
     // Gladys calls onPoll on this device at this interval, in MILLISECONDS and
     // only among the values it accepts (see gladysPollFrequency): the user
     // interval in seconds is honoured by the tracker, not by Gladys.

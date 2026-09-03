@@ -212,15 +212,51 @@ test('an unchanged value is published again once Gladys would call it outdated',
   assert.ok(republished.some((id) => id.endsWith(':battery')));
 });
 
+test('deviceCreated() gives the freshly created device its values right away', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+  const firstBatch = gladys.published.length;
+  const externalId = tracker.externalIdOf(tracker.devices[0]);
+
+  // The user has just added the device in Gladys: the states published before
+  // that were dropped by the host, so everything is published again — without
+  // calling Apple, and without waiting for the first poll.
+  await tracker.deviceCreated(externalId);
+
+  const republished = gladys.published.slice(firstBatch).map((s) => s.featureExternalId);
+  assert.ok(republished.some((id) => id.endsWith(':presence')));
+  assert.ok(republished.some((id) => id.endsWith(':battery')));
+  assert.equal(client.calls.fetchDevices, 1, 'no extra call to Apple');
+
+  // The event is not replayed: a second creation of the same device is a no-op.
+  const secondBatch = gladys.published.length;
+  await tracker.deviceCreated(externalId);
+  assert.equal(gladys.published.length, secondBatch);
+});
+
+test('resync() republishes the devices the user created while we were away', async () => {
+  const { gladys, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+  const firstBatch = gladys.published.length;
+
+  // A device created while the container was down: we never saw the event, and
+  // the values published before it existed were dropped. The SDK device list is
+  // what tells us it is real now.
+  gladys.devices = [{ external_id: tracker.externalIdOf(tracker.devices[0]) }];
+  await tracker.resync();
+
+  const republished = gladys.published.slice(firstBatch).map((s) => s.featureExternalId);
+  assert.ok(republished.some((id) => id.endsWith(':presence')));
+});
+
 test('the first poll of a device publishes its states again, straight from the cache', async () => {
   const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
   await tracker.start(CONFIG);
   const firstBatch = gladys.published.length;
   const externalId = tracker.externalIdOf(tracker.devices[0]);
 
-  // The user has just created the device in Gladys: the states published before
-  // that were dropped by the host, so the first poll republishes everything —
-  // without calling Apple again, the cache is still fresh.
+  // Catch-up path: the creation event was missed (container restarted since),
+  // so the first poll republishes everything from the still-fresh cache.
   await tracker.pollDevice(externalId);
 
   const republished = gladys.published.slice(firstBatch).map((s) => s.featureExternalId);

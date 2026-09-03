@@ -122,6 +122,11 @@ devices (Settings → your name → Find My). A device that has been off or offl
 for a long time may report no position at all; it appears in Gladys but without
 presence until Apple has something recent.
 
+**The device I just added stays empty**: its values are published as soon as
+it is created, then on every refresh. If it stays empty, check the Configuration
+tab (the integration must be connected to iCloud) and the _Accuracy_ reading: a
+device Apple has no position for gets neither presence nor distance.
+
 **"No recent value" on the dashboard**: Gladys considers a value outdated when
 nothing has been published for it for a while (48 hours by default). The
 integration re-publishes every value at least every 30 minutes, so this should

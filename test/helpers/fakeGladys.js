@@ -19,6 +19,8 @@ export function createFakeGladys() {
     discovered,
     configs,
     connectionStatuses,
+    // The devices the user actually created, as the SDK keeps them.
+    devices: [],
 
     externalIds(type, platformId) {
       const device = `${type}:${platformId}`;
