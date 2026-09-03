@@ -165,7 +165,9 @@ gladys.onScanRequest(async () => {
 // The tracker collapses those calls into a single Find My request.
 gladys.onPoll(async (device) => {
   logger.debug(`onPoll <- ${device.external_id}`);
-  await tracker.refresh();
+  // pollDevice, not refresh: the first poll of a device is also how we learn the
+  // user has just created it in Gladys, and it deserves its states right away.
+  await tracker.pollDevice(device.external_id);
 });
 
 // --- Manifest actions: buttons in the Configuration screen -------------------
