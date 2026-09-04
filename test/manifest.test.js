@@ -7,12 +7,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { DEFAULT_CONFIG } from '../src/config.js';
 
 const manifest = JSON.parse(
   await readFile(new URL('../gladys-assistant-integration.json', import.meta.url), 'utf8'),
 );
 const indexSource = await readFile(new URL('../index.js', import.meta.url), 'utf8');
+const deviceSource = await readFile(
+  new URL('../src/devices/appleDevice.js', import.meta.url),
+  'utf8',
+);
 const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
 test('every manifest action has a handler registered in index.js', () => {
@@ -170,6 +175,35 @@ test('the two-factor flow offers a way to ask for a new code', () => {
   const keys = (manifest.actions ?? []).map((a) => a.key);
   assert.ok(keys.includes('resend_2fa_code'));
   assert.ok(keys.includes('refresh_home_location'));
+});
+
+test('the cover image respects the store rules, or the catalog shows a placeholder', () => {
+  // The indexer accepts a JPEG or PNG of exactly 800x534 and under 150 KB. An
+  // invalid cover does not reject the integration: it is indexed with a default
+  // image instead — which is exactly how a too-heavy cover goes unnoticed.
+  const file = new URL(`../${manifest.cover_image.split('/').pop()}`, import.meta.url);
+  const image = readFileSync(file);
+
+  assert.ok(image.length < 150 * 1024, `cover image too heavy: ${image.length} bytes`);
+  // PNG signature, then the IHDR chunk: width and height are two big-endian
+  // 32-bit integers at offsets 16 and 20.
+  assert.equal(image.subarray(1, 4).toString(), 'PNG');
+  assert.equal(image.readUInt32BE(16), 800);
+  assert.equal(image.readUInt32BE(20), 534);
+});
+
+test('the cover image is served over https, straight from the repository', () => {
+  assert.match(manifest.cover_image, /^https:\/\/raw\.githubusercontent\.com\//);
+});
+
+test('the ring action of the manifest also exists as a feature on each device', () => {
+  // The Configuration screen keeps its "Make a device ring" button, but the
+  // same operation is a writable feature of every device: that is what makes it
+  // usable from the dashboard and from a scene.
+  const keys = (manifest.actions ?? []).map((a) => a.key);
+  assert.ok(keys.includes('identify'));
+  assert.ok(indexSource.includes('gladys.onSetValue('), 'no handler for device commands');
+  assert.ok(deviceSource.includes('FEATURE.RING'), 'no ring feature on the devices');
 });
 
 test('index.js pre-fills the home coordinates from the Gladys house', () => {

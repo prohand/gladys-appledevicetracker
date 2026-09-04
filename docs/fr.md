@@ -20,9 +20,29 @@ mesures :
 | Âge de la position   | Entier (min) | Détecter un appareil éteint qui ne remonte plus   |
 | Batterie             | Entier (%)   | Alerter sur une batterie faible                   |
 | En charge            | Binaire      | Savoir si l'appareil est branché                  |
+| Faire sonner         | Bouton       | Joue le son de Localiser sur cet appareil         |
 
 Batterie et charge n'apparaissent que sur les appareils qui les remontent :
 un accessoire n'en a pas.
+
+### Faire sonner un appareil depuis le tableau de bord
+
+Toutes les mesures ci-dessus sont en lecture seule, mais **Faire sonner** est
+un bouton : ajoutez l'appareil à un tableau de bord et une pression joue le son
+de Localiser sur cet iPhone, iPad, Mac ou Apple Watch — exactement ce que fait
+l'app Localiser. C'est un bouton poussoir, pas un interrupteur : il revient
+tout seul sur « éteint » une fois la demande envoyée à Apple. Une scène peut
+l'actionner aussi (« si la sonnette retentit la nuit, fais sonner mon
+iPhone »).
+
+L'action **Faire sonner un appareil** de l'onglet Configuration fait la même
+chose et reste disponible : c'est ce qui permet de faire sonner un appareil que
+vous n'avez pas encore ajouté à Gladys.
+
+> **Vos appareils existent déjà dans Gladys ?** Gladys ne modifie jamais tout
+> seul les fonctionnalités d'un appareil déjà créé : ouvrez l'onglet
+> **Découverte** de l'intégration et cliquez sur **Mettre à jour** sur chaque
+> appareil pour que le bouton apparaisse.
 
 > **Les AirTag ne sont pas remontés.** Apple ne les expose pas dans l'API web
 > de Localiser : leur position est chiffrée de bout en bout et n'est déchiffrée
@@ -114,7 +134,10 @@ de zone déclenche vos scènes en boucle à cause du bruit GPS.
   la connexion est bloquée dans un état bizarre : la connexion suivante repart
   de zéro (et redemandera un code 2FA).
 - **Faire sonner un appareil** — choisissez un de vos appareils, il joue le son
-  de Localiser. Pratique pour retrouver un téléphone dans le canapé.
+  de Localiser. Pratique pour retrouver un téléphone dans le canapé, et c'est
+  la façon de faire sonner un appareil que vous n'avez pas encore ajouté à
+  Gladys. Les appareils ajoutés portent le même bouton sur leur carte de
+  tableau de bord (voir plus haut).
 
 ## Dépannage
 
@@ -147,6 +170,15 @@ valeur comme périmée quand plus rien n'a été publié dessus depuis un moment
 30 minutes : ce message ne devrait donc apparaître que si l'intégration est
 arrêtée, si elle n'arrive plus à se connecter à iCloud (regardez l'onglet
 Configuration) ou si l'appareil ne remonte aucune position.
+
+**Le bouton « Faire sonner » n'apparaît pas** : l'appareil a été créé avant que
+la fonctionnalité existe. Onglet **Découverte** de l'intégration → bouton
+**Mettre à jour** sur l'appareil concerné.
+
+**L'appareil ne sonne pas** : le son est joué par Apple, pas par Gladys. Un
+appareil éteint, hors ligne ou en mode silencieux prolongé ne sonnera qu'à sa
+prochaine connexion. Le message d'erreur affiché reprend la réponse d'Apple ;
+avec `LOG_LEVEL=debug`, les logs donnent le détail.
 
 **La présence ne bouge pas** : regardez la mesure _Précision_. Si elle est
 proche ou au-dessus de votre réglage « Précision maximale », les positions sont

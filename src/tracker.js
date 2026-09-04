@@ -14,9 +14,11 @@
 import { createLogger } from '@gladysassistant/integration-sdk';
 import { ICloudClient, LOGIN_STATUS, SessionExpiredError } from './icloud/client.js';
 import {
+  FEATURE,
   buildDiscoveredDevices,
   buildStates,
   deviceExternalId,
+  featureExternalId,
   findAppleDeviceByExternalId,
   normalizeAppleDevices,
 } from './devices/index.js';
@@ -465,6 +467,55 @@ export class AppleDeviceTracker {
     }
     await this.client.playSound(device.id);
     return device;
+  }
+
+  /**
+   * A command sent from the dashboard or a scene (`onSetValue`).
+   *
+   * Every measurement of a device is read-only: the one writable feature is the
+   * ring button, so anything else is refused rather than silently ignored (a
+   * rejected handler is acked as failed, and the user sees it).
+   *
+   * @param {string} deviceId the Gladys external_id of the targeted device
+   * @param {string} featureId the Gladys external_id of the actioned feature
+   * @param {number|string} value the commanded value (1 = ring)
+   * @returns {Promise<object>} the Apple device that was made to ring
+   */
+  async setFeatureValue(deviceId, featureId, value) {
+    const device = this.findByExternalId(deviceId);
+    if (!device) {
+      throw new Error('This device is not in the Find My list any more');
+    }
+    if (featureId !== this.ringFeatureOf(device)) {
+      throw new Error(`The feature ${featureId} is read-only`);
+    }
+
+    // Turning the button back off: nothing to stop on Apple's side (the sound
+    // stops by itself, or when the user picks up the device), just acknowledge.
+    if (Number(value) === 1) {
+      await this.client.playSound(device.id);
+    }
+    await this.resetRingButton(device);
+    return device;
+  }
+
+  /**
+   * Put the ring button back to "off".
+   *
+   * The feature has no feedback, so Gladys keeps the value it just commanded:
+   * without this the toggle would stay on forever and a second press would do
+   * nothing. `lastValues` is updated too, so the next refresh does not publish
+   * the very same 0 again.
+   */
+  async resetRingButton(device) {
+    const feature = this.ringFeatureOf(device);
+    this.lastValues.set(feature, { value: 0, publishedAt: this.now() });
+    await this.gladys.publishState(feature, 0);
+  }
+
+  /** External_id of the ring button of an Apple device. */
+  ringFeatureOf(device) {
+    return featureExternalId(this.gladys, device.id, FEATURE.RING);
   }
 
   /** External_id of an Apple device, used by the tests and the logs. */

@@ -20,9 +20,27 @@ measurements:
 | Position age       | Integer (min) | Spot a device that stopped reporting            |
 | Battery            | Integer (%)   | Alert on a low battery                          |
 | Charging           | Binary        | Know whether the device is plugged in           |
+| Ring               | Button        | Plays the Find My sound on that device          |
 
 Battery and charging only show up on devices that report them: an accessory has
 neither.
+
+### Ringing a device from the dashboard
+
+Every measurement above is read-only, but **Ring** is a button: put the device
+on a dashboard and pressing it plays the Find My sound on that iPhone, iPad,
+Mac or Apple Watch — the same thing the Find My app does. It is a push button,
+not a switch: it goes back to "off" on its own once Apple has been asked for
+the sound. A scene can press it too ("when the doorbell rings at night, ring my
+iPhone").
+
+The **Make a device ring** action of the Configuration tab does exactly the
+same and is still there: it is the way to ring a device you have not added to
+Gladys yet.
+
+> **Already have your devices in Gladys?** Gladys never changes the features of
+> a device you created on its own: open the **Discovery** tab of the
+> integration and click **Update** on each device for the button to appear.
 
 > **AirTags are not reported.** Apple does not serve them through the Find My
 > web API: their position is end-to-end encrypted and only ever decrypted by
@@ -107,7 +125,9 @@ zone from firing your scenes over and over because of GPS noise.
   connection is stuck in an odd state: the next sign-in starts from scratch
   (and will ask for a new two-factor code).
 - **Make a device ring** — pick one of your devices and it plays the Find My
-  sound. Handy to find a phone in the sofa.
+  sound. Handy to find a phone in the sofa, and the way to ring a device you
+  have not added to Gladys yet. Devices you did add carry the same button on
+  their dashboard card (see above).
 
 ## Troubleshooting
 
@@ -147,6 +167,15 @@ nothing has been published for it for a while (48 hours by default). The
 integration re-publishes every value at least every 30 minutes, so this should
 only show up when the integration is stopped, cannot sign in to iCloud any more
 (check the Configuration tab) or when the device reports no position at all.
+
+**The "Ring" button is missing**: the device was created before the feature
+existed. Open the **Discovery** tab of the integration and click **Update** on
+that device.
+
+**The device does not ring**: the sound is played by Apple, not by Gladys. A
+device that is off, offline or long asleep only rings the next time it comes
+back online. The error message repeats Apple's own answer; `LOG_LEVEL=debug`
+gives the full detail in the logs.
 
 **Presence never moves**: look at the _Position accuracy_ measurement. If it is
 close to or above your "Maximum accuracy" setting, positions are being ignored

@@ -23,6 +23,7 @@ export {
   appleDeviceId,
   buildStates,
   deviceExternalId,
+  featureExternalId,
   normalizeAppleDevice,
 } from './appleDevice.js';
 
