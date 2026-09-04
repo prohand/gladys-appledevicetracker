@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { AppleDeviceTracker, TRACKER_STATUS } from '../src/tracker.js';
 import { LOGIN_STATUS, SessionExpiredError } from '../src/icloud/client.js';
-import { deviceExternalId } from '../src/devices/index.js';
+import { FEATURE, deviceExternalId, featureExternalId } from '../src/devices/index.js';
 import { normalizeConfig } from '../src/config.js';
 import { createFakeGladys, fakeFindMyDevice } from './helpers/fakeGladys.js';
 
@@ -359,6 +359,58 @@ test('ring() explains itself when the device left the Find My list', async () =>
   const { tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
   await tracker.start(CONFIG);
   await assert.rejects(() => tracker.ring('apple-device:unknown'), /not in the Find My list/);
+});
+
+test('the ring button of the dashboard plays the Find My sound', async () => {
+  const devices = [fakeFindMyDevice({ id: 'A' }), fakeFindMyDevice({ id: 'B', name: 'iPad' })];
+  const { gladys, client, tracker } = createTracker({ devices });
+  await tracker.start(CONFIG);
+  const deviceId = deviceExternalId(gladys, 'B');
+  const ringId = featureExternalId(gladys, 'B', FEATURE.RING);
+
+  const rung = await tracker.setFeatureValue(deviceId, ringId, 1);
+
+  assert.equal(rung.name, 'iPad');
+  assert.deepEqual(client.calls.playSound, ['B']);
+  // The button goes back to "off" on its own: a feature with no feedback keeps
+  // the value Gladys commanded, and a toggle stuck on 1 could not be pressed
+  // a second time.
+  const last = gladys.published.at(-1);
+  assert.equal(last.featureExternalId, ringId);
+  assert.equal(last.state, 0);
+});
+
+test('turning the ring button off does not call Apple', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
+  await tracker.start(CONFIG);
+  const deviceId = deviceExternalId(gladys, 'A');
+  const ringId = featureExternalId(gladys, 'A', FEATURE.RING);
+
+  await tracker.setFeatureValue(deviceId, ringId, 0);
+
+  assert.deepEqual(client.calls.playSound, []);
+  assert.equal(gladys.published.at(-1).state, 0);
+});
+
+test('a command on a measurement is refused, not silently ignored', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
+  await tracker.start(CONFIG);
+  const deviceId = deviceExternalId(gladys, 'A');
+  const presenceId = featureExternalId(gladys, 'A', FEATURE.PRESENCE);
+
+  await assert.rejects(() => tracker.setFeatureValue(deviceId, presenceId, 1), /read-only/);
+  assert.deepEqual(client.calls.playSound, []);
+});
+
+test('a command on a device that left the Find My list explains itself', async () => {
+  const { gladys, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
+  await tracker.start(CONFIG);
+  const ringId = featureExternalId(gladys, 'GONE', FEATURE.RING);
+
+  await assert.rejects(
+    () => tracker.setFeatureValue(deviceExternalId(gladys, 'GONE'), ringId, 1),
+    /not in the Find My list/,
+  );
 });
 
 test('forgetSession() clears every cached trace of the account', async () => {

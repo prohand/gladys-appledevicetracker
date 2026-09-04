@@ -1,13 +1,18 @@
 // -----------------------------------------------------------------------------
 // Device type: APPLE DEVICE (iPhone, iPad, Mac, Apple Watch, AirPods...).
 //
-// One Gladys device per device visible in Find My. Everything here is read-only
-// sensors refreshed by POLLING (`poll_frequency`), because Apple offers no push
-// channel: Gladys calls `onPoll` on each device at the interval declared here
-// and the integration answers with the states below.
+// One Gladys device per device visible in Find My. The measurements are all
+// read-only sensors refreshed by POLLING (`poll_frequency`), because Apple
+// offers no push channel: Gladys calls `onPoll` on each device at the interval
+// declared here and the integration answers with the states below.
 //
 // The feature that matters for automations is `presence`: a plain binary
 // sensor, so "when my iPhone arrives at home" is a normal Gladys scene trigger.
+//
+// One feature is a COMMAND, not a sensor: `ring` plays the Find My sound on the
+// device. It is the same operation as the "Make a device ring" action of the
+// Configuration screen, but attached to the device itself — so it sits on the
+// dashboard, next to the presence of that phone, and can be used in a scene.
 // -----------------------------------------------------------------------------
 
 import {
@@ -34,6 +39,7 @@ export const FEATURE = {
   LAST_SEEN: 'last-seen',
   BATTERY: 'battery',
   CHARGING: 'charging',
+  RING: 'ring',
 };
 
 /**
@@ -62,6 +68,11 @@ export function appleDeviceId(raw = {}) {
 /** The Gladys external_id of an Apple device. */
 export function deviceExternalId(gladys, appleDeviceId) {
   return gladys.externalIds(DEVICE_TYPE, platformId(appleDeviceId)).device;
+}
+
+/** The Gladys external_id of ONE feature of an Apple device. */
+export function featureExternalId(gladys, appleDeviceId, feature) {
+  return gladys.externalIds(DEVICE_TYPE, platformId(appleDeviceId)).feature(feature);
 }
 
 function toPercent(batteryLevel) {
@@ -230,6 +241,24 @@ export function buildDevice(gladys, config, device) {
     });
   }
 
+  // The ring button. A `switch`/`binary` is the writable feature Gladys renders
+  // as a control on the dashboard; the integration turns it back to 0 as soon
+  // as the sound is playing, so it behaves like a push button and not like a
+  // toggle stuck on "on". No history: a button press is an event, not a value.
+  features.push({
+    name: 'Ring',
+    external_id: ids.feature(FEATURE.RING),
+    category: DEVICE_FEATURE_CATEGORIES.SWITCH,
+    type: DEVICE_FEATURE_TYPES.SWITCH.BINARY,
+    min: 0,
+    max: 1,
+    read_only: false,
+    // Nothing comes back from Apple once the sound is played: the integration
+    // publishes the state itself instead of waiting for a device report.
+    has_feedback: false,
+    keep_history: false,
+  });
+
   return {
     name: device.name,
     external_id: ids.device,
@@ -264,6 +293,11 @@ export function buildDevice(gladys, config, device) {
 export function buildStates(gladys, config, device, wasPresent = null) {
   const ids = gladys.externalIds(DEVICE_TYPE, platformId(device.id));
   const states = [];
+
+  // The ring button rests on "off". Published like any other value (and kept
+  // alive by the heartbeat) so the dashboard shows a usable button instead of
+  // "no recent value" on a device that has never been made to ring.
+  states.push({ device_feature_external_id: ids.feature(FEATURE.RING), state: 0 });
 
   if (device.batteryLevel !== null) {
     states.push({

@@ -25,9 +25,17 @@ One Gladys device per device visible in Find My, refreshed by **polling** at the
 | Position age       | `duration` / `integer` minutes   | How stale Apple's last fix is     |
 | Battery            | `battery` / `integer` %          | Only on devices that report one   |
 | Charging           | `battery` / `charging`           | Only on devices that report one   |
+| Ring               | `switch` / `binary`              | Command: plays the Find My sound  |
 
 Presence is deliberately a plain binary sensor, so it works as a normal Gladys
 scene trigger with no extra glue.
+
+Every measurement is read-only; `Ring` is the one writable feature, so the
+dashboard renders it as a button next to the presence of that phone (and a
+scene can ring a device too). It is a push button, not a toggle: the
+integration publishes `0` back as soon as Apple has been asked to play the
+sound. The same operation stays available for a device the user has not created
+yet, through the "Make a device ring" action of the Configuration screen.
 
 ## How it works
 
