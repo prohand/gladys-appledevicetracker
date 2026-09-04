@@ -13,6 +13,7 @@
 // device. It is the same operation as the "Make a device ring" action of the
 // Configuration screen, but attached to the device itself — so it sits on the
 // dashboard, next to the presence of that phone, and can be used in a scene.
+// It is a write-only command: nothing is ever published on it (see buildStates).
 // -----------------------------------------------------------------------------
 
 import {
@@ -241,20 +242,25 @@ export function buildDevice(gladys, config, device) {
     });
   }
 
-  // The ring button. A `switch`/`binary` is the writable feature Gladys renders
-  // as a control on the dashboard; the integration turns it back to 0 as soon
-  // as the sound is playing, so it behaves like a push button and not like a
-  // toggle stuck on "on". No history: a button press is an event, not a value.
+  // The ring button.
+  //
+  // `button`/`push` is the one pair Gladys renders as a PUSH BUTTON ("Appuyer")
+  // on the dashboard: one press, one command. A `switch`/`binary` would land on
+  // the on/off toggle instead — the interface routes every `binary` type there —
+  // and an on/off toggle for "play a sound now" is exactly the wrong control.
+  //
+  // Write-only, like the remote-control keys of a television: Apple reports
+  // nothing back, so the feature carries no state at all and no history.
   features.push({
     name: 'Ring',
     external_id: ids.feature(FEATURE.RING),
-    category: DEVICE_FEATURE_CATEGORIES.SWITCH,
-    type: DEVICE_FEATURE_TYPES.SWITCH.BINARY,
+    category: DEVICE_FEATURE_CATEGORIES.BUTTON,
+    type: DEVICE_FEATURE_TYPES.BUTTON.PUSH,
+    // Gladys requires bounds on every feature, a command included.
     min: 0,
     max: 1,
+    // read_only would turn the row into a sensor: this is what makes it a button.
     read_only: false,
-    // Nothing comes back from Apple once the sound is played: the integration
-    // publishes the state itself instead of waiting for a device report.
     has_feedback: false,
     keep_history: false,
   });
@@ -294,10 +300,8 @@ export function buildStates(gladys, config, device, wasPresent = null) {
   const ids = gladys.externalIds(DEVICE_TYPE, platformId(device.id));
   const states = [];
 
-  // The ring button rests on "off". Published like any other value (and kept
-  // alive by the heartbeat) so the dashboard shows a usable button instead of
-  // "no recent value" on a device that has never been made to ring.
-  states.push({ device_feature_external_id: ids.feature(FEATURE.RING), state: 0 });
+  // Nothing is published for the ring button: it is a write-only command, and
+  // the dashboard renders it as a button whatever its last value.
 
   if (device.batteryLevel !== null) {
     states.push({

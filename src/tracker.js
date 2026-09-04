@@ -476,12 +476,14 @@ export class AppleDeviceTracker {
    * ring button, so anything else is refused rather than silently ignored (a
    * rejected handler is acked as failed, and the user sees it).
    *
+   * The button is a push button: a press is a press, so the value it carries is
+   * not read — and nothing is published back, the feature holds no state.
+   *
    * @param {string} deviceId the Gladys external_id of the targeted device
    * @param {string} featureId the Gladys external_id of the actioned feature
-   * @param {number|string} value the commanded value (1 = ring)
    * @returns {Promise<object>} the Apple device that was made to ring
    */
-  async setFeatureValue(deviceId, featureId, value) {
+  async setFeatureValue(deviceId, featureId) {
     const device = this.findByExternalId(deviceId);
     if (!device) {
       throw new Error('This device is not in the Find My list any more');
@@ -490,27 +492,8 @@ export class AppleDeviceTracker {
       throw new Error(`The feature ${featureId} is read-only`);
     }
 
-    // Turning the button back off: nothing to stop on Apple's side (the sound
-    // stops by itself, or when the user picks up the device), just acknowledge.
-    if (Number(value) === 1) {
-      await this.client.playSound(device.id);
-    }
-    await this.resetRingButton(device);
+    await this.client.playSound(device.id);
     return device;
-  }
-
-  /**
-   * Put the ring button back to "off".
-   *
-   * The feature has no feedback, so Gladys keeps the value it just commanded:
-   * without this the toggle would stay on forever and a second press would do
-   * nothing. `lastValues` is updated too, so the next refresh does not publish
-   * the very same 0 again.
-   */
-  async resetRingButton(device) {
-    const feature = this.ringFeatureOf(device);
-    this.lastValues.set(feature, { value: 0, publishedAt: this.now() });
-    await this.gladys.publishState(feature, 0);
   }
 
   /** External_id of the ring button of an Apple device. */

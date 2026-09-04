@@ -148,7 +148,7 @@ test('every feature uses a category/type pair Gladys knows how to name', () => {
       DEVICE_FEATURE_TYPES.BATTERY.INTEGER,
       DEVICE_FEATURE_TYPES.BATTERY.CHARGING,
     ],
-    [DEVICE_FEATURE_CATEGORIES.SWITCH]: [DEVICE_FEATURE_TYPES.SWITCH.BINARY],
+    [DEVICE_FEATURE_CATEGORIES.BUTTON]: [DEVICE_FEATURE_TYPES.BUTTON.PUSH],
   };
   for (const feature of device.features) {
     const types = known[feature.category];
@@ -174,20 +174,21 @@ test('the presence feature is a plain binary sensor, usable as a scene trigger',
 });
 
 test('every device carries a ring button, the only writable feature', () => {
-  // The dashboard renders a writable switch as a control: this is what puts
-  // "make it ring" next to the presence of the phone, instead of only in the
-  // Configuration screen.
+  // `button`/`push` is the pair the dashboard renders as a PUSH BUTTON. A
+  // `switch`/`binary` lands on the on/off toggle instead (the interface routes
+  // every `binary` type there), which is the wrong control for "ring now".
   const [device] = buildDiscoveredDevices(
     gladys,
     config,
     normalizeAppleDevices([fakeFindMyDevice()]),
   );
   const ring = featureOf(device, FEATURE.RING);
-  assert.equal(ring.category, DEVICE_FEATURE_CATEGORIES.SWITCH);
-  assert.equal(ring.type, DEVICE_FEATURE_TYPES.SWITCH.BINARY);
+  assert.equal(ring.category, DEVICE_FEATURE_CATEGORIES.BUTTON);
+  assert.equal(ring.type, DEVICE_FEATURE_TYPES.BUTTON.PUSH);
+  // read_only would turn the row into a sensor instead of a button.
   assert.equal(ring.read_only, false);
-  // Apple reports nothing back once the sound is played: the integration
-  // publishes the state itself.
+  // A write-only command: Apple reports nothing back, and a press is an event,
+  // not a value to keep.
   assert.equal(ring.has_feedback, false);
   assert.equal(ring.keep_history, false);
 
@@ -208,16 +209,12 @@ test('an accessory Apple never locates still gets its ring button', () => {
   assert.ok(featureOf(accessory, FEATURE.RING));
 });
 
-test('the ring button rests on 0, so the dashboard shows a usable button', () => {
-  // Without a published value Gladys displays "no recent value" on a device
-  // that has simply never been made to ring.
+test('the ring button carries no state: it is a write-only command', () => {
+  // A push button is rendered whatever its last value, so publishing one would
+  // only be noise in every batch of states.
   const [device] = normalizeAppleDevices([fakeFindMyDevice()]);
   const { states } = buildStates(gladys, config, device, null);
-  assert.equal(stateOf(states, FEATURE.RING).state, 0);
-
-  const [unlocated] = normalizeAppleDevices([fakeFindMyDevice({ location: null })]);
-  const { states: offline } = buildStates(gladys, config, unlocated, null);
-  assert.equal(stateOf(offline, FEATURE.RING).state, 0);
+  assert.equal(stateOf(states, FEATURE.RING), undefined);
 });
 
 test('the distance feature is reported in kilometers', () => {

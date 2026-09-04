@@ -28,11 +28,10 @@ neither.
 ### Ringing a device from the dashboard
 
 Every measurement above is read-only, but **Ring** is a button: put the device
-on a dashboard and pressing it plays the Find My sound on that iPhone, iPad,
-Mac or Apple Watch — the same thing the Find My app does. It is a push button,
-not a switch: it goes back to "off" on its own once Apple has been asked for
-the sound. A scene can press it too ("when the doorbell rings at night, ring my
-iPhone").
+on a dashboard and its "**Push**" button plays the Find My sound on that
+iPhone, iPad, Mac or Apple Watch — the same thing the Find My app does. It is a
+push button, not a switch: nothing to turn back off, one press is one ring. A
+scene can press it too ("when the doorbell rings at night, ring my iPhone").
 
 The **Make a device ring** action of the Configuration tab does exactly the
 same and is still there: it is the way to ring a device you have not added to
