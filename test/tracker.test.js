@@ -361,35 +361,29 @@ test('ring() explains itself when the device left the Find My list', async () =>
   await assert.rejects(() => tracker.ring('apple-device:unknown'), /not in the Find My list/);
 });
 
-test('the ring button of the dashboard plays the Find My sound', async () => {
+test('pressing the ring button plays the Find My sound', async () => {
   const devices = [fakeFindMyDevice({ id: 'A' }), fakeFindMyDevice({ id: 'B', name: 'iPad' })];
   const { gladys, client, tracker } = createTracker({ devices });
   await tracker.start(CONFIG);
   const deviceId = deviceExternalId(gladys, 'B');
   const ringId = featureExternalId(gladys, 'B', FEATURE.RING);
 
-  const rung = await tracker.setFeatureValue(deviceId, ringId, 1);
+  const rung = await tracker.setFeatureValue(deviceId, ringId);
 
   assert.equal(rung.name, 'iPad');
   assert.deepEqual(client.calls.playSound, ['B']);
-  // The button goes back to "off" on its own: a feature with no feedback keeps
-  // the value Gladys commanded, and a toggle stuck on 1 could not be pressed
-  // a second time.
-  const last = gladys.published.at(-1);
-  assert.equal(last.featureExternalId, ringId);
-  assert.equal(last.state, 0);
 });
 
-test('turning the ring button off does not call Apple', async () => {
+test('a second press rings again: the button holds no state to get stuck on', async () => {
   const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
   await tracker.start(CONFIG);
   const deviceId = deviceExternalId(gladys, 'A');
   const ringId = featureExternalId(gladys, 'A', FEATURE.RING);
 
-  await tracker.setFeatureValue(deviceId, ringId, 0);
+  await tracker.setFeatureValue(deviceId, ringId);
+  await tracker.setFeatureValue(deviceId, ringId);
 
-  assert.deepEqual(client.calls.playSound, []);
-  assert.equal(gladys.published.at(-1).state, 0);
+  assert.deepEqual(client.calls.playSound, ['A', 'A']);
 });
 
 test('a command on a measurement is refused, not silently ignored', async () => {
@@ -398,7 +392,7 @@ test('a command on a measurement is refused, not silently ignored', async () => 
   const deviceId = deviceExternalId(gladys, 'A');
   const presenceId = featureExternalId(gladys, 'A', FEATURE.PRESENCE);
 
-  await assert.rejects(() => tracker.setFeatureValue(deviceId, presenceId, 1), /read-only/);
+  await assert.rejects(() => tracker.setFeatureValue(deviceId, presenceId), /read-only/);
   assert.deepEqual(client.calls.playSound, []);
 });
 
@@ -408,7 +402,7 @@ test('a command on a device that left the Find My list explains itself', async (
   const ringId = featureExternalId(gladys, 'GONE', FEATURE.RING);
 
   await assert.rejects(
-    () => tracker.setFeatureValue(deviceExternalId(gladys, 'GONE'), ringId, 1),
+    () => tracker.setFeatureValue(deviceExternalId(gladys, 'GONE'), ringId),
     /not in the Find My list/,
   );
 });

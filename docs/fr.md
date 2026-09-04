@@ -28,12 +28,12 @@ un accessoire n'en a pas.
 ### Faire sonner un appareil depuis le tableau de bord
 
 Toutes les mesures ci-dessus sont en lecture seule, mais **Faire sonner** est
-un bouton : ajoutez l'appareil à un tableau de bord et une pression joue le son
-de Localiser sur cet iPhone, iPad, Mac ou Apple Watch — exactement ce que fait
-l'app Localiser. C'est un bouton poussoir, pas un interrupteur : il revient
-tout seul sur « éteint » une fois la demande envoyée à Apple. Une scène peut
-l'actionner aussi (« si la sonnette retentit la nuit, fais sonner mon
-iPhone »).
+un bouton : ajoutez l'appareil à un tableau de bord et le bouton
+« **Appuyer** » joue le son de Localiser sur cet iPhone, iPad, Mac ou Apple
+Watch — exactement ce que fait l'app Localiser. C'est un bouton poussoir, pas
+un interrupteur : rien à remettre sur « éteint », une pression = une sonnerie.
+Une scène peut l'actionner aussi (« si la sonnette retentit la nuit, fais
+sonner mon iPhone »).
 
 L'action **Faire sonner un appareil** de l'onglet Configuration fait la même
 chose et reste disponible : c'est ce qui permet de faire sonner un appareil que

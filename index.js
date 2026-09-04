@@ -173,15 +173,14 @@ gladys.onDeviceCreated(async (device) => {
   await tracker.deviceCreated(device.external_id);
 });
 
-// --- Command: the user actions a feature (dashboard, scene, chat) ------------
-// The only writable feature of an Apple device is its ring button: the tracker
-// refuses anything else, and a rejected handler is acked as a failed command.
-gladys.onSetValue(async (device, feature, value) => {
-  logger.info(`onSetValue <- ${feature.external_id} = ${value}`);
-  const appleDevice = await tracker.setFeatureValue(device.external_id, feature.external_id, value);
-  if (Number(value) === 1) {
-    logger.info(`${appleDevice.name} is ringing`);
-  }
+// --- Command: the user presses a button on a device --------------------------
+// The only writable feature of an Apple device is its ring button (a push
+// button on the dashboard): the tracker refuses anything else, and a rejected
+// handler is acked as a failed command instead of doing nothing in silence.
+gladys.onSetValue(async (device, feature) => {
+  logger.info(`onSetValue <- ${feature.external_id}`);
+  const appleDevice = await tracker.setFeatureValue(device.external_id, feature.external_id);
+  logger.info(`${appleDevice.name} is ringing`);
 });
 
 // --- Polling: Gladys asks to refresh a device --------------------------------
