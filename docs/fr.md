@@ -25,6 +25,12 @@ mesures :
 Batterie et charge n'apparaissent que sur les appareils qui les remontent :
 un accessoire n'en a pas.
 
+Quand Apple n'arrive pas à joindre un appareil (éteint, sans réseau, en veille
+profonde), il renvoie une batterie à 0 % : ce n'est pas une mesure, c'est la
+valeur par défaut du champ. L'intégration ne la publie donc pas — sinon Gladys
+enverrait une alerte « batterie faible » sur un téléphone plein — et garde le
+dernier niveau qu'elle connaissait, comme l'application Localiser.
+
 ### Faire sonner un appareil depuis le tableau de bord
 
 Toutes les mesures ci-dessus sont en lecture seule, mais **Faire sonner** est

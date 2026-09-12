@@ -441,6 +441,47 @@ test('the last known position survives a refresh where Apple locates nothing', a
   assert.equal(device.location.latitude, 48.8566);
 });
 
+test('the last known battery survives a refresh where Apple reports none', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+
+  // Apple could not reach the phone this time, so it answers with its default
+  // `batteryLevel: 0`. Publishing that 0 is what fired the "battery below 10%"
+  // alerts: the last real level is kept instead.
+  client.devices = [fakeFindMyDevice({ batteryLevel: 0, batteryStatus: 'Unknown' })];
+  gladys.published.length = 0;
+  await tracker.refresh({ force: true });
+
+  assert.equal(tracker.devices[0].batteryLevel, 87);
+  assert.equal(tracker.devices[0].charging, false, 'the charging state is kept too');
+  const batteryStates = gladys.published.filter((s) => s.featureExternalId.endsWith(':battery'));
+  assert.ok(
+    batteryStates.every((s) => s.state === 87),
+    'no 0% is ever published',
+  );
+});
+
+test('a device discovered without a battery gets its battery features later', async () => {
+  const { gladys, client, tracker } = createTracker({
+    devices: [fakeFindMyDevice({ batteryLevel: 0, batteryStatus: 'Unknown' })],
+  });
+  await tracker.start(CONFIG);
+
+  const firstCatalog = gladys.discovered.at(-1);
+  assert.equal(
+    firstCatalog[0].features.find((f) => f.external_id.endsWith(':battery')),
+    undefined,
+  );
+
+  // Apple reaches the phone on the next cycle: the catalog is published again,
+  // this time with the battery row.
+  client.devices = [fakeFindMyDevice()];
+  await tracker.refresh({ force: true });
+
+  const secondCatalog = gladys.discovered.at(-1);
+  assert.ok(secondCatalog[0].features.find((f) => f.external_id.endsWith(':battery')));
+});
+
 test('a slow call to Apple does not make the next tick skip a refresh', async () => {
   const { client, tracker, advance } = createTracker({ devices: [fakeFindMyDevice()] });
   const config = normalizeConfig({ ...CONFIG, poll_frequency: 60 });
