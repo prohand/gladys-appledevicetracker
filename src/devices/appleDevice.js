@@ -76,12 +76,28 @@ export function featureExternalId(gladys, appleDeviceId, feature) {
   return gladys.externalIds(DEVICE_TYPE, platformId(appleDeviceId)).feature(feature);
 }
 
+/**
+ * The battery level of one Find My entry, in percent, or null when Apple does
+ * not actually know it.
+ *
+ * Apple has no "battery unknown" field: an entry it could not reach on that
+ * cycle (asleep, offline, still being woken up) simply carries `batteryLevel:
+ * 0` — the default value of the field, not a measurement. Publishing that 0 is
+ * what sent "battery below 10% (current: 0%)" alerts for phones sitting at 80%.
+ *
+ * A real 0% cannot be told apart from that default, and does not need to be: a
+ * device whose battery is empty is OFF, so it reports nothing at all and Find
+ * My itself shows no battery for it. So 0 is always read as "unknown", and the
+ * tracker keeps the last level it did know (see keepLastKnownBattery).
+ */
 function toPercent(batteryLevel) {
   // Apple reports a 0..1 ratio, Gladys wants 0..100.
-  if (!Number.isFinite(batteryLevel) || batteryLevel < 0) {
+  if (!Number.isFinite(batteryLevel) || batteryLevel <= 0) {
     return null;
   }
-  return Math.round(batteryLevel * 100);
+  // Clamp: a ratio above 1 would otherwise publish a percentage above 100 and
+  // Gladys refuses a state outside the bounds of the feature.
+  return Math.min(100, Math.round(batteryLevel * 100));
 }
 
 /**

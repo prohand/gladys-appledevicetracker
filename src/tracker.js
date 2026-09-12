@@ -70,6 +70,8 @@ export class AppleDeviceTracker {
     this.presence = new Map();
     /** Last position Apple gave us per device id (see keepLastKnownLocations). */
     this.lastLocations = new Map();
+    /** Last battery Apple gave us per device id (see keepLastKnownBattery). */
+    this.lastBatteries = new Map();
     /** `{ value, publishedAt }` per feature, so we only publish what changed. */
     this.lastValues = new Map();
     /** Apple device ids whose states must be published again, unchanged or not. */
@@ -216,6 +218,7 @@ export class AppleDeviceTracker {
     this.devices = [];
     this.presence.clear();
     this.lastLocations.clear();
+    this.lastBatteries.clear();
     this.lastValues.clear();
     this.pendingFullPublish.clear();
     this.polledDevices.clear();
@@ -355,13 +358,21 @@ export class AppleDeviceTracker {
 
     this.devices = normalizeAppleDevices(rawDevices);
     this.keepLastKnownLocations();
+    this.keepLastKnownBattery();
     // Only on success: a failed call must not hold the next tick back.
     this.lastRefreshAt = startedAt;
     logger.info(`Find My returned ${this.devices.length} device(s)`);
 
     // A device added to (or removed from) the account shows up here: re-publish
     // the catalog first, so the states below always land on an existing device.
-    const signature = this.devices.map((device) => device.id).join('|');
+    //
+    // The battery features are part of the signature, not just the ids: they are
+    // only declared for a device that reports a battery, so a phone discovered
+    // while Apple could not reach it would otherwise keep a catalog entry with
+    // no battery row until the account itself changed.
+    const signature = this.devices
+      .map((device) => `${device.id}/${device.batteryLevel !== null}/${device.charging !== null}`)
+      .join('|');
     if (signature !== this.deviceSignature) {
       this.deviceSignature = signature;
       await this.publishDiscoveredDevices();
@@ -391,6 +402,36 @@ export class AppleDeviceTracker {
           device.location = known;
         }
       }
+    }
+  }
+
+  /**
+   * Carry the last known battery over to a refresh that carries none.
+   *
+   * Same story as the positions: Apple reports no battery for a device it could
+   * not reach on that cycle, and the normalization reads the bogus 0% of that
+   * payload as "unknown" rather than publishing it. Without this, a phone that
+   * goes offline for a while stops publishing its battery altogether, Gladys
+   * shows "no recent value" on a battery that has simply not been read again,
+   * and the battery features come and go from the catalog on every round trip.
+   *
+   * Find My itself shows the last battery it knew in that case, so do we.
+   */
+  keepLastKnownBattery() {
+    for (const device of this.devices) {
+      // Field by field: an accessory reports a level and no charging state, a
+      // device Apple half-answered for can report the opposite.
+      const known = this.lastBatteries.get(device.id) ?? {};
+      if (device.batteryLevel === null) {
+        device.batteryLevel = known.batteryLevel ?? null;
+      }
+      if (device.charging === null) {
+        device.charging = known.charging ?? null;
+      }
+      this.lastBatteries.set(device.id, {
+        batteryLevel: device.batteryLevel,
+        charging: device.charging,
+      });
     }
   }
 

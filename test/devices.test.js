@@ -38,6 +38,29 @@ test('normalizeAppleDevices converts the battery ratio into a percentage', () =>
   assert.equal(device.batteryLevel, 42);
 });
 
+test('the 0 Apple sends for a battery it does not know is read as unknown', () => {
+  // The bug: Apple answers `batteryLevel: 0` for a device it could not reach on
+  // that cycle, and Gladys alerted "battery below 10% (current: 0%)" on phones
+  // that were nowhere near empty.
+  const [unreachable] = normalizeAppleDevices([
+    fakeFindMyDevice({ batteryLevel: 0, batteryStatus: 'Unknown' }),
+  ]);
+  assert.equal(unreachable.batteryLevel, null);
+
+  // And no battery state is published at all, rather than a wrong one.
+  const { states } = buildStates(gladys, config, unreachable, null);
+  assert.equal(stateOf(states, FEATURE.BATTERY), undefined);
+
+  // A device with a real level is untouched, 1% included.
+  const [low] = normalizeAppleDevices([fakeFindMyDevice({ batteryLevel: 0.01 })]);
+  assert.equal(low.batteryLevel, 1);
+});
+
+test('a battery ratio above 1 is clamped to the bounds of the feature', () => {
+  const [device] = normalizeAppleDevices([fakeFindMyDevice({ batteryLevel: 1.4 })]);
+  assert.equal(device.batteryLevel, 100);
+});
+
 test('a charging or fully charged device reports charging', () => {
   const [charging] = normalizeAppleDevices([fakeFindMyDevice({ batteryStatus: 'Charging' })]);
   const [charged] = normalizeAppleDevices([fakeFindMyDevice({ batteryStatus: 'Charged' })]);
