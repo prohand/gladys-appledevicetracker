@@ -153,6 +153,22 @@ de zone déclenche vos scènes en boucle à cause du bruit GPS.
 
 ## Dépannage
 
+**Les valeurs ne sont plus mises à jour** : regardez d'abord l'onglet
+**Configuration** de l'intégration. Quand l'intégration cesse de rafraîchir ses
+valeurs, elle le dit maintenant à cet endroit, avec la raison : Apple redemande
+un code de double authentification (la session iCloud a expiré et la confiance
+accordée à cette session aussi), Localiser ne répond plus, ou plus rien n'a été
+rafraîchi depuis un long moment. Dans le premier cas, saisissez le nouveau code
+avec l'action **Envoyer le code de double authentification** : les valeurs
+repartent aussitôt. Dans les autres, l'action **Tester la connexion iCloud**
+indique où ça coince. Le tableau de bord, lui, garde les dernières valeurs
+connues : elles ne sont pas fausses, elles sont juste anciennes.
+
+**Un appareil supprimé puis recréé reste vide** : corrigé. L'intégration
+republie désormais toutes ses mesures au moment où vous le recréez, au lieu de
+prendre l'évènement pour un doublon et de le laisser vide jusqu'au prochain
+changement de valeur.
+
 **« Connexion à iCloud impossible : ... »** : le message reprend la réponse
 d'Apple. Les causes les plus fréquentes sont un mot de passe changé, un compte
 temporairement verrouillé après trop d'essais, ou une session à réapprouver.

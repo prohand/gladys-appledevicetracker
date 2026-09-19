@@ -23,7 +23,7 @@ import {
   sameSettings,
 } from './src/config.js';
 import { fetchGladysHomeCoordinates } from './src/homeLocation.js';
-import { AppleDeviceTracker, TRACKER_STATUS } from './src/tracker.js';
+import { AppleDeviceTracker, TRACKER_HEALTH, TRACKER_STATUS } from './src/tracker.js';
 
 const gladys = new GladysIntegration();
 const tracker = new AppleDeviceTracker(gladys);
@@ -39,6 +39,14 @@ const MESSAGES = {
   twoFactorRequired: {
     en: 'Apple sent a code to your devices: enter it with the "Send the two-factor code" action.',
     fr: 'Apple a envoye un code sur vos appareils : saisissez-le avec l\'action "Envoyer le code de double authentification".',
+  },
+  unreachable: {
+    en: 'Find My is not answering: the values shown are the last ones received.',
+    fr: 'Localiser ne repond pas : les valeurs affichees sont les dernieres recues.',
+  },
+  stale: {
+    en: 'The values have not been refreshed for a while: check the connection with "Test the iCloud connection".',
+    fr: 'Les valeurs ne sont plus rafraichies depuis un moment : verifiez avec "Tester la connexion iCloud".',
   },
 };
 
@@ -76,6 +84,35 @@ async function reportFailure(message, err) {
     .setConnectionStatus(false, message)
     .catch((e) => logger.error('setConnectionStatus failed', e));
 }
+
+/**
+ * The tracker stopped (or resumed) updating the values: say it in the
+ * Configuration screen.
+ *
+ * This is the channel that was missing. An iCloud session Apple would not renew
+ * without a new two-factor code left the integration frozen on its last values
+ * with a screen still saying "connected": the values simply stopped moving, and
+ * nothing anywhere said why.
+ */
+tracker.onHealth = async (code, error) => {
+  if (code === TRACKER_HEALTH.OK) {
+    logger.info('The values are being refreshed again');
+    await gladys
+      .setConnectionStatus(true)
+      .catch((err) => logger.error('setConnectionStatus failed', err));
+    return;
+  }
+
+  logger.warn(`The values are not being refreshed any more (${code})`);
+  if (code === TRACKER_HEALTH.TWO_FACTOR_REQUIRED) {
+    await reportFailure(twoFactorMessage(tracker.twoFactorTarget, tracker.twoFactorError));
+    return;
+  }
+  await reportFailure(
+    MESSAGES[code === TRACKER_HEALTH.UNREACHABLE ? 'unreachable' : 'stale'],
+    error,
+  );
+};
 
 /**
  * Pre-fill the home coordinates with the position of the Gladys house, when the
@@ -170,7 +207,19 @@ gladys.onScanRequest(async () => {
 // of waiting for the first poll.
 gladys.onDeviceCreated(async (device) => {
   logger.info(`onDeviceCreated <- ${device.external_id}`);
-  await tracker.deviceCreated(device.external_id);
+  // force: this event IS the creation, even for a device we already served
+  // before — deleting a device and adding it again is how the user picks up a
+  // change in its feature list, and the new features start out empty.
+  await tracker.deviceCreated(device.external_id, { force: true });
+});
+
+// --- Device deleted: drop what we remembered about it ------------------------
+// Its features no longer exist, so the values remembered for them are stale:
+// keeping them would make a device re-created under the same external_id look
+// "already published" and leave it empty on the dashboard.
+gladys.onDeviceDeleted(async (device) => {
+  logger.info(`onDeviceDeleted <- ${device.external_id}`);
+  tracker.forgetDevice(device.external_id);
 });
 
 // --- Command: the user presses a button on a device --------------------------

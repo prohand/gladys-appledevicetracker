@@ -44,10 +44,39 @@ const STATES_PER_BATCH = 100;
 // least this often, even unchanged, to keep it alive on the dashboard.
 const STATE_HEARTBEAT_MS = 30 * 60 * 1000;
 
+// How many refreshes in a row must fail before the Configuration screen says
+// the integration is broken. Apple answers 503 now and then, and a single miss
+// is invisible to the user (the next tick fixes it): only a streak means the
+// values on the dashboard have really stopped moving.
+const UNHEALTHY_AFTER_FAILURES = 3;
+
+// A dashboard is considered stale when nothing has been refreshed for three
+// intervals — never less than this, so a 60 s interval does not raise an alarm
+// on a two-minute hiccup.
+const STALE_MIN_MS = 15 * 60 * 1000;
+
 export const TRACKER_STATUS = {
   DISCONNECTED: 'disconnected',
   CONNECTED: 'connected',
   TWO_FACTOR_REQUIRED: '2fa_required',
+};
+
+/**
+ * Is the integration still doing its job — i.e. still updating the values?
+ *
+ * The iCloud session is the part that breaks in real life: Apple invalidates it
+ * after a while, and when the trust token has expired too it asks for a NEW
+ * two-factor code. The tracker then leaves the CONNECTED state, every later
+ * refresh returns immediately, and the dashboard keeps showing the last values
+ * for ever — with the Configuration screen still green, since nothing ever told
+ * Gladys otherwise. These codes are that missing channel: the tracker reports
+ * them and index.js turns them into the connection status the user sees.
+ */
+export const TRACKER_HEALTH = {
+  OK: 'ok',
+  TWO_FACTOR_REQUIRED: '2fa_required',
+  UNREACHABLE: 'unreachable',
+  STALE: 'stale',
 };
 
 export class AppleDeviceTracker {
@@ -59,6 +88,8 @@ export class AppleDeviceTracker {
     this.gladys = gladys;
     this.createClient = deps.createClient ?? ((options) => new ICloudClient(options));
     this.now = deps.now ?? (() => Date.now());
+    /** `(code, error) => Promise`, set by index.js: see TRACKER_HEALTH. */
+    this.onHealth = deps.onHealth ?? null;
 
     this.config = null;
     this.client = null;
@@ -81,6 +112,10 @@ export class AppleDeviceTracker {
 
     this.lastRefreshAt = 0;
     this.inflightRefresh = null;
+    /** Last health reported, so the same news is not pushed on every tick. */
+    this.health = null;
+    /** Refreshes that failed in a row (see UNHEALTHY_AFTER_FAILURES). */
+    this.failedRefreshes = 0;
     /** Handle of the integration's own refresh loop (see startPolling). */
     this.pollTimer = null;
     /** Signature of the device list, to re-publish only when it changes. */
@@ -133,10 +168,58 @@ export class AppleDeviceTracker {
     this.stopPolling();
     const interval = Math.max(MIN_REFRESH_INTERVAL_MS, this.config.poll_frequency * 1000);
     this.pollTimer = setInterval(() => {
-      this.refresh().catch((err) => logger.error('Scheduled refresh failed', err));
+      this.tick().catch((err) => logger.error('Scheduled refresh failed', err));
     }, interval);
     // A timer must never be the reason the process stays alive.
     this.pollTimer.unref?.();
+  }
+
+  /**
+   * One tick of that loop: refresh, and check the dashboard is still alive.
+   *
+   * The staleness check is the safety net under every reason a refresh can stop
+   * happening — a session Apple will not renew without a new code, a Find My
+   * that has been failing for an hour, a refresh that never came back. Values
+   * that stopped being updated must never be a silent state: the user is told,
+   * in the Configuration screen, instead of being left to notice on their own
+   * that their phone has been "at home" since Tuesday.
+   */
+  async tick() {
+    // Only when nothing more precise has been reported: a refresh that already
+    // said "Apple wants a new code" must not have its message replaced by a
+    // vaguer one on the next tick.
+    const unnoticed = this.health === null || this.health === TRACKER_HEALTH.OK;
+    const staleAfter = Math.max(STALE_MIN_MS, 3 * this.config.poll_frequency * 1000);
+    if (unnoticed && this.lastRefreshAt > 0 && this.now() - this.lastRefreshAt > staleAfter) {
+      await this.reportHealth(TRACKER_HEALTH.STALE);
+    }
+    await this.refresh();
+  }
+
+  /**
+   * Report a change of health to the caller (index.js owns setConnectionStatus).
+   *
+   * Only a CHANGE is reported: the loop ticks every `poll_frequency` seconds and
+   * Gladys has no use for the same "still broken" message every minute. Errors
+   * raised by the report itself are swallowed on purpose — failing to TELL the
+   * user about a problem must not become a second problem.
+   *
+   * @param {string} code one of TRACKER_HEALTH
+   * @param {Error|null} [error] what went wrong, for the logs
+   */
+  async reportHealth(code, error = null) {
+    if (code === this.health) {
+      return;
+    }
+    this.health = code;
+    if (!this.onHealth) {
+      return;
+    }
+    try {
+      await this.onHealth(code, error);
+    } catch (err) {
+      logger.error('Reporting the integration health failed', err);
+    }
   }
 
   /** Stop the refresh loop (sign-out, or before re-arming it). */
@@ -224,6 +307,8 @@ export class AppleDeviceTracker {
     this.polledDevices.clear();
     this.lastRefreshAt = 0;
     this.deviceSignature = null;
+    this.health = null;
+    this.failedRefreshes = 0;
   }
 
   isConnected() {
@@ -246,9 +331,15 @@ export class AppleDeviceTracker {
    * container restarted, WebSocket down at that moment).
    *
    * @param {string} externalId the Gladys external_id of the created device
+   * @param {{ force?: boolean }} [options] `force` republishes even for a device
+   *   already known: the `device-created` event is the user creating it AGAIN
+   *   (deleted then re-added, which is how a device picks up a change in its
+   *   feature list), and its brand-new features hold no value at all. Without
+   *   it, the guard below took that event for a duplicate and the device stayed
+   *   empty on the dashboard until a value moved — up to half an hour.
    */
-  async deviceCreated(externalId) {
-    if (!externalId || this.polledDevices.has(externalId)) {
+  async deviceCreated(externalId, { force = false } = {}) {
+    if (!externalId || (!force && this.polledDevices.has(externalId))) {
       return;
     }
     this.polledDevices.add(externalId);
@@ -266,6 +357,29 @@ export class AppleDeviceTracker {
 
     this.pendingFullPublish.add(device.id);
     await this.publishStates();
+  }
+
+  /**
+   * The user deleted one of our devices in Gladys: forget everything we knew
+   * about it.
+   *
+   * Its features are gone, so the values remembered for them are stale — and
+   * they are exactly what would make a device created again under the same
+   * external_id look "already published" to the dedup below.
+   *
+   * @param {string} externalId the Gladys external_id of the deleted device
+   */
+  forgetDevice(externalId) {
+    if (!externalId) {
+      return;
+    }
+    this.polledDevices.delete(externalId);
+    for (const key of this.lastValues.keys()) {
+      // Feature external_ids are the device one, plus the feature key.
+      if (key === externalId || key.startsWith(`${externalId}:`)) {
+        this.lastValues.delete(key);
+      }
+    }
   }
 
   /**
@@ -308,6 +422,11 @@ export class AppleDeviceTracker {
    */
   async refresh({ force = false } = {}) {
     if (!this.client || !this.isConnected()) {
+      // Nothing will be refreshed in this state and the values are about to go
+      // stale: report it rather than tick in silence for ever.
+      if (this.status === TRACKER_STATUS.TWO_FACTOR_REQUIRED) {
+        await this.reportHealth(TRACKER_HEALTH.TWO_FACTOR_REQUIRED);
+      }
       return this.devices;
     }
 
@@ -326,7 +445,20 @@ export class AppleDeviceTracker {
 
     this.inflightRefresh = this.doRefresh();
     try {
-      return await this.inflightRefresh;
+      const devices = await this.inflightRefresh;
+      this.failedRefreshes = 0;
+      await this.reportHealth(TRACKER_HEALTH.OK);
+      return devices;
+    } catch (err) {
+      this.failedRefreshes += 1;
+      if (this.status === TRACKER_STATUS.TWO_FACTOR_REQUIRED) {
+        // Apple wants a new code: no amount of retrying will fix this one, only
+        // the user can, so the Configuration screen has to say it.
+        await this.reportHealth(TRACKER_HEALTH.TWO_FACTOR_REQUIRED, err);
+      } else if (this.failedRefreshes >= UNHEALTHY_AFTER_FAILURES) {
+        await this.reportHealth(TRACKER_HEALTH.UNREACHABLE, err);
+      }
+      throw err;
     } finally {
       this.inflightRefresh = null;
     }
@@ -436,12 +568,16 @@ export class AppleDeviceTracker {
    */
   async publishStates() {
     const states = [];
+    const republished = [];
     const now = this.now();
 
     for (const device of this.devices) {
       // The user just created this device in Gladys: it missed everything
       // published before, so send it the whole picture.
-      const republishAll = this.pendingFullPublish.delete(device.id);
+      const republishAll = this.pendingFullPublish.has(device.id);
+      if (republishAll) {
+        republished.push(device.id);
+      }
       const wasPresent = this.presence.has(device.id) ? this.presence.get(device.id) : null;
       const result = buildStates(this.gladys, this.config, device, wasPresent);
 
@@ -462,13 +598,30 @@ export class AppleDeviceTracker {
         if (!republishAll && unchanged && now - last.publishedAt < STATE_HEARTBEAT_MS) {
           continue; // unchanged and still recent for Gladys: not worth a state
         }
-        this.lastValues.set(state.device_feature_external_id, { value, publishedAt: now });
         states.push(state);
       }
     }
 
     for (let index = 0; index < states.length; index += STATES_PER_BATCH) {
-      await this.gladys.publishStates(states.slice(index, index + STATES_PER_BATCH));
+      const batch = states.slice(index, index + STATES_PER_BATCH);
+      await this.gladys.publishStates(batch);
+      // Remembered as published only once Gladys has ACCEPTED them. They used
+      // to be recorded before the call: a POST that failed (the 300 states per
+      // minute limit of the host API, a core restarting) was remembered as sent
+      // all the same, and the dedup above then skipped those values until they
+      // moved again — a feature that does not move, like a battery, stayed
+      // empty for half an hour.
+      for (const state of batch) {
+        this.lastValues.set(state.device_feature_external_id, {
+          value: state.state ?? state.text,
+          publishedAt: now,
+        });
+      }
+    }
+    // Same reason: the "this device missed everything" flag is only cleared
+    // once the whole picture really went through.
+    for (const id of republished) {
+      this.pendingFullPublish.delete(id);
     }
     return states;
   }
