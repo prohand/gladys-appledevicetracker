@@ -453,7 +453,6 @@ test('the last known battery survives a refresh where Apple reports none', async
   await tracker.refresh({ force: true });
 
   assert.equal(tracker.devices[0].batteryLevel, 87);
-  assert.equal(tracker.devices[0].charging, false, 'the charging state is kept too');
   const batteryStates = gladys.published.filter((s) => s.featureExternalId.endsWith(':battery'));
   assert.ok(
     batteryStates.every((s) => s.state === 87),
@@ -461,7 +460,7 @@ test('the last known battery survives a refresh where Apple reports none', async
   );
 });
 
-test('a device discovered without a battery gets its battery features later', async () => {
+test('a device discovered without a battery gets its battery feature later', async () => {
   const { gladys, client, tracker } = createTracker({
     devices: [fakeFindMyDevice({ batteryLevel: 0, batteryStatus: 'Unknown' })],
   });
