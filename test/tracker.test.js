@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AppleDeviceTracker, TRACKER_STATUS } from '../src/tracker.js';
+import { AppleDeviceTracker, TRACKER_HEALTH, TRACKER_STATUS } from '../src/tracker.js';
 import { LOGIN_STATUS, SessionExpiredError } from '../src/icloud/client.js';
 import { FEATURE, deviceExternalId, featureExternalId } from '../src/devices/index.js';
 import { normalizeConfig } from '../src/config.js';
@@ -59,11 +59,14 @@ function createTracker(options = {}) {
   const gladys = createFakeGladys();
   const client = createFakeClient(options);
   let clock = options.startTime ?? 1_000_000;
+  // What index.js turns into the connection status of the Configuration screen.
+  const health = [];
   const tracker = new AppleDeviceTracker(gladys, {
     createClient: () => client,
     now: () => clock,
+    onHealth: async (code, error) => health.push({ code, error }),
   });
-  return { gladys, client, tracker, advance: (ms) => (clock += ms) };
+  return { gladys, client, tracker, health, advance: (ms) => (clock += ms) };
 }
 
 test('start() signs in, publishes the devices and their states', async () => {
@@ -518,4 +521,119 @@ test('a failed refresh does not hold the next tick back', async () => {
   assert.equal(client.calls.fetchDevices, 3, 'the failure is retried on the next tick');
 
   tracker.stopPolling();
+});
+
+test('a device deleted then created again gets its values back straight away', async () => {
+  const { gladys, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+  const externalId = tracker.externalIdOf(tracker.devices[0]);
+  await tracker.deviceCreated(externalId, { force: true });
+
+  // Deleting a device and adding it again is how the user picks up a change in
+  // its feature list: the new features hold no value at all, so this creation
+  // is a real one even though we already served that external_id — the guard
+  // that took it for a duplicate left the device empty on the dashboard.
+  const before = gladys.published.length;
+  await tracker.deviceCreated(externalId, { force: true });
+
+  const republished = gladys.published.slice(before).map((s) => s.featureExternalId);
+  assert.ok(
+    republished.some((id) => id.endsWith(':presence')),
+    'the presence is published again',
+  );
+  assert.ok(republished.some((id) => id.endsWith(':battery')));
+});
+
+test('forgetDevice() drops what was remembered for the deleted device only', async () => {
+  const devices = [fakeFindMyDevice({ id: 'A' }), fakeFindMyDevice({ id: 'B', name: 'iPad' })];
+  const { gladys, tracker } = createTracker({ devices });
+  await tracker.start(CONFIG);
+  const gone = deviceExternalId(gladys, 'A');
+  const kept = deviceExternalId(gladys, 'B');
+
+  tracker.forgetDevice(gone);
+
+  assert.ok(![...tracker.lastValues.keys()].some((key) => key.startsWith(`${gone}:`)));
+  assert.ok([...tracker.lastValues.keys()].some((key) => key.startsWith(`${kept}:`)));
+});
+
+test('a session Apple will not renew without a code stops being a silent freeze', async () => {
+  const { client, tracker, health } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+  assert.equal(health.at(-1).code, TRACKER_HEALTH.OK);
+
+  // The trust token expired too: Apple asks for a new code, so nothing will be
+  // refreshed until the user types it. The Configuration screen has to say it —
+  // it used to stay green while the values silently stopped moving.
+  client.failNextFetchWith = new SessionExpiredError('expired');
+  client.loginStatus = LOGIN_STATUS.TWO_FACTOR_REQUIRED;
+  await assert.rejects(() => tracker.refresh({ force: true }));
+
+  assert.equal(health.at(-1).code, TRACKER_HEALTH.TWO_FACTOR_REQUIRED);
+
+  // And the news is not repeated on every tick that follows.
+  const reported = health.length;
+  await tracker.refresh({ force: true });
+  assert.equal(health.length, reported);
+});
+
+test('a streak of failed refreshes is reported, a single hiccup is not', async () => {
+  const { client, tracker, health } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    client.failNextFetchWith = new Error('Find My is down');
+    await assert.rejects(() => tracker.refresh({ force: true }));
+  }
+  assert.ok(
+    !health.some((entry) => entry.code === TRACKER_HEALTH.UNREACHABLE),
+    'two misses in a row are just Apple being Apple',
+  );
+
+  client.failNextFetchWith = new Error('Find My is down');
+  await assert.rejects(() => tracker.refresh({ force: true }));
+  assert.equal(health.at(-1).code, TRACKER_HEALTH.UNREACHABLE);
+
+  // And the user is told when it works again.
+  await tracker.refresh({ force: true });
+  assert.equal(health.at(-1).code, TRACKER_HEALTH.OK);
+});
+
+test('values that stopped being refreshed are reported as such', async () => {
+  const { tracker, health, advance } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+
+  // Whatever froze the refresh (here: the tracker is not connected any more),
+  // a dashboard nobody updates must not stay green.
+  tracker.status = TRACKER_STATUS.DISCONNECTED;
+  advance(20 * 60 * 1000);
+  await tracker.tick();
+
+  assert.equal(health.at(-1).code, TRACKER_HEALTH.STALE);
+  tracker.stopPolling();
+});
+
+test('a state Gladys refused is published again instead of being forgotten', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+  const accept = gladys.publishStates;
+
+  // The host API refuses the batch (its 300 states per minute limit, a core
+  // restarting): those values never reached Gladys, so they must not be
+  // remembered as published.
+  client.devices = [fakeFindMyDevice({ batteryLevel: 0.5 })];
+  gladys.publishStates = async () => {
+    throw new Error('429 too many states');
+  };
+  await assert.rejects(() => tracker.refresh({ force: true }));
+
+  gladys.publishStates = accept;
+  const before = gladys.published.length;
+  await tracker.refresh({ force: true });
+
+  const battery = gladys.published
+    .slice(before)
+    .find((state) => state.featureExternalId.endsWith(':battery'));
+  assert.ok(battery, 'the battery is published again although it did not change');
+  assert.equal(battery.state, 50);
 });

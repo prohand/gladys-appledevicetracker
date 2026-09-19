@@ -141,6 +141,21 @@ zone from firing your scenes over and over because of GPS noise.
 
 ## Troubleshooting
 
+**The values are not updated any more**: look at the **Configuration** tab of
+the integration first. When the integration stops refreshing its values it now
+says so there, with the reason: Apple is asking for a new two-factor code (the
+iCloud session expired, and so did the trust granted to it), Find My is not
+answering, or nothing has been refreshed for a long while. In the first case,
+enter the new code with the **Send the two-factor code** action and the values
+start moving again straight away. In the others, the **Test the iCloud
+connection** action shows where it is stuck. The dashboard keeps the last known
+values in the meantime: they are not wrong, just old.
+
+**A device deleted then created again stays empty**: fixed. The integration now
+republishes all of its readings the moment you create it again, instead of
+taking the event for a duplicate and leaving the device empty until a value
+moved.
+
 **"iCloud connection failed: ..."**: the message repeats Apple's own answer.
 The usual causes are a changed password, an account temporarily locked after
 too many attempts, or a session that needs approving again.
