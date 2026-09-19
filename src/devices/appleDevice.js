@@ -9,6 +9,14 @@
 // The feature that matters for automations is `presence`: a plain binary
 // sensor, so "when my iPhone arrives at home" is a normal Gladys scene trigger.
 //
+// There is deliberately NO "charging" feature, although Find My reports it:
+// Gladys warns "battery level under 10%" for every feature of the `battery`
+// CATEGORY whose value is below the threshold, whatever its TYPE (see
+// device.checkBatteries in the core). A charging sensor holds 0 or 1, so it is
+// read as "0%" or "1%" and fired a false low-battery alert every single day on
+// every phone. Until the core filters on the feature type, the charging state
+// is simply not published — the battery percentage is.
+//
 // One feature is a COMMAND, not a sensor: `ring` plays the Find My sound on the
 // device. It is the same operation as the "Make a device ring" action of the
 // Configuration screen, but attached to the device itself — so it sits on the
@@ -39,7 +47,6 @@ export const FEATURE = {
   POSITION: 'position',
   LAST_SEEN: 'last-seen',
   BATTERY: 'battery',
-  CHARGING: 'charging',
   RING: 'ring',
 };
 
@@ -101,25 +108,6 @@ function toPercent(batteryLevel) {
 }
 
 /**
- * Is this device on power?
- *
- * Apple describes the battery of a DEVICE with a word (`Charging` while plugged
- * in, `Charged` once full), and the battery of an ACCESSORY with a level (a
- * number, or `Low`/`Medium`/`High`): an accessory has no charging state at all,
- * so anything we do not recognise stays unknown rather than becoming a "not
- * charging" feature that never moves.
- */
-function normalizeCharging(batteryStatus) {
-  if (typeof batteryStatus !== 'string') {
-    return null;
-  }
-  if (batteryStatus === 'Charging' || batteryStatus === 'Charged') {
-    return true;
-  }
-  return batteryStatus === 'NotCharging' ? false : null;
-}
-
-/**
  * Reduce one raw Find My entry to the fields this integration uses. Nothing is
  * assumed present: Apple omits `location` on a device that has never reported,
  * and omits the battery on accessories.
@@ -128,7 +116,6 @@ function normalizeCharging(batteryStatus) {
  */
 export function normalizeAppleDevice(raw = {}) {
   const location = raw.location || null;
-  const batteryStatus = raw.batteryStatus || null;
 
   return {
     id: appleDeviceId(raw),
@@ -140,7 +127,6 @@ export function normalizeAppleDevice(raw = {}) {
       raw.productType?.productInformation?.modelName ||
       null,
     batteryLevel: toPercent(raw.batteryLevel),
-    charging: normalizeCharging(batteryStatus),
     location: location
       ? {
           latitude: Number(location.latitude),
@@ -229,7 +215,7 @@ export function buildDevice(gladys, config, device) {
   ];
 
   // Accessories (AirTag, AirPods) report no battery percentage: only declare the
-  // battery features on the devices that actually have them.
+  // battery feature on the devices that actually have one.
   if (device.batteryLevel !== null) {
     features.push({
       name: 'Battery',
@@ -244,20 +230,6 @@ export function buildDevice(gladys, config, device) {
       keep_history: true,
     });
   }
-  if (device.charging !== null) {
-    features.push({
-      name: 'Charging',
-      external_id: ids.feature(FEATURE.CHARGING),
-      category: DEVICE_FEATURE_CATEGORIES.BATTERY,
-      type: DEVICE_FEATURE_TYPES.BATTERY.CHARGING,
-      min: 0,
-      max: 1,
-      read_only: true,
-      has_feedback: false,
-      keep_history: false,
-    });
-  }
-
   // The ring button.
   //
   // `button`/`push` is the one pair Gladys renders as a PUSH BUTTON ("Appuyer")
@@ -323,12 +295,6 @@ export function buildStates(gladys, config, device, wasPresent = null) {
     states.push({
       device_feature_external_id: ids.feature(FEATURE.BATTERY),
       state: device.batteryLevel,
-    });
-  }
-  if (device.charging !== null) {
-    states.push({
-      device_feature_external_id: ids.feature(FEATURE.CHARGING),
-      state: device.charging ? 1 : 0,
     });
   }
 

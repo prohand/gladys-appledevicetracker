@@ -24,11 +24,16 @@ One Gladys device per device visible in Find My, refreshed by **polling** at the
 | Position           | `text` / `text`                  | `latitude,longitude`              |
 | Position age       | `duration` / `integer` minutes   | How stale Apple's last fix is     |
 | Battery            | `battery` / `integer` %          | Only on devices that report one   |
-| Charging           | `battery` / `charging`           | Only on devices that report one   |
 | Ring               | `button` / `push`                | Command: plays the Find My sound  |
 
 Presence is deliberately a plain binary sensor, so it works as a normal Gladys
 scene trigger with no extra glue.
+
+There is no `charging` feature, although Find My reports it: Gladys warns
+"battery level under 10%" for every feature of the `battery` CATEGORY below the
+threshold, whatever its TYPE (`device.checkBatteries` in the core). A charging
+sensor holds 0 or 1, so it was read as "0%" and fired a false low-battery alert
+every day on every phone.
 
 Every measurement is read-only; `Ring` is the one writable feature. The pair
 `button`/`push` is what Gladys renders as a real PUSH BUTTON on the dashboard,
