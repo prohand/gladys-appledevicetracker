@@ -61,17 +61,32 @@ test('a battery ratio above 1 is clamped to the bounds of the feature', () => {
   assert.equal(device.batteryLevel, 100);
 });
 
-test('no charging feature is ever declared, whatever Apple reports', () => {
-  // Gladys warns "battery under 10%" on every feature of the `battery` CATEGORY
-  // below the threshold, type included: a charging sensor sitting at 0 ("not
-  // charging") was read as 0% and sent a false alert every day.
+test('a charging or fully charged device reports charging', () => {
+  const [charging] = normalizeAppleDevices([fakeFindMyDevice({ batteryStatus: 'Charging' })]);
+  const [charged] = normalizeAppleDevices([fakeFindMyDevice({ batteryStatus: 'Charged' })]);
+  const [onBattery] = normalizeAppleDevices([fakeFindMyDevice({ batteryStatus: 'NotCharging' })]);
+  assert.equal(charging.charging, true);
+  assert.equal(charged.charging, true);
+  assert.equal(onBattery.charging, false);
+});
+
+test('the charging feature stays out of the category Gladys scans for low batteries', () => {
+  // The bug: Gladys warns "battery under 10%" for every feature of the `battery`
+  // CATEGORY below the threshold, whatever its TYPE (device.checkBatteries never
+  // reads it). A charging sensor sitting at 0 ("not charging") was therefore read
+  // as 0% and sent a false alert every single day, on every phone.
   for (const batteryStatus of ['Charging', 'Charged', 'NotCharging']) {
     const [device] = buildDiscoveredDevices(
       gladys,
       config,
       normalizeAppleDevices([fakeFindMyDevice({ batteryStatus })]),
     );
-    assert.equal(featureOf(device, 'charging'), undefined);
+    const charging = featureOf(device, FEATURE.CHARGING);
+    assert.ok(charging, 'the charging state is published');
+    assert.equal(charging.category, DEVICE_FEATURE_CATEGORIES.INPUT);
+    assert.equal(charging.type, DEVICE_FEATURE_TYPES.INPUT.BINARY);
+    assert.equal(charging.read_only, true);
+
     const batteryFeatures = device.features.filter(
       (feature) => feature.category === DEVICE_FEATURE_CATEGORIES.BATTERY,
     );
@@ -80,12 +95,32 @@ test('no charging feature is ever declared, whatever Apple reports', () => {
   }
 });
 
+test('the charging feature no longer answers to the external_id that alerted', () => {
+  // Devices created before 1.0.6 still carry a `:charging` feature of the battery
+  // category, with its last value stuck at 0. Publishing on that id again would
+  // bring the daily alert straight back, so the feature moved to a new one — and
+  // the old row is dropped by Gladys the next time the device is updated from the
+  // Discovery screen, since it is not in the payload any more.
+  const [device] = buildDiscoveredDevices(
+    gladys,
+    config,
+    normalizeAppleDevices([fakeFindMyDevice({ batteryStatus: 'NotCharging' })]),
+  );
+  assert.equal(featureOf(device, 'charging'), undefined);
+
+  const [normalized] = normalizeAppleDevices([fakeFindMyDevice({ batteryStatus: 'NotCharging' })]);
+  const { states } = buildStates(gladys, config, normalized, null);
+  assert.equal(stateOf(states, 'charging'), undefined);
+  assert.equal(stateOf(states, FEATURE.CHARGING).state, 0);
+});
+
 test('an accessory without battery or location is still a valid device', () => {
   const [device] = normalizeAppleDevices([
     { id: 'AIRTAG-1', name: 'AirTag keys', batteryLevel: -1, location: null },
   ]);
   assert.equal(device.batteryLevel, null);
   assert.equal(device.location, null);
+  assert.equal(device.charging, null);
 });
 
 test('an accessory keyed on identifier is kept, like the AirTags of Find My', () => {
@@ -101,6 +136,8 @@ test('an accessory keyed on identifier is kept, like the AirTags of Find My', ()
   assert.equal(device.id, 'AIRTAG-2');
   assert.equal(device.name, 'AirTag valise');
   assert.equal(device.model, 'AirTag');
+  // A level, not a charging state: an AirTag is never "on power".
+  assert.equal(device.charging, null);
   assert.equal(device.location.latitude, 48.8566);
 });
 
@@ -174,10 +211,8 @@ test('every feature uses a category/type pair Gladys knows how to name', () => {
       DEVICE_FEATURE_TYPES.DURATION.INTEGER,
       DEVICE_FEATURE_TYPES.DURATION.DECIMAL,
     ],
-    [DEVICE_FEATURE_CATEGORIES.BATTERY]: [
-      DEVICE_FEATURE_TYPES.BATTERY.INTEGER,
-      DEVICE_FEATURE_TYPES.BATTERY.CHARGING,
-    ],
+    [DEVICE_FEATURE_CATEGORIES.BATTERY]: [DEVICE_FEATURE_TYPES.BATTERY.INTEGER],
+    [DEVICE_FEATURE_CATEGORIES.INPUT]: [DEVICE_FEATURE_TYPES.INPUT.BINARY],
     [DEVICE_FEATURE_CATEGORIES.BUTTON]: [DEVICE_FEATURE_TYPES.BUTTON.PUSH],
   };
   for (const feature of device.features) {
@@ -258,13 +293,14 @@ test('the distance feature is reported in kilometers', () => {
   assert.equal(distance.unit, DEVICE_FEATURE_UNITS.KM);
 });
 
-test('the battery feature is only declared on devices that report one', () => {
+test('battery features are only declared on devices that report one', () => {
   const [withBattery] = buildDiscoveredDevices(
     gladys,
     config,
     normalizeAppleDevices([fakeFindMyDevice()]),
   );
   assert.ok(featureOf(withBattery, FEATURE.BATTERY));
+  assert.ok(featureOf(withBattery, FEATURE.CHARGING));
 
   const [accessory] = buildDiscoveredDevices(
     gladys,
@@ -272,6 +308,7 @@ test('the battery feature is only declared on devices that report one', () => {
     normalizeAppleDevices([{ id: 'AIRTAG-1', name: 'AirTag', batteryLevel: -1 }]),
   );
   assert.equal(featureOf(accessory, FEATURE.BATTERY), undefined);
+  assert.equal(featureOf(accessory, FEATURE.CHARGING), undefined);
 });
 
 test('a device at home publishes presence 1 and a distance close to zero', () => {

@@ -19,9 +19,11 @@ measurements:
 | Position           | Text          | "latitude,longitude", handy when debugging      |
 | Position age       | Integer (min) | Spot a device that stopped reporting            |
 | Battery            | Integer (%)   | Alert on a low battery                          |
+| Charging           | Binary        | Know whether the device is plugged in           |
 | Ring               | Button        | Plays the Find My sound on that device          |
 
-The battery only shows up on devices that report one: an accessory has none.
+Battery and charging only show up on devices that report them: an accessory has
+neither.
 
 When Apple cannot reach a device (off, no network, deep sleep) it answers with a
 battery of 0%: that is the default value of the field, not a measurement. The
@@ -29,12 +31,13 @@ integration does not publish it — Gladys would send a "low battery" alert for 
 phone that is nowhere near empty — and keeps the last level it knew instead,
 like the Find My app.
 
-There is no "charging" measurement, although Find My reports it. Gladys warns
-"battery level under 10%" for every feature of the **battery category** whose
-value is below the threshold, whatever its type: a charging sensor holds 0 or 1,
-so it was read as "0%" and warned every single day on every phone. The
-measurement will come back the day the Gladys core only checks the battery
-percentage.
+The "charging" measurement is deliberately **not** in the battery category,
+although Gladys has one for it. Gladys warns "battery level under 10%" for every
+feature of the **battery category** whose value is below the threshold, whatever
+its type: a charging sensor holds 0 or 1, so it was read as "0%" and warned every
+single day on every phone. It is published as a **binary input** instead (the
+generic binary measurement of Gladys): same yes/no value, same use in a scene,
+but outside the category that check walks through.
 
 ### Ringing a device from the dashboard
 
@@ -193,12 +196,13 @@ integration re-publishes every value at least every 30 minutes, so this should
 only show up when the integration is stopped, cannot sign in to iCloud any more
 (check the Configuration tab) or when the device reports no position at all.
 
-**I get "battery level under 10% (current: 0%)" every day on an iPhone**: that
-was the "Charging" measurement, removed by this version. Gladys checks every
-measurement of the battery category, this one included, and it holds 0 whenever
-the phone is not plugged in. The measurement stays recorded on the devices
-already created: delete the device in Gladys, then create it again from the
-**Discovery** tab of the integration so the old value goes away.
+**I used to get "battery level under 10% (current: 0%)" every day on an
+iPhone**: that was the old "Charging" measurement, filed under the battery
+category, which holds 0 whenever the phone is not plugged in. The new "Charging"
+measurement is a binary input and never feeds that old one again. The old one
+stays recorded on the devices created before: open the **Discovery** tab of the
+integration and click **Update** on that device — Gladys deletes the
+measurements that are no longer published, and the alert stops.
 
 **The "Ring" button is missing**: the device was created before the feature
 existed. Open the **Discovery** tab of the integration and click **Update** on

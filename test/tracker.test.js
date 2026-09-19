@@ -456,6 +456,7 @@ test('the last known battery survives a refresh where Apple reports none', async
   await tracker.refresh({ force: true });
 
   assert.equal(tracker.devices[0].batteryLevel, 87);
+  assert.equal(tracker.devices[0].charging, false, 'the charging state is kept too');
   const batteryStates = gladys.published.filter((s) => s.featureExternalId.endsWith(':battery'));
   assert.ok(
     batteryStates.every((s) => s.state === 87),

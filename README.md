@@ -24,16 +24,25 @@ One Gladys device per device visible in Find My, refreshed by **polling** at the
 | Position           | `text` / `text`                  | `latitude,longitude`              |
 | Position age       | `duration` / `integer` minutes   | How stale Apple's last fix is     |
 | Battery            | `battery` / `integer` %          | Only on devices that report one   |
+| Charging           | `input` / `binary`               | Only on devices that report one   |
 | Ring               | `button` / `push`                | Command: plays the Find My sound  |
 
 Presence is deliberately a plain binary sensor, so it works as a normal Gladys
 scene trigger with no extra glue.
 
-There is no `charging` feature, although Find My reports it: Gladys warns
-"battery level under 10%" for every feature of the `battery` CATEGORY below the
-threshold, whatever its TYPE (`device.checkBatteries` in the core). A charging
-sensor holds 0 or 1, so it was read as "0%" and fired a false low-battery alert
-every day on every phone.
+`Charging` is an `input`/`binary` sensor and NOT the `battery`/`charging` pair
+Gladys has for it: the core warns "battery level under 10%" for every feature of
+the `battery` CATEGORY below the threshold, whatever its TYPE
+(`device.checkBatteries` never reads it). A charging sensor holds 0 or 1, so it
+was read as "0%" and fired a false low-battery alert every day on every phone.
+`input`/`binary` is the generic read-only binary sensor of Gladys — same 0/1
+value, same use in a scene, outside the category that check scans.
+
+Its `external_id` moved with it (`charging-state`, not `charging`), so the old
+battery-category feature of a device created before 1.0.6 is never fed again.
+That old row keeps alerting until it is removed: **Discovery** tab of the
+integration, **Update** on the device, and Gladys deletes the features that are
+no longer in the payload.
 
 Every measurement is read-only; `Ring` is the one writable feature. The pair
 `button`/`push` is what Gladys renders as a real PUSH BUTTON on the dashboard,
