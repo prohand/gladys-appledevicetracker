@@ -204,6 +204,24 @@ stays recorded on the devices created before: open the **Discovery** tab of the
 integration and click **Update** on that device — Gladys deletes the
 measurements that are no longer published, and the alert stops.
 
+**The "Charging" measurement says "no value received"**: two possible causes,
+and the logs say which one.
+
+1. _The device was created in Gladys before that measurement existed_ (the
+   current "Charging" one landed in 1.0.8). Gladys never adds a new measurement
+   to an already created device on its own: open the **Discovery** tab of the
+   integration and click **Update** on that device — the values are published
+   straight after that click. While the measurement is missing, the integration
+   now says so in its logs: `Gladys has no feature ...:charging-state`.
+2. _Apple gives no charging state for that device_. Find My only carries the
+   `batteryStatus` field for the devices it could reach, and an accessory
+   (AirTag, AirPods) has none at all. The integration then publishes nothing
+   rather than an invented "not charging". The **Test the iCloud connection**
+   action shows what Apple answers for each device, e.g. `John's iPhone (87%,
+charging state unknown (batteryStatus: Unknown))`, and the logs repeat it
+   whenever it changes. Nothing to fix on the Gladys side: the value comes back
+   as soon as Apple reports it again.
+
 **The "Ring" button is missing**: the device was created before the feature
 existed. Open the **Discovery** tab of the integration and click **Update** on
 that device.

@@ -211,6 +211,25 @@ l'onglet **Découverte** de l'intégration et cliquez sur **Mettre à jour** sur
 l'appareil concerné — Gladys supprime les mesures qui ne sont plus publiées, et
 l'alerte s'arrête.
 
+**La mesure « En charge » affiche « Pas de valeur reçue »** : deux causes
+possibles, et les logs disent laquelle.
+
+1. _L'appareil a été créé dans Gladys avant que la mesure existe_ (la mesure
+   « En charge » actuelle est arrivée en 1.0.8). Gladys n'ajoute pas tout seul
+   une nouvelle mesure à un appareil déjà créé : ouvrez l'onglet **Découverte**
+   de l'intégration et cliquez sur **Mettre à jour** sur l'appareil. Les valeurs
+   sont publiées immédiatement après ce clic. Tant que la mesure n'existe pas,
+   l'intégration l'écrit maintenant dans ses logs : `Gladys has no feature
+... :charging-state`.
+2. _Apple ne donne pas l'état de charge de cet appareil_. Localiser ne remonte
+   le champ `batteryStatus` que pour les appareils qu'il a pu joindre ; pour un
+   accessoire (AirTag, AirPods) il n'existe pas du tout. L'intégration ne publie
+   alors rien, plutôt qu'un « pas en charge » inventé. L'action **Tester la
+   connexion iCloud** affiche ce qu'Apple renvoie pour chaque appareil, par
+   exemple `iPhone de Jean (87 %, charge inconnue (batteryStatus : Unknown))`,
+   et les logs le répètent à chaque changement. Rien à corriger côté Gladys :
+   la valeur réapparaît dès qu'Apple la redonne.
+
 **Le bouton « Faire sonner » n'apparaît pas** : l'appareil a été créé avant que
 la fonctionnalité existe. Onglet **Découverte** de l'intégration → bouton
 **Mettre à jour** sur l'appareil concerné.

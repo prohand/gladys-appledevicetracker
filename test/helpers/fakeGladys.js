@@ -30,6 +30,10 @@ export function createFakeGladys() {
       };
     },
 
+    async getDevices() {
+      return this.devices;
+    },
+
     async publishState(featureExternalId, state) {
       published.push({ featureExternalId, state });
     },

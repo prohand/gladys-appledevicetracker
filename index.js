@@ -75,6 +75,36 @@ function twoFactorMessage(target, error = null) {
   };
 }
 
+/**
+ * One device, as the "Test the iCloud connection" action names it: its name,
+ * its battery level and what Apple says about the plug.
+ *
+ * `charging: null` is the answer of Find My for an accessory, and for a device
+ * it could not reach — that is exactly the case that leaves the `Charging`
+ * feature empty in Gladys, so it is said out loud rather than left blank.
+ *
+ * @param {object} device a device normalized by the tracker
+ * @param {'en'|'fr'} lang
+ */
+function describeDevice(device, lang) {
+  const parts = [];
+  if (device.batteryLevel !== null) {
+    parts.push(`${device.batteryLevel}%`);
+  }
+  if (device.charging === true) {
+    parts.push(lang === 'fr' ? 'en charge' : 'charging');
+  } else if (device.charging === false) {
+    parts.push(lang === 'fr' ? 'pas en charge' : 'not charging');
+  } else {
+    parts.push(
+      lang === 'fr'
+        ? `charge inconnue (batteryStatus : ${device.batteryStatus ?? 'absent'})`
+        : `charging state unknown (batteryStatus: ${device.batteryStatus ?? 'none'})`,
+    );
+  }
+  return `${device.name} (${parts.join(', ')})`;
+}
+
 /** Report a failure both in the logs and in the Configuration screen. */
 async function reportFailure(message, err) {
   if (err) {
@@ -210,6 +240,18 @@ gladys.onDeviceCreated(async (device) => {
   // force: this event IS the creation, even for a device we already served
   // before — deleting a device and adding it again is how the user picks up a
   // change in its feature list, and the new features start out empty.
+  await tracker.deviceCreated(device.external_id, { force: true });
+});
+
+// --- Device updated: the user clicked "Update" on the Discovery screen --------
+// That button is how an EXISTING device picks up a feature added by a new
+// version of the integration (the `Charging` one on 1.0.8, `Ring` before it):
+// Gladys creates the missing features, empty, and they stay empty until a value
+// is published on them. Nothing was listening to this event, so the dashboard
+// showed "no value received" on the new row until the next heartbeat — or for
+// ever, for a value that never moved. The whole device is re-published instead.
+gladys.onDeviceUpdated(async (device) => {
+  logger.info(`onDeviceUpdated <- ${device.external_id}`);
   await tracker.deviceCreated(device.external_id, { force: true });
 });
 
@@ -351,10 +393,14 @@ gladys.onAction('check_connection', async () => {
     );
   }
 
-  const names = tracker.devices.map((device) => device.name).join(', ');
+  // Named with what Apple says about their battery: "the Charging feature is
+  // empty" is otherwise impossible to tell from "Apple sends no charging state
+  // for this device" without reading the logs.
+  const names = tracker.devices.map((device) => describeDevice(device, 'en')).join(', ');
+  const nomsFr = tracker.devices.map((device) => describeDevice(device, 'fr')).join(', ');
   return {
     en: `iCloud OK: ${tracker.devices.length} device(s) — ${names}`,
-    fr: `iCloud OK : ${tracker.devices.length} appareil(s) — ${names}`,
+    fr: `iCloud OK : ${tracker.devices.length} appareil(s) — ${nomsFr}`,
   };
 });
 
