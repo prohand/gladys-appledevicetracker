@@ -19,10 +19,11 @@ mesures :
 | Position             | Texte        | « latitude,longitude », pratique en debug         |
 | Âge de la position   | Entier (min) | Détecter un appareil éteint qui ne remonte plus   |
 | Batterie             | Entier (%)   | Alerter sur une batterie faible                   |
+| En charge            | Binaire      | Savoir si l'appareil est branché                  |
 | Faire sonner         | Bouton       | Joue le son de Localiser sur cet appareil         |
 
-La batterie n'apparaît que sur les appareils qui la remontent : un accessoire
-n'en a pas.
+Batterie et charge n'apparaissent que sur les appareils qui les remontent :
+un accessoire n'en a pas.
 
 Quand Apple n'arrive pas à joindre un appareil (éteint, sans réseau, en veille
 profonde), il renvoie une batterie à 0 % : ce n'est pas une mesure, c'est la
@@ -30,12 +31,14 @@ valeur par défaut du champ. L'intégration ne la publie donc pas — sinon Glad
 enverrait une alerte « batterie faible » sur un téléphone plein — et garde le
 dernier niveau qu'elle connaissait, comme l'application Localiser.
 
-Il n'y a pas de mesure « En charge », bien qu'Apple la donne. Gladys prévient
-« niveau de batterie inférieur à 10 % » pour **toute mesure de la catégorie
-batterie** sous le seuil, quel que soit son type : une mesure de charge vaut 0
-ou 1, elle était donc lue comme « 0 % » et déclenchait une fausse alerte tous
-les jours, sur chaque téléphone. La mesure reviendra le jour où le cœur de
-Gladys ne vérifiera que le pourcentage de batterie.
+La mesure « En charge » n'est volontairement **pas** dans la catégorie batterie,
+alors que Gladys en propose une. Gladys prévient « niveau de batterie inférieur
+à 10 % » pour **toute mesure de la catégorie batterie** sous le seuil, quel que
+soit son type : une mesure de charge vaut 0 ou 1, elle était donc lue comme
+« 0 % » et déclenchait une fausse alerte tous les jours, sur chaque téléphone.
+Elle est donc publiée comme une **entrée binaire** (la mesure binaire générique
+de Gladys) : même valeur oui/non, même usage dans une scène, mais en dehors de
+la catégorie que cette vérification parcourt.
 
 ### Faire sonner un appareil depuis le tableau de bord
 
@@ -199,13 +202,14 @@ valeur comme périmée quand plus rien n'a été publié dessus depuis un moment
 arrêtée, si elle n'arrive plus à se connecter à iCloud (regardez l'onglet
 Configuration) ou si l'appareil ne remonte aucune position.
 
-**Je reçois tous les jours « niveau de batterie inférieur à 10 % (actuel :
-0 %) » sur un iPhone** : c'était la mesure « En charge », supprimée par cette
-version. Gladys vérifie toutes les mesures de la catégorie batterie, y compris
-celle-ci qui vaut 0 quand le téléphone n'est pas branché. La mesure reste
-enregistrée sur les appareils déjà créés : supprimez l'appareil dans Gladys,
-puis recréez-le depuis l'onglet **Découverte** de l'intégration pour que la
-vieille valeur disparaisse.
+**Je recevais tous les jours « niveau de batterie inférieur à 10 % (actuel :
+0 %) » sur un iPhone** : c'était l'ancienne mesure « En charge », rangée dans la
+catégorie batterie, qui vaut 0 quand le téléphone n'est pas branché. La nouvelle
+mesure « En charge » est une entrée binaire et n'alimente plus cette ancienne
+mesure. Celle-ci reste enregistrée sur les appareils créés avant : ouvrez
+l'onglet **Découverte** de l'intégration et cliquez sur **Mettre à jour** sur
+l'appareil concerné — Gladys supprime les mesures qui ne sont plus publiées, et
+l'alerte s'arrête.
 
 **Le bouton « Faire sonner » n'apparaît pas** : l'appareil a été créé avant que
 la fonctionnalité existe. Onglet **Découverte** de l'intégration → bouton

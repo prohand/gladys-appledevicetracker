@@ -9,13 +9,20 @@
 // The feature that matters for automations is `presence`: a plain binary
 // sensor, so "when my iPhone arrives at home" is a normal Gladys scene trigger.
 //
-// There is deliberately NO "charging" feature, although Find My reports it:
-// Gladys warns "battery level under 10%" for every feature of the `battery`
-// CATEGORY whose value is below the threshold, whatever its TYPE (see
-// device.checkBatteries in the core). A charging sensor holds 0 or 1, so it is
-// read as "0%" or "1%" and fired a false low-battery alert every single day on
-// every phone. Until the core filters on the feature type, the charging state
-// is simply not published — the battery percentage is.
+// The `charging` feature is deliberately NOT in the `battery` CATEGORY, even
+// though Gladys has a `battery`/`charging` pair for exactly this. The core
+// warns "battery level under 10%" for every feature of the `battery` category
+// whose last value is below the threshold, whatever its TYPE (it never reads
+// the type: see device.checkBatteries). A charging sensor holds 0 or 1, so it
+// was read as "0%" and sent a false low-battery alert every single day, on
+// every phone, whatever the real battery level.
+//
+// It is therefore published as `input`/`binary`, the generic read-only binary
+// sensor of Gladys (same family as the motion or leak sensors): same 0/1 value,
+// same use in a scene, but outside the category the battery check scans. Its
+// external_id changed with it (`charging-state`, not `charging`), so the old
+// battery-category feature of devices created before 1.0.6 is never fed again —
+// clicking Update on the Discovery screen deletes it for good.
 //
 // One feature is a COMMAND, not a sensor: `ring` plays the Find My sound on the
 // device. It is the same operation as the "Make a device ring" action of the
@@ -47,6 +54,9 @@ export const FEATURE = {
   POSITION: 'position',
   LAST_SEEN: 'last-seen',
   BATTERY: 'battery',
+  // Not `charging`: that external_id belongs to the battery-category feature of
+  // the versions before 1.0.6, the one that fired the false alert. See above.
+  CHARGING: 'charging-state',
   RING: 'ring',
 };
 
@@ -108,6 +118,25 @@ function toPercent(batteryLevel) {
 }
 
 /**
+ * Is this device on power?
+ *
+ * Apple describes the battery of a DEVICE with a word (`Charging` while plugged
+ * in, `Charged` once full), and the battery of an ACCESSORY with a level (a
+ * number, or `Low`/`Medium`/`High`): an accessory has no charging state at all,
+ * so anything we do not recognise stays unknown rather than becoming a "not
+ * charging" feature that never moves.
+ */
+function normalizeCharging(batteryStatus) {
+  if (typeof batteryStatus !== 'string') {
+    return null;
+  }
+  if (batteryStatus === 'Charging' || batteryStatus === 'Charged') {
+    return true;
+  }
+  return batteryStatus === 'NotCharging' ? false : null;
+}
+
+/**
  * Reduce one raw Find My entry to the fields this integration uses. Nothing is
  * assumed present: Apple omits `location` on a device that has never reported,
  * and omits the battery on accessories.
@@ -116,6 +145,7 @@ function toPercent(batteryLevel) {
  */
 export function normalizeAppleDevice(raw = {}) {
   const location = raw.location || null;
+  const batteryStatus = raw.batteryStatus || null;
 
   return {
     id: appleDeviceId(raw),
@@ -127,6 +157,7 @@ export function normalizeAppleDevice(raw = {}) {
       raw.productType?.productInformation?.modelName ||
       null,
     batteryLevel: toPercent(raw.batteryLevel),
+    charging: normalizeCharging(batteryStatus),
     location: location
       ? {
           latitude: Number(location.latitude),
@@ -214,8 +245,8 @@ export function buildDevice(gladys, config, device) {
     },
   ];
 
-  // Accessories (AirTag, AirPods) report no battery percentage: only declare the
-  // battery feature on the devices that actually have one.
+  // Accessories (AirTag, AirPods) report no battery percentage, and no charging
+  // state either: only declare these features on the devices that have them.
   if (device.batteryLevel !== null) {
     features.push({
       name: 'Battery',
@@ -230,6 +261,23 @@ export function buildDevice(gladys, config, device) {
       keep_history: true,
     });
   }
+  if (device.charging !== null) {
+    features.push({
+      name: 'Charging',
+      external_id: ids.feature(FEATURE.CHARGING),
+      // `input`/`binary`, NOT `battery`/`charging`: the battery category is the
+      // one Gladys scans for its low-battery warning, value by value, and a
+      // charging sensor at 0 is read there as "0%". See the header of this file.
+      category: DEVICE_FEATURE_CATEGORIES.INPUT,
+      type: DEVICE_FEATURE_TYPES.INPUT.BINARY,
+      min: 0,
+      max: 1,
+      read_only: true,
+      has_feedback: false,
+      keep_history: false,
+    });
+  }
+
   // The ring button.
   //
   // `button`/`push` is the one pair Gladys renders as a PUSH BUTTON ("Appuyer")
@@ -295,6 +343,12 @@ export function buildStates(gladys, config, device, wasPresent = null) {
     states.push({
       device_feature_external_id: ids.feature(FEATURE.BATTERY),
       state: device.batteryLevel,
+    });
+  }
+  if (device.charging !== null) {
+    states.push({
+      device_feature_external_id: ids.feature(FEATURE.CHARGING),
+      state: device.charging ? 1 : 0,
     });
   }
 

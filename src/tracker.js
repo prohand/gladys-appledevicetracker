@@ -101,7 +101,7 @@ export class AppleDeviceTracker {
     this.presence = new Map();
     /** Last position Apple gave us per device id (see keepLastKnownLocations). */
     this.lastLocations = new Map();
-    /** Last battery level Apple gave us per device id (see keepLastKnownBattery). */
+    /** Last battery Apple gave us per device id (see keepLastKnownBattery). */
     this.lastBatteries = new Map();
     /** `{ value, publishedAt }` per feature, so we only publish what changed. */
     this.lastValues = new Map();
@@ -498,12 +498,12 @@ export class AppleDeviceTracker {
     // A device added to (or removed from) the account shows up here: re-publish
     // the catalog first, so the states below always land on an existing device.
     //
-    // The battery feature is part of the signature, not just the ids: it is only
-    // declared for a device that reports a battery, so a phone discovered while
-    // Apple could not reach it would otherwise keep a catalog entry with no
-    // battery row until the account itself changed.
+    // The battery features are part of the signature, not just the ids: they are
+    // only declared for a device that reports a battery, so a phone discovered
+    // while Apple could not reach it would otherwise keep a catalog entry with
+    // no battery row until the account itself changed.
     const signature = this.devices
-      .map((device) => `${device.id}/${device.batteryLevel !== null}`)
+      .map((device) => `${device.id}/${device.batteryLevel !== null}/${device.charging !== null}`)
       .join('|');
     if (signature !== this.deviceSignature) {
       this.deviceSignature = signature;
@@ -551,10 +551,19 @@ export class AppleDeviceTracker {
    */
   keepLastKnownBattery() {
     for (const device of this.devices) {
+      // Field by field: an accessory reports a level and no charging state, a
+      // device Apple half-answered for can report the opposite.
+      const known = this.lastBatteries.get(device.id) ?? {};
       if (device.batteryLevel === null) {
-        device.batteryLevel = this.lastBatteries.get(device.id) ?? null;
+        device.batteryLevel = known.batteryLevel ?? null;
       }
-      this.lastBatteries.set(device.id, device.batteryLevel);
+      if (device.charging === null) {
+        device.charging = known.charging ?? null;
+      }
+      this.lastBatteries.set(device.id, {
+        batteryLevel: device.batteryLevel,
+        charging: device.charging,
+      });
     }
   }
 
