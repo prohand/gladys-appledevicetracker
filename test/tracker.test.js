@@ -638,3 +638,65 @@ test('a state Gladys refused is published again instead of being forgotten', asy
   assert.ok(battery, 'the battery is published again although it did not change');
   assert.equal(battery.state, 50);
 });
+
+test('a feature Gladys does not hold is not counted as published', async () => {
+  const { gladys, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+  const externalId = tracker.externalIdOf(tracker.devices[0]);
+
+  // The device was created in Gladys before the Charging feature existed: the
+  // user has not clicked Update on the Discovery screen yet, so the host drops
+  // every value published on it.
+  gladys.devices = [
+    {
+      external_id: externalId,
+      features: [
+        { external_id: `${externalId}:${FEATURE.PRESENCE}` },
+        { external_id: `${externalId}:${FEATURE.BATTERY}` },
+      ],
+    },
+  ];
+  gladys.published.length = 0;
+  await tracker.resync();
+
+  const first = gladys.published.map((state) => state.featureExternalId);
+  assert.ok(
+    first.includes(`${externalId}:${FEATURE.BATTERY}`),
+    'the features Gladys holds are still published',
+  );
+  assert.ok(
+    !first.includes(`${externalId}:${FEATURE.CHARGING}`),
+    'nothing is published on a feature that does not exist',
+  );
+
+  // The user clicks Update: the feature exists now, empty. Its value must go
+  // out at the next refresh even though it never changed — it used to be
+  // remembered as published and stayed empty on the dashboard.
+  gladys.devices[0].features.push({ external_id: `${externalId}:${FEATURE.CHARGING}` });
+  gladys.published.length = 0;
+  await tracker.refresh({ force: true });
+
+  const charging = gladys.published.find(
+    (state) => state.featureExternalId === `${externalId}:${FEATURE.CHARGING}`,
+  );
+  assert.ok(charging, 'the charging state is published as soon as the feature exists');
+  assert.equal(charging.state, 0);
+});
+
+test('resync() reads the devices created in Gladys from the host', async () => {
+  const { gladys, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+
+  let calls = 0;
+  gladys.getDevices = async () => {
+    calls += 1;
+    // A device updated while the WebSocket was down: its feature list only
+    // comes back with this call.
+    gladys.devices = [{ external_id: tracker.externalIdOf(tracker.devices[0]) }];
+    return gladys.devices;
+  };
+  await tracker.resync();
+
+  assert.equal(calls, 1, 'the device list is refreshed, not read from the cache');
+  assert.ok(gladys.published.some((state) => state.featureExternalId.endsWith(':presence')));
+});

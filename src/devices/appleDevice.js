@@ -158,6 +158,10 @@ export function normalizeAppleDevice(raw = {}) {
       null,
     batteryLevel: toPercent(raw.batteryLevel),
     charging: normalizeCharging(batteryStatus),
+    // Kept raw, unused by the features: it is the only way to tell "Apple says
+    // this device is not charging" from "Apple says nothing about it" in the
+    // logs, and the second case is what leaves the Charging feature empty.
+    batteryStatus,
     location: location
       ? {
           latitude: Number(location.latitude),

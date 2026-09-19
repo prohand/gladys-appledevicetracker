@@ -109,6 +109,10 @@ export class AppleDeviceTracker {
     this.pendingFullPublish = new Set();
     /** Gladys external_ids already polled, to spot a device the user just created. */
     this.polledDevices = new Set();
+    /** Feature external_ids Gladys does not hold, already reported (see publishStates). */
+    this.missingFeatures = new Set();
+    /** Apple device ids whose missing charging state was already reported. */
+    this.chargingGapsReported = new Set();
 
     this.lastRefreshAt = 0;
     this.inflightRefresh = null;
@@ -305,6 +309,8 @@ export class AppleDeviceTracker {
     this.lastValues.clear();
     this.pendingFullPublish.clear();
     this.polledDevices.clear();
+    this.missingFeatures.clear();
+    this.chargingGapsReported.clear();
     this.lastRefreshAt = 0;
     this.deviceSignature = null;
     this.health = null;
@@ -393,6 +399,16 @@ export class AppleDeviceTracker {
    * every reconnection), so it tells us exactly which ones to serve.
    */
   async resync() {
+    // Straight from the host, not from the cache: this list is also what tells
+    // `publishStates` which features really exist (see featureExists), and a
+    // device the user updated while we were disconnected must not be judged on
+    // the feature list of a previous connection.
+    try {
+      await this.gladys.getDevices();
+    } catch (err) {
+      logger.warn(`Reading the devices created in Gladys failed: ${err.message}`);
+    }
+
     const known = Array.isArray(this.gladys.devices) ? this.gladys.devices : [];
     for (const gladysDevice of known) {
       const device = this.findByExternalId(gladysDevice.external_id);
@@ -491,6 +507,7 @@ export class AppleDeviceTracker {
     this.devices = normalizeAppleDevices(rawDevices);
     this.keepLastKnownLocations();
     this.keepLastKnownBattery();
+    this.reportChargingGaps();
     // Only on success: a failed call must not hold the next tick back.
     this.lastRefreshAt = startedAt;
     logger.info(`Find My returned ${this.devices.length} device(s)`);
@@ -568,6 +585,89 @@ export class AppleDeviceTracker {
   }
 
   /**
+   * Say it in the logs when Apple gives no charging state for a device.
+   *
+   * `batteryStatus` is the only field Find My carries about the plug, and Apple
+   * answers `Unknown` (or nothing at all) for a device it could not reach, for
+   * an accessory, and sometimes for a Mac. The `Charging` feature then has
+   * nothing to publish, so Gladys shows "no value received" on it for ever and
+   * nothing anywhere says why. One line per device, only when the answer
+   * changes, so the logs stay readable.
+   */
+  reportChargingGaps() {
+    for (const device of this.devices) {
+      if (device.charging === null) {
+        if (!this.chargingGapsReported.has(device.id)) {
+          this.chargingGapsReported.add(device.id);
+          logger.info(
+            `${device.name}: Find My reports no charging state ` +
+              `(batteryStatus: ${device.batteryStatus ?? 'absent'}), ` +
+              'so the Charging feature stays empty',
+          );
+        }
+      } else if (this.chargingGapsReported.delete(device.id)) {
+        logger.info(`${device.name}: Apple is reporting the charging state again`);
+      }
+    }
+  }
+
+  /**
+   * The feature external_ids Gladys really holds for one of our devices, or
+   * null when it tells us nothing about it (device not created by the user, or
+   * a list we have not received yet).
+   *
+   * The SDK keeps `gladys.devices` up to date: it is refreshed on every
+   * (re)connection and on each device created, updated or deleted.
+   *
+   * @param {string} externalId the Gladys external_id of the device
+   */
+  gladysFeatures(externalId) {
+    const known = Array.isArray(this.gladys.devices) ? this.gladys.devices : [];
+    const gladysDevice = known.find((device) => device.external_id === externalId);
+    if (!gladysDevice || !Array.isArray(gladysDevice.features)) {
+      return null;
+    }
+    return new Set(gladysDevice.features.map((feature) => feature.external_id));
+  }
+
+  /**
+   * A value published on a feature Gladys does not hold is DROPPED by the host,
+   * silently: remembering it as published is what then kept the dedup quiet
+   * until the value moved again.
+   *
+   * It happens on a device created before a feature existed — the `Charging`
+   * one, added back on 1.0.8: Gladys only adds a new feature to an existing
+   * device when the user clicks Update on the Discovery screen, and until then
+   * the row shows "no value received". So the state is not
+   * remembered (the next refresh publishes it again, and the feature fills up
+   * as soon as it exists) and the gap is named in the logs, once.
+   *
+   * @param {object} device the Apple device the state belongs to
+   * @param {Set<string>|null} features what Gladys holds for it
+   * @param {string} featureId the feature the state targets
+   */
+  featureExists(device, features, featureId) {
+    if (!features || features.has(featureId)) {
+      if (this.missingFeatures.delete(featureId)) {
+        logger.info(`${device.name}: the feature ${featureId} exists now, publishing it again`);
+      }
+      return true;
+    }
+    // Whatever we remember about it is wrong: the host never stored it. Forget
+    // it, so the value goes out on the very first refresh after the user adds
+    // the feature instead of waiting for the next heartbeat.
+    this.lastValues.delete(featureId);
+    if (!this.missingFeatures.has(featureId)) {
+      this.missingFeatures.add(featureId);
+      logger.warn(
+        `${device.name}: Gladys has no feature ${featureId}, so its value is dropped. ` +
+          'Open the Discovery tab of the integration and click Update on this device.',
+      );
+    }
+    return false;
+  }
+
+  /**
    * Publish the states of every known device.
    *
    * An unchanged value is normally skipped — the host API rate-limits states —
@@ -589,6 +689,7 @@ export class AppleDeviceTracker {
       }
       const wasPresent = this.presence.has(device.id) ? this.presence.get(device.id) : null;
       const result = buildStates(this.gladys, this.config, device, wasPresent);
+      const features = this.gladysFeatures(deviceExternalId(this.gladys, device.id));
 
       if (result.ignored) {
         logger.debug(`${device.name}: position ignored (too vague or missing)`);
@@ -601,6 +702,11 @@ export class AppleDeviceTracker {
       }
 
       for (const state of result.states) {
+        // A feature Gladys does not hold: publishing is pointless (the host
+        // drops it) and remembering it as published is what froze it.
+        if (!this.featureExists(device, features, state.device_feature_external_id)) {
+          continue;
+        }
         const value = state.state ?? state.text;
         const last = this.lastValues.get(state.device_feature_external_id);
         const unchanged = last !== undefined && last.value === value;

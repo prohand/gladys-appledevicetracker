@@ -443,3 +443,15 @@ test('findAppleDeviceByExternalId routes an external_id back to its Apple device
   assert.equal(found, target);
   assert.equal(findAppleDeviceByExternalId(gladys, devices, 'nope'), null);
 });
+
+test('the raw battery status Apple sent is kept for the logs', () => {
+  // `charging: null` alone cannot say WHY the Charging feature is empty: the
+  // raw answer is what tells "Apple could not reach this device" from "this is
+  // an accessory, it has no plug".
+  const [unknown] = normalizeAppleDevices([fakeFindMyDevice({ batteryStatus: 'Unknown' })]);
+  assert.equal(unknown.charging, null);
+  assert.equal(unknown.batteryStatus, 'Unknown');
+
+  const [none] = normalizeAppleDevices([fakeFindMyDevice({ batteryStatus: null })]);
+  assert.equal(none.batteryStatus, null);
+});
