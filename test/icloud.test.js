@@ -402,6 +402,49 @@ test('a saved session signs in without touching the password endpoints', async (
   assert.equal(apple.find('/signin').length, 0, 'no SRP exchange was needed');
 });
 
+test('login({ force: true }) signs in again instead of reusing the saved session', async () => {
+  // Find My answered 450: the session is dead there even though `accountLogin`
+  // would still renew it. Reusing it is how the integration used to loop on
+  // "signed in with the saved session" then fail on the very next Find My call.
+  const { client, apple } = createClient(
+    {
+      '/signin/init': SIGNIN_INIT,
+      '/signin/complete': {
+        status: 200,
+        headers: {
+          'X-Apple-Session-Token': 'fresh-session-token',
+          'X-Apple-ID-Account-Country': 'FRA',
+        },
+      },
+      '/accountLogin': ACCOUNT_LOGIN_OK,
+    },
+    { sessionToken: 'stale-session-token', accountCountryCode: 'FRA', trustToken: 'trust-token' },
+  );
+
+  assert.equal(await client.login({ force: true }), LOGIN_STATUS.CONNECTED);
+  assert.equal(apple.find('/signin/complete').length, 1, 'the password sign-in ran');
+  // The trust token is what spares the user a new two-factor code.
+  const [complete] = apple.find('/signin/complete');
+  assert.deepEqual(complete.body.trustTokens, ['trust-token']);
+  assert.equal(client.sessionToken, 'fresh-session-token');
+});
+
+test('a forced sign-in keeps the trust token and drops the refused session', async () => {
+  const { client } = createClient(
+    { '/signin/init': SIGNIN_INIT, '/signin/complete': { status: 409 }, ...TRUSTED_DEVICE_ROUTES },
+    {
+      sessionToken: 'stale-session-token',
+      trustToken: 'trust-token',
+      cookies: { 'X-APPLE-WEBAUTH-TOKEN': 'stale' },
+    },
+  );
+
+  await client.login({ force: true });
+
+  assert.equal(client.trustToken, 'trust-token', 'the trust token survives');
+  assert.equal(client.cookies.size, 0, 'the refused cookies are gone');
+});
+
 test('a session Apple no longer accepts falls back to a full sign-in', async () => {
   // First accountLogin answers 450 (stale session), so the client must run the
   // SRP sign-in instead of giving up.
