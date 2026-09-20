@@ -279,9 +279,20 @@ export class ICloudClient {
 
   /**
    * Sign in, reusing the saved session when Apple still accepts it.
+   *
+   * @param {{ force?: boolean }} [options] `force` skips the saved session and
+   *   runs the password sign-in straight away. The caller uses it when it KNOWS
+   *   the session is dead — Find My answered 401/421/450 — because Apple keeps
+   *   accepting that session on `accountLogin` for a while after Find My stopped
+   *   serving it. Reusing it there was an endless loop: sign in "successfully",
+   *   ask Find My again, get the same rejection.
    * @returns {Promise<string>} one of LOGIN_STATUS
    */
-  async login() {
+  async login({ force = false } = {}) {
+    if (force) {
+      await this.dropSessionKeepingTrust();
+    }
+
     if (this.sessionToken) {
       try {
         await this.accountLogin();
@@ -293,6 +304,10 @@ export class ICloudClient {
           throw err;
         }
         logger.info('The saved iCloud session expired, signing in again');
+        // The tokens Apple just refused would be sent again by the SRP round
+        // below, and a stale cookie is enough for Apple to answer the old,
+        // rejected session once more.
+        await this.dropSessionKeepingTrust();
       }
     }
 
@@ -658,6 +673,23 @@ export class ICloudClient {
 
   isAuthenticated() {
     return Boolean(this.sessionToken) && Boolean(this.findMyUrl()) && !this.awaiting2FA;
+  }
+
+  /**
+   * Drop everything Apple refused, but KEEP the trust token.
+   *
+   * That token is what tells Apple this machine already passed the two-factor
+   * check: dropping it with the rest would ask the user for a new code on every
+   * expired session, which is exactly the loop this integration must avoid.
+   */
+  async dropSessionKeepingTrust() {
+    this.sessionToken = null;
+    this.sessionId = null;
+    this.scnt = null;
+    this.cookies.clear();
+    this.webservices = {};
+    this.awaiting2FA = false;
+    await this.saveSession();
   }
 
   /** Drop the saved session: the next login() runs a full sign-in. */

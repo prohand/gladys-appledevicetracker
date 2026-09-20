@@ -22,8 +22,11 @@ function createFakeClient({ loginStatus = LOGIN_STATUS.CONNECTED, devices = [] }
     devices,
     loginStatus,
     failNextFetchWith: null,
-    async login() {
+    /** The options of every login() call, so a test can assert `force`. */
+    loginOptions: [],
+    async login(options = {}) {
       client.calls.login += 1;
+      client.loginOptions.push(options);
       return client.loginStatus;
     },
     async fetchDevices() {
@@ -324,6 +327,9 @@ test('an expired session is renewed once, then the refresh is retried', async ()
 
   assert.equal(client.calls.login, loginsBefore + 1, 'signed in again');
   assert.equal(tracker.devices.length, 1, 'the refresh went through after the new sign-in');
+  // Apple still renews that session on its sign-in endpoint even though Find My
+  // rejects it, so reusing it here retried the exact same failure for ever.
+  assert.equal(client.loginOptions.at(-1).force, true, 'a full sign-in was asked for');
 });
 
 test('an expired session that needs a new code surfaces as such', async () => {
@@ -345,6 +351,37 @@ test('a non-session error is propagated instead of triggering a sign-in loop', a
   client.failNextFetchWith = new Error('Find My is down');
   await assert.rejects(() => tracker.refresh({ force: true }), /Find My is down/);
   assert.equal(client.calls.login, loginsBefore);
+});
+
+test('a first refresh that fails still arms the refresh loop', async () => {
+  // The sign-in worked, so the account is fine: the integration must keep
+  // trying instead of staying silent until the container restarts.
+  const { client, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
+  client.failNextFetchWith = new Error('Find My is down');
+
+  await assert.rejects(() => tracker.start(CONFIG), /Find My is down/);
+  assert.ok(tracker.pollTimer, 'the refresh loop is running');
+
+  await tracker.refresh({ force: true });
+  assert.equal(tracker.devices.length, 1, 'the next refresh recovered on its own');
+  tracker.stopPolling();
+});
+
+test('a first refresh that needs a two-factor code does not arm the loop', async () => {
+  const { client, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
+  // The saved session gets the tracker started, then Find My refuses it and the
+  // sign-in behind that refusal comes back asking for a code.
+  client.failNextFetchWith = new SessionExpiredError('expired');
+  const signIn = client.login;
+  client.login = async (options) => {
+    const status = await signIn(options);
+    client.loginStatus = LOGIN_STATUS.TWO_FACTOR_REQUIRED;
+    return status;
+  };
+
+  await assert.rejects(() => tracker.start(CONFIG), /two-factor/);
+  assert.equal(tracker.status, TRACKER_STATUS.TWO_FACTOR_REQUIRED);
+  assert.equal(tracker.pollTimer, null, 'only the user can unblock this one');
 });
 
 test('ring() sends the Find My sound to the right Apple device', async () => {

@@ -153,7 +153,18 @@ export class AppleDeviceTracker {
     }
 
     this.status = TRACKER_STATUS.CONNECTED;
-    await this.refresh({ force: true });
+    try {
+      await this.refresh({ force: true });
+    } catch (err) {
+      // The sign-in worked, so the account is fine and a later tick may well
+      // succeed (Apple hiccup, network down while the container started). The
+      // loop has to be armed BEFORE giving the error back, otherwise a single
+      // bad first call left the integration silent until the next restart.
+      if (this.status !== TRACKER_STATUS.TWO_FACTOR_REQUIRED) {
+        this.startPolling();
+      }
+      throw err;
+    }
     this.startPolling();
     return this.status;
   }
@@ -495,8 +506,14 @@ export class AppleDeviceTracker {
         throw err;
       }
       // Expired session: sign in again once, then retry.
+      //
+      // `force` is what makes this work. Apple keeps renewing the session on
+      // its sign-in endpoint for a while AFTER Find My stopped accepting it, so
+      // a plain login() answered "signed in with the saved session" and the
+      // retry below hit the very same rejection — the integration reported
+      // "connection failed" and never came back.
       logger.info('The iCloud session expired, signing in again');
-      const result = await this.client.login();
+      const result = await this.client.login({ force: true });
       if (result === LOGIN_STATUS.TWO_FACTOR_REQUIRED) {
         this.status = TRACKER_STATUS.TWO_FACTOR_REQUIRED;
         throw new Error('iCloud is asking for a new two-factor code', { cause: err });
