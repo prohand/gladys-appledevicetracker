@@ -18,7 +18,15 @@ const CONFIG = normalizeConfig({
 /** A stand-in for ICloudClient: no network, fully scripted. */
 function createFakeClient({ loginStatus = LOGIN_STATUS.CONNECTED, devices = [] } = {}) {
   const client = {
-    calls: { login: 0, fetchDevices: 0, playSound: [], forget: 0, requestCode: 0, saveSession: 0 },
+    calls: {
+      login: 0,
+      fetchDevices: 0,
+      playSound: [],
+      sendMessage: [],
+      forget: 0,
+      requestCode: 0,
+      saveSession: 0,
+    },
     devices,
     loginStatus,
     failNextFetchWith: null,
@@ -40,6 +48,9 @@ function createFakeClient({ loginStatus = LOGIN_STATUS.CONNECTED, devices = [] }
     },
     async playSound(id) {
       client.calls.playSound.push(id);
+    },
+    async sendMessage(id, text, options) {
+      client.calls.sendMessage.push({ id, text, options });
     },
     async forgetSession() {
       client.calls.forget += 1;
@@ -736,4 +747,249 @@ test('resync() reads the devices created in Gladys from the host', async () => {
 
   assert.equal(calls, 1, 'the device list is refreshed, not read from the cache');
   assert.ok(gladys.published.some((state) => state.featureExternalId.endsWith(':presence')));
+});
+
+// --- Scene triggers, scene actions and widgets (Gladys 5.1+) -----------------
+
+/** A Find My entry about 5.5 km north of home: clearly away. */
+const farAway = (id) =>
+  fakeFindMyDevice({
+    id,
+    location: {
+      latitude: 48.8566 + 0.05,
+      longitude: 2.3522,
+      horizontalAccuracy: 10,
+      timeStamp: Date.now(),
+    },
+  });
+
+/** Mark every device Find My reports as created by the user in Gladys. */
+function createAll(gladys, tracker) {
+  gladys.devices = tracker.devices.map((device) => ({ external_id: tracker.externalIdOf(device) }));
+}
+
+test('a device leaving then coming back fires one departure and one arrival', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
+  await tracker.start(CONFIG);
+  createAll(gladys, tracker);
+  // The first reading after a start is not a move: every phone at home would
+  // otherwise "arrive" again on each restart of the container.
+  assert.deepEqual(gladys.sceneEvents, []);
+
+  client.devices = [farAway('A')];
+  await tracker.refresh({ force: true });
+  await tracker.refresh({ force: true });
+  client.devices = [fakeFindMyDevice({ id: 'A' })];
+  await tracker.refresh({ force: true });
+
+  const externalId = tracker.externalIdOf(tracker.devices[0]);
+  assert.deepEqual(
+    gladys.sceneEvents.map((event) => event.key),
+    ['device_left_home', 'device_arrived_home'],
+    'one event per move, none while the device stays away',
+  );
+  const [left, arrived] = gladys.sceneEvents;
+  assert.equal(left.data.device, externalId, 'the filter of the trigger card');
+  assert.equal(left.data.device_name, 'iPhone de Jean');
+  assert.ok(left.data.distance_km > 5 && left.data.distance_km < 6);
+  assert.equal(left.data.battery, 87);
+  assert.equal(left.data.devices_at_home, 0);
+  assert.equal(arrived.data.devices_at_home, 1);
+});
+
+test('the scene event goes out after the new presence state', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
+  await tracker.start(CONFIG);
+  createAll(gladys, tracker);
+  const order = [];
+  const publishStates = gladys.publishStates.bind(gladys);
+  gladys.publishStates = async (states) => {
+    order.push('states');
+    return publishStates(states);
+  };
+  const publishSceneEvent = gladys.publishSceneEvent.bind(gladys);
+  gladys.publishSceneEvent = async (key, data) => {
+    order.push('event');
+    return publishSceneEvent(key, data);
+  };
+
+  client.devices = [farAway('A')];
+  await tracker.refresh({ force: true });
+
+  // A scene started by the departure that reads the Presence feature must
+  // already find "away" there.
+  assert.deepEqual(order, ['states', 'event']);
+});
+
+test('a device not created in Gladys moves without firing any scene', async () => {
+  const { gladys, client, tracker } = createTracker({
+    devices: [fakeFindMyDevice({ id: 'A' }), fakeFindMyDevice({ id: 'B', name: 'iPad' })],
+  });
+  await tracker.start(CONFIG);
+  // Only A was added to Gladys: B is a family device the user left out.
+  gladys.devices = [{ external_id: tracker.externalIdOf(tracker.devices[0]) }];
+
+  client.devices = [farAway('A'), farAway('B')];
+  await tracker.refresh({ force: true });
+
+  assert.equal(gladys.sceneEvents.length, 1);
+  assert.equal(gladys.sceneEvents[0].data.device_name, 'iPhone de Jean');
+});
+
+test('a scene event Gladys refuses does not stop the states nor the next events', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
+  await tracker.start(CONFIG);
+  createAll(gladys, tracker);
+
+  gladys.sceneEventError = Object.assign(new Error('Not found'), { status: 404 });
+  client.devices = [farAway('A')];
+  await tracker.refresh({ force: true });
+  assert.equal(tracker.presence.get('A'), false, 'the departure itself is recorded');
+  assert.ok(
+    gladys.published.some((s) => s.featureExternalId.endsWith(':presence') && s.state === 0),
+  );
+
+  gladys.sceneEventError = null;
+  client.devices = [fakeFindMyDevice({ id: 'A' })];
+  await tracker.refresh({ force: true });
+  assert.deepEqual(
+    gladys.sceneEvents.map((event) => event.key),
+    ['device_arrived_home'],
+  );
+});
+
+test('iCloud asking for a new code fires the sign_in_required scene once', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+
+  client.failNextFetchWith = new SessionExpiredError('expired');
+  client.loginStatus = LOGIN_STATUS.TWO_FACTOR_REQUIRED;
+  await assert.rejects(() => tracker.refresh({ force: true }));
+  // The loop keeps running into the same wall: no scene on every tick.
+  await tracker.refresh({ force: true });
+  await tracker.start(CONFIG);
+
+  assert.deepEqual(
+    gladys.sceneEvents.map((event) => event.key),
+    ['sign_in_required'],
+  );
+});
+
+test('a start that stops at the two-factor step fires sign_in_required', async () => {
+  const { gladys, tracker } = createTracker({ loginStatus: LOGIN_STATUS.TWO_FACTOR_REQUIRED });
+
+  await tracker.start(CONFIG);
+
+  assert.deepEqual(
+    gladys.sceneEvents.map((event) => event.key),
+    ['sign_in_required'],
+  );
+});
+
+test('the widgets are nudged when new values are published, not otherwise', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
+  await tracker.start(CONFIG);
+  assert.deepEqual(gladys.widgetRefreshes, ['presence', 'device']);
+
+  await tracker.refresh({ force: true });
+  assert.equal(gladys.widgetRefreshes.length, 2, 'nothing moved: nothing to re-read');
+
+  client.devices = [farAway('A')];
+  await tracker.refresh({ force: true });
+  assert.equal(gladys.widgetRefreshes.length, 4);
+});
+
+test('refreshNow() reads Find My, but never twice within 30 s', async () => {
+  const { client, tracker, advance } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+  const calls = client.calls.fetchDevices;
+
+  await tracker.refreshNow();
+  assert.equal(client.calls.fetchDevices, calls, 'a read that recent is reused');
+
+  advance(31_000);
+  await tracker.refreshNow();
+  assert.equal(client.calls.fetchDevices, calls + 1, 'well before the 300 s interval');
+});
+
+test('refreshNow() explains why nothing can be read while signed out', async () => {
+  const { tracker } = createTracker({ loginStatus: LOGIN_STATUS.TWO_FACTOR_REQUIRED });
+  await tracker.start(CONFIG);
+
+  await assert.rejects(() => tracker.refreshNow(), /two-factor/);
+});
+
+test('sendMessage() shows the text on the right Apple device', async () => {
+  const { client, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
+  await tracker.start(CONFIG);
+
+  const device = await tracker.sendMessage(tracker.externalIdOf(tracker.devices[0]), 'A table !', {
+    sound: true,
+  });
+
+  assert.equal(device.name, 'iPhone de Jean');
+  assert.deepEqual(client.calls.sendMessage, [
+    { id: 'A', text: 'A table !', options: { sound: true } },
+  ]);
+  await assert.rejects(() => tracker.sendMessage('unknown', 'hello'), /not in the Find My list/);
+});
+
+test('createdDevices() and summaryOf() give the widgets what Gladys shows', async () => {
+  const { gladys, client, tracker } = createTracker({
+    devices: [fakeFindMyDevice({ id: 'A' }), farAway('B')],
+  });
+  await tracker.start(CONFIG);
+  assert.deepEqual(tracker.createdDevices(), [], 'nothing created in Gladys yet');
+
+  createAll(gladys, tracker);
+  client.devices = [fakeFindMyDevice({ id: 'A' }), farAway('B')];
+  const [home, away] = tracker.createdDevices().map((device) => tracker.summaryOf(device));
+
+  assert.equal(home.present, true);
+  assert.equal(away.present, false);
+  assert.ok(away.distanceKm > 5);
+  assert.match(away.mapUrl, /^https:\/\/maps\.apple\.com\/\?ll=48\.906600,2\.352200/);
+  assert.equal(tracker.refreshedMinutesAgo(), 0);
+});
+
+test('featureIdOf() leaves out a feature Gladys does not hold', async () => {
+  const { gladys, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
+  await tracker.start(CONFIG);
+  const [device] = tracker.devices;
+  const battery = featureExternalId(gladys, 'A', FEATURE.BATTERY);
+
+  assert.equal(tracker.featureIdOf(device, FEATURE.BATTERY), battery, 'unknown list: assumed');
+
+  gladys.devices = [{ external_id: tracker.externalIdOf(device), features: [] }];
+  assert.equal(tracker.featureIdOf(device, FEATURE.BATTERY), null);
+});
+
+test('a restart does not make every phone at home arrive again', async () => {
+  const { gladys, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
+  // Created in Gladys long ago: the first reading after the start is not a move.
+  gladys.devices = [{ external_id: deviceExternalId(gladys, 'A') }];
+
+  await tracker.start(CONFIG);
+
+  assert.equal(tracker.presence.get('A'), true);
+  assert.deepEqual(gladys.sceneEvents, []);
+});
+
+test('a departure is not lost when Gladys refuses the states', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
+  await tracker.start(CONFIG);
+  createAll(gladys, tracker);
+
+  // The host rate-limits states: the presence is recorded all the same, so the
+  // next refresh would see no change and the move would never be announced.
+  gladys.publishStates = async () => {
+    throw Object.assign(new Error('Too many requests'), { status: 429 });
+  };
+  client.devices = [farAway('A')];
+  await assert.rejects(() => tracker.refresh({ force: true }), /Too many/);
+
+  assert.deepEqual(
+    gladys.sceneEvents.map((event) => event.key),
+    ['device_left_home'],
+  );
 });

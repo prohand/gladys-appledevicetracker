@@ -24,6 +24,8 @@ import {
 } from './src/config.js';
 import { fetchGladysHomeCoordinates } from './src/homeLocation.js';
 import { AppleDeviceTracker, TRACKER_HEALTH, TRACKER_STATUS } from './src/tracker.js';
+import { normalizeMessage, positionOutputs } from './src/scenes.js';
+import { WIDGET_ACTION, buildDeviceWidget, buildPresenceWidget, widgetTtl } from './src/widgets.js';
 
 const gladys = new GladysIntegration();
 const tracker = new AppleDeviceTracker(gladys);
@@ -425,6 +427,95 @@ gladys.onAction('identify', async (fields) => {
     fr: `${device.name} sonne.`,
   };
 });
+
+// --- Scene actions (Gladys 5.1+) ---------------------------------------------
+// Declared in the manifest `scene_actions`: Gladys draws the cards of the scene
+// editor and hands over the fields already checked, scene variables rendered.
+// The `device` fields come from a `"source": "devices"` select, so they carry
+// the external_id of one of our devices. Throwing fails that action only: the
+// scene logs it and goes on.
+
+// A message on the screen of a device: "Dinner is ready", "Call home".
+gladys.onSceneAction('send_message', async (fields) => {
+  const message = normalizeMessage(fields.message);
+  const device = await tracker.sendMessage(fields.device, message, {
+    sound: fields.sound === true,
+  });
+  logger.info(`Scene action send_message -> message shown on ${device.name}`);
+});
+
+// Fresh positions before the scene reads a presence ("am I the last one out?").
+// The tracker never calls Apple more than once every 30 s, whatever the scenes
+// ask: this is also what keeps an arrival scene that runs this action from
+// looping on itself.
+gladys.onSceneAction('refresh_positions', async () => {
+  await tracker.refreshNow();
+  const devices = tracker.createdDevices();
+  return {
+    devices_at_home: devices.filter((device) => tracker.summaryOf(device).present === true).length,
+    devices_count: devices.length,
+  };
+});
+
+// Where one device is, as plain values: `{{…map_url}}` in a message is a link
+// straight to the map.
+gladys.onSceneAction('get_device_position', async (fields) => {
+  if (fields.refresh === true) {
+    await tracker.refreshNow();
+  }
+  const device = tracker.findByExternalId(fields.device);
+  if (!device) {
+    throw new Error('This device is not in the Find My list any more');
+  }
+  return positionOutputs(tracker.summaryOf(device));
+});
+
+// --- Dashboard widgets (Gladys 5.1+) -----------------------------------------
+// Declared in the manifest `widgets`: Gladys asks for the content when a
+// dashboard shows one, and draws it itself (src/widgets.js builds it). Answered
+// from the tracker's memory, never by calling Apple: a dashboard open on a wall
+// must not cost a Find My request per display.
+
+// Who is home: the devices picked in the widget settings, or all of them.
+gladys.onWidgetGet('presence', async ({ settings, language, units }) => {
+  const picked = Array.isArray(settings?.devices) ? settings.devices : [];
+  const devices = tracker
+    .createdDevices()
+    .filter((device) => picked.length === 0 || picked.includes(tracker.externalIdOf(device)));
+  return buildPresenceWidget({
+    status: tracker.status,
+    summaries: devices.map((device) => tracker.summaryOf(device)),
+    refreshedMinutesAgo: tracker.refreshedMinutesAgo(),
+    language,
+    units,
+    ttl: widgetTtl(config),
+  });
+});
+
+// One device in detail.
+gladys.onWidgetGet('device', async ({ settings, language, units }) => {
+  const device = tracker.findByExternalId(settings?.device);
+  return buildDeviceWidget({
+    status: tracker.status,
+    summary: device ? tracker.summaryOf(device) : null,
+    featureId: (feature) => tracker.featureIdOf(device, feature),
+    language,
+    units,
+    ttl: widgetTtl(config),
+  });
+});
+
+// The Refresh button of both widgets. Gladys re-reads the widget on its own
+// after a successful action.
+async function refreshFromWidget(actionKey) {
+  if (actionKey !== WIDGET_ACTION.REFRESH) {
+    throw new Error(`Unknown widget action: ${actionKey}`);
+  }
+  await tracker.refreshNow();
+  return { en: 'Positions updated', fr: 'Positions mises a jour' };
+}
+gladys.onWidgetAction('presence', refreshFromWidget);
+gladys.onWidgetAction('device', refreshFromWidget);
 
 // --- Configuration updated by the user ---------------------------------------
 gladys.onConfigUpdated(async (newConfig) => {

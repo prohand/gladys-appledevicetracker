@@ -822,4 +822,37 @@ export class ICloudClient {
       );
     }
   }
+
+  /**
+   * Show a message on the screen of one device — the "Display a message"
+   * option of the lost mode on icloud.com, without locking anything.
+   *
+   * @param {string} deviceId the Apple device id
+   * @param {string} text the message shown on the device
+   * @param {{ sound?: boolean }} [options] also play the Find My sound
+   */
+  async sendMessage(deviceId, text, { sound = false } = {}) {
+    if (!this.findMyUrl()) {
+      throw new SessionExpiredError('Not signed in to Find My');
+    }
+
+    const response = await this.findMyRequest('sendMessage', {
+      device: deviceId,
+      subject: 'Gladys',
+      text,
+      // Without it, Apple replaces the text with its own generic message.
+      userText: true,
+      sound: Boolean(sound),
+      clientContext: this.clientContext(),
+    });
+
+    if (response.status === 401 || response.status === 421 || response.status === 450) {
+      throw new SessionExpiredError('The iCloud session expired while sending the message');
+    }
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(
+        `Find My refused to show the message: ${readErrorMessage(response.body, response.status)}`,
+      );
+    }
+  }
 }

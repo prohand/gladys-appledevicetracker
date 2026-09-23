@@ -67,6 +67,70 @@ vous n'avez pas encore ajouté à Gladys.
 > tout les listes d'accessoires si Apple se met un jour à les servir : elles
 > seront découvertes sans nouvelle version.
 
+## Widgets du tableau de bord (Gladys 5.1+)
+
+Deux widgets s'ajoutent depuis l'édition d'un tableau de bord, catégorie de
+l'intégration :
+
+- **Qui est à la maison** — une ligne par appareil : « À la maison » ou
+  « Absent · 5,6 km ». En haut, le nombre d'appareils à la maison. Réglage :
+  les appareils à afficher (vide = tous les appareils créés dans Gladys, 10 au
+  maximum).
+- **Appareil Apple** — un appareil en détail : batterie et distance (mises à
+  jour en direct), courbe de la distance sur 24 h, présence, charge, précision
+  et âge de la position, plus trois boutons : **Sonner**, **Carte** (ouvre la
+  position dans Plans) et **Rafraîchir**.
+
+Le bouton **Rafraîchir** interroge Localiser tout de suite, sans attendre
+l'intervalle de rafraîchissement. Pour ne pas se faire bloquer par Apple,
+l'intégration n'appelle jamais Localiser plus d'une fois toutes les 30 s : un
+appui plus rapproché réutilise la dernière lecture.
+
+## Scènes (Gladys 5.1+)
+
+La **présence** reste le déclencheur le plus simple (« la présence de mon
+iPhone passe à 1 »). Gladys 5.1 ajoute des cartes dédiées dans l'éditeur de
+scènes.
+
+**Déclencheurs**
+
+| Déclencheur                                               | Quand                                                  | Variables                                                    |
+| --------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------ |
+| Un appareil Apple arrive à la maison                      | Une fois, quand l'appareil entre dans le rayon         | Nom de l'appareil, batterie, appareils à la maison           |
+| Un appareil Apple quitte la maison                        | Une fois, quand l'appareil dépasse 125 % du rayon      | Nom de l'appareil, distance, batterie, appareils à la maison |
+| iCloud demande un nouveau code de double authentification | Une fois, quand les positions s'arrêtent faute de code | —                                                            |
+
+- Choisissez un ou plusieurs appareils dans la carte, ou laissez vide pour
+  « n'importe quel appareil ».
+- Seuls les appareils **créés dans Gladys** déclenchent une scène.
+- Au redémarrage de l'intégration, un téléphone déjà à la maison n'« arrive »
+  pas une deuxième fois.
+- « Appareils à la maison » vaut `0` quand le dernier appareil part : pratique
+  pour un message « la maison est vide ».
+- Le déclencheur « nouveau code » sert à vous prévenir (notification, message)
+  : sans code, les présences ne bougent plus.
+
+**Actions**
+
+- **Afficher un message sur un appareil Apple** — le message s'affiche sur
+  l'écran de l'appareil (comme le message de Localiser sur icloud.com), avec
+  le son en option. Les variables de scène sont acceptées. 500 caractères au
+  maximum.
+- **Rafraîchir la position des appareils Apple** — interroge Localiser tout de
+  suite. Renvoie le nombre d'appareils à la maison et le nombre d'appareils
+  suivis. À placer avant une condition sur la présence.
+- **Récupérer la position d'un appareil Apple** — renvoie le nom, « à la
+  maison », la distance, la latitude, la longitude, la précision, l'âge de la
+  position, la batterie, la charge et un **lien vers la carte**. Exemple :
+  « Marie est à {{distance}} km : {{lien vers la carte}} » dans un message
+  Telegram. Option : demander d'abord une position fraîche à Localiser.
+
+Les actions « Rafraîchir » suivent la même règle que le bouton des widgets :
+un appel à Apple toutes les 30 s au plus.
+
+> **Gladys 5.1 ou plus est nécessaire** pour ces widgets et ces cartes de
+> scène.
+
 ## Configuration
 
 1. Ouvrez l'onglet **Configuration** de l'intégration.

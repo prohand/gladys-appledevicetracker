@@ -21,7 +21,10 @@ import {
   featureExternalId,
   findAppleDeviceByExternalId,
   normalizeAppleDevices,
+  summarizeDevice,
 } from './devices/index.js';
+import { SCENE_TRIGGER, presenceEventData } from './scenes.js';
+import { WIDGET } from './widgets.js';
 
 const logger = createLogger({ name: 'tracker' });
 
@@ -124,6 +127,25 @@ export class AppleDeviceTracker {
     this.pollTimer = null;
     /** Signature of the device list, to re-publish only when it changes. */
     this.deviceSignature = null;
+    /** Scene events Gladys refused, already reported (see publishSceneEvent). */
+    this.sceneEventsRefused = false;
+  }
+
+  /**
+   * Change the status, and fire the `sign_in_required` scene trigger when
+   * iCloud starts asking for a code.
+   *
+   * On the transition only: the refresh loop runs into the same wall on every
+   * tick, and one scene per tick ("iCloud needs a code!") would be spam.
+   *
+   * @param {string} status one of TRACKER_STATUS
+   */
+  async setStatus(status) {
+    const previous = this.status;
+    this.status = status;
+    if (status === TRACKER_STATUS.TWO_FACTOR_REQUIRED && previous !== status) {
+      await this.publishSceneEvent(SCENE_TRIGGER.SIGN_IN_REQUIRED, {});
+    }
   }
 
   /** Sign in to iCloud, then publish the devices when it worked. */
@@ -148,11 +170,11 @@ export class AppleDeviceTracker {
 
     const result = await this.client.login();
     if (result === LOGIN_STATUS.TWO_FACTOR_REQUIRED) {
-      this.status = TRACKER_STATUS.TWO_FACTOR_REQUIRED;
+      await this.setStatus(TRACKER_STATUS.TWO_FACTOR_REQUIRED);
       return this.status;
     }
 
-    this.status = TRACKER_STATUS.CONNECTED;
+    await this.setStatus(TRACKER_STATUS.CONNECTED);
     try {
       await this.refresh({ force: true });
     } catch (err) {
@@ -300,7 +322,7 @@ export class AppleDeviceTracker {
       throw new Error('Not signed in to iCloud yet');
     }
     await this.client.submitSecurityCode(code);
-    this.status = TRACKER_STATUS.CONNECTED;
+    await this.setStatus(TRACKER_STATUS.CONNECTED);
     await this.refresh({ force: true });
     this.startPolling();
     return this.devices.length;
@@ -515,7 +537,7 @@ export class AppleDeviceTracker {
       logger.info('The iCloud session expired, signing in again');
       const result = await this.client.login({ force: true });
       if (result === LOGIN_STATUS.TWO_FACTOR_REQUIRED) {
-        this.status = TRACKER_STATUS.TWO_FACTOR_REQUIRED;
+        await this.setStatus(TRACKER_STATUS.TWO_FACTOR_REQUIRED);
         throw new Error('iCloud is asking for a new two-factor code', { cause: err });
       }
       rawDevices = await this.client.fetchDevices({ includeFamily: this.config.include_family });
@@ -695,6 +717,7 @@ export class AppleDeviceTracker {
   async publishStates() {
     const states = [];
     const republished = [];
+    const moves = [];
     const now = this.now();
 
     for (const device of this.devices) {
@@ -714,6 +737,11 @@ export class AppleDeviceTracker {
       if (result.presence !== null) {
         if (result.presence !== wasPresent) {
           logger.info(`${device.name} is now ${result.presence ? 'at home' : 'away'}`);
+          // A first reading is not a move: after a restart, every phone at
+          // home would otherwise "arrive" again.
+          if (wasPresent !== null) {
+            moves.push(device);
+          }
         }
         this.presence.set(device.id, result.presence);
       }
@@ -734,28 +762,123 @@ export class AppleDeviceTracker {
       }
     }
 
-    for (let index = 0; index < states.length; index += STATES_PER_BATCH) {
-      const batch = states.slice(index, index + STATES_PER_BATCH);
-      await this.gladys.publishStates(batch);
-      // Remembered as published only once Gladys has ACCEPTED them. They used
-      // to be recorded before the call: a POST that failed (the 300 states per
-      // minute limit of the host API, a core restarting) was remembered as sent
-      // all the same, and the dedup above then skipped those values until they
-      // moved again — a feature that does not move, like a battery, stayed
-      // empty for half an hour.
-      for (const state of batch) {
-        this.lastValues.set(state.device_feature_external_id, {
-          value: state.state ?? state.text,
-          publishedAt: now,
-        });
+    try {
+      for (let index = 0; index < states.length; index += STATES_PER_BATCH) {
+        const batch = states.slice(index, index + STATES_PER_BATCH);
+        await this.gladys.publishStates(batch);
+        // Remembered as published only once Gladys has ACCEPTED them. They used
+        // to be recorded before the call: a POST that failed (the 300 states per
+        // minute limit of the host API, a core restarting) was remembered as sent
+        // all the same, and the dedup above then skipped those values until they
+        // moved again — a feature that does not move, like a battery, stayed
+        // empty for half an hour.
+        for (const state of batch) {
+          this.lastValues.set(state.device_feature_external_id, {
+            value: state.state ?? state.text,
+            publishedAt: now,
+          });
+        }
       }
+      // Same reason: the "this device missed everything" flag is only cleared
+      // once the whole picture really went through.
+      for (const id of republished) {
+        this.pendingFullPublish.delete(id);
+      }
+    } finally {
+      // After the states, not before: a scene started by the arrival that
+      // reads the Presence feature must find the new value there. In a
+      // `finally` all the same: the presence is already recorded, so a POST
+      // refused by the host (its rate limit) would otherwise lose the move for
+      // good — the next refresh sees no change.
+      await this.publishPresenceEvents(moves);
     }
-    // Same reason: the "this device missed everything" flag is only cleared
-    // once the whole picture really went through.
-    for (const id of republished) {
-      this.pendingFullPublish.delete(id);
+    if (states.length > 0) {
+      this.requestWidgetRefresh();
     }
     return states;
+  }
+
+  /**
+   * Fire the arrival and departure scene triggers for the devices that just
+   * moved.
+   *
+   * Only for the devices the user created in Gladys: the trigger card lists
+   * those, and a family device left out of Gladys on purpose must not start
+   * the "any device" scenes either.
+   *
+   * @param {object[]} moves the Apple devices whose presence just changed
+   */
+  async publishPresenceEvents(moves) {
+    if (moves.length === 0) {
+      return;
+    }
+    const devicesAtHome = this.createdDevices().filter(
+      (device) => this.presence.get(device.id) === true,
+    ).length;
+    for (const device of moves) {
+      const externalId = deviceExternalId(this.gladys, device.id);
+      if (!this.isCreated(externalId)) {
+        continue;
+      }
+      const key = this.presence.get(device.id)
+        ? SCENE_TRIGGER.ARRIVED_HOME
+        : SCENE_TRIGGER.LEFT_HOME;
+      await this.publishSceneEvent(
+        key,
+        presenceEventData(externalId, this.summaryOf(device), devicesAtHome),
+      );
+    }
+  }
+
+  /**
+   * Send one scene event to Gladys, without ever failing the caller.
+   *
+   * An event that does not go through must not stop the states from being
+   * published nor the refresh loop from running: it is logged, and a Gladys
+   * that refuses them all (older than 5.1, or a manifest it has not reloaded)
+   * is reported once, not on every move.
+   *
+   * @param {string} key one of SCENE_TRIGGER
+   * @param {object} data the flat data of the event
+   */
+  async publishSceneEvent(key, data) {
+    if (typeof this.gladys.publishSceneEvent !== 'function') {
+      return;
+    }
+    try {
+      await this.gladys.publishSceneEvent(key, data);
+      logger.debug(`Scene event ${key} sent`);
+    } catch (err) {
+      if (err?.status === 404) {
+        if (!this.sceneEventsRefused) {
+          this.sceneEventsRefused = true;
+          logger.warn(
+            `Gladys does not know the scene trigger "${key}": scene triggers need Gladys 5.1 or later`,
+          );
+        }
+        return;
+      }
+      logger.error(`Sending the scene event ${key} failed`, err);
+    }
+  }
+
+  /**
+   * Ask Gladys to re-read the widgets now: their status lines are not bound to
+   * a feature, so they would otherwise wait for the end of their TTL. Gladys
+   * drops a nudge sent too soon after the previous one, and one sent while the
+   * WebSocket is down: both are harmless.
+   */
+  requestWidgetRefresh() {
+    if (typeof this.gladys.requestWidgetRefresh !== 'function') {
+      return;
+    }
+    for (const key of Object.values(WIDGET)) {
+      try {
+        this.gladys.requestWidgetRefresh(key);
+      } catch (err) {
+        logger.debug(`Widget refresh of ${key} not sent: ${err.message}`);
+      }
+    }
   }
 
   /** The discovery payload for the devices currently known. */
@@ -821,5 +944,85 @@ export class AppleDeviceTracker {
   /** External_id of an Apple device, used by the tests and the logs. */
   externalIdOf(device) {
     return deviceExternalId(this.gladys, device.id);
+  }
+
+  /** Has the user created this device in Gladys? */
+  isCreated(externalId) {
+    const known = Array.isArray(this.gladys.devices) ? this.gladys.devices : [];
+    return known.some((device) => device.external_id === externalId);
+  }
+
+  /** The Apple devices the user created in Gladys, in the Find My order. */
+  createdDevices() {
+    return this.devices.filter((device) => this.isCreated(this.externalIdOf(device)));
+  }
+
+  /** Where one Apple device stands, in plain values (see summarizeDevice). */
+  summaryOf(device) {
+    const present = this.presence.has(device.id) ? this.presence.get(device.id) : null;
+    return summarizeDevice(this.config, device, present, this.now());
+  }
+
+  /** How long ago Find My was last read, in minutes (null: never). */
+  refreshedMinutesAgo() {
+    if (!this.lastRefreshAt) {
+      return null;
+    }
+    return Math.max(0, Math.floor((this.now() - this.lastRefreshAt) / 60000));
+  }
+
+  /**
+   * The external_id of one feature of a device, or null when Gladys does not
+   * hold it (a widget tile bound to it would be dropped). When Gladys has not
+   * told us its features, the feature is assumed to exist.
+   *
+   * @param {object} device the Apple device
+   * @param {string} feature one of FEATURE
+   */
+  featureIdOf(device, feature) {
+    const id = featureExternalId(this.gladys, device.id, feature);
+    const features = this.gladysFeatures(this.externalIdOf(device));
+    return !features || features.has(id) ? id : null;
+  }
+
+  /**
+   * Read Find My now, on behalf of a user (a widget button, a scene action),
+   * instead of waiting for the next tick.
+   *
+   * Still never more than one call every MIN_REFRESH_INTERVAL_MS: a scene
+   * running in a loop, or a finger on the button, must not get the account
+   * rate-limited by Apple. A read that recent is simply reused.
+   */
+  async refreshNow() {
+    if (!this.isConnected()) {
+      throw new Error(
+        this.status === TRACKER_STATUS.TWO_FACTOR_REQUIRED
+          ? 'iCloud is asking for a new two-factor code'
+          : 'Not signed in to iCloud',
+      );
+    }
+    const fresh =
+      this.lastRefreshAt > 0 && this.now() - this.lastRefreshAt < MIN_REFRESH_INTERVAL_MS;
+    return this.refresh({ force: !fresh });
+  }
+
+  /**
+   * Show a message on the screen of one device (the `send_message` scene
+   * action).
+   *
+   * @param {string} externalId the Gladys external_id of the device
+   * @param {string} text the message, already checked (normalizeMessage)
+   * @param {{ sound?: boolean }} [options] also play the Find My sound
+   */
+  async sendMessage(externalId, text, options = {}) {
+    if (!this.isConnected()) {
+      throw new Error('Not signed in to iCloud');
+    }
+    const device = this.findByExternalId(externalId);
+    if (!device) {
+      throw new Error('This device is not in the Find My list any more');
+    }
+    await this.client.sendMessage(device.id, text, options);
+    return device;
   }
 }

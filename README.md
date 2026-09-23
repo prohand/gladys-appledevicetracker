@@ -54,6 +54,46 @@ carries no state and no history, and a press is just a press. The same
 operation stays available for a device the user has not created yet, through
 the "Make a device ring" action of the Configuration screen.
 
+## Widgets, scene triggers and scene actions (Gladys 5.1+)
+
+Declared in the manifest (`widgets`, `scene_triggers`, `scene_actions`), drawn
+by Gladys itself — hence `gladys_version: ">=5.1.0"` (an older Gladys refuses
+the unknown manifest fields).
+
+| Kind          | Key                   | What it does                                                   |
+| ------------- | --------------------- | -------------------------------------------------------------- |
+| Widget        | `presence`            | Who is home: one status line per device, refresh button        |
+| Widget        | `device`              | One device: live battery/distance tiles, 24 h chart, ring, map |
+| Scene trigger | `device_arrived_home` | Presence 0 → 1, filter on the devices                          |
+| Scene trigger | `device_left_home`    | Presence 1 → 0, filter on the devices                          |
+| Scene trigger | `sign_in_required`    | iCloud starts asking for a new two-factor code                 |
+| Scene action  | `send_message`        | Shows a text on the device screen (Find My `sendMessage`)      |
+| Scene action  | `refresh_positions`   | Reads Find My now; outputs devices at home / tracked           |
+| Scene action  | `get_device_position` | Outputs position, distance, battery, Apple Maps link           |
+
+The rules they follow ([`src/scenes.js`](./src/scenes.js),
+[`src/widgets.js`](./src/widgets.js)):
+
+- **One event per transition.** Arrival and departure fire on a presence
+  CHANGE only — never on the first reading after a start (every phone at home
+  would "arrive" again on each restart), and only for the devices created in
+  Gladys. They go out after the states, so a scene reading the Presence feature
+  finds the new value. `sign_in_required` fires on the status change, not on
+  every tick that hits the same wall.
+- **A refused event is never fatal.** `publishSceneEvent` errors are logged
+  (a 404 once), the states and the refresh loop carry on.
+- **Widgets never call Apple.** Their content is built from the tracker's
+  memory; the tiles and the chart are bound to the features, so Gladys keeps
+  them live on its own. The status lines are re-read at `ttl_seconds` (the
+  refresh interval) or sooner, when a refresh published new values
+  (`requestWidgetRefresh`).
+- **User-driven reads are floored.** The widget Refresh button and the refresh
+  scene actions go through `refreshNow()`: one Find My call every 30 s at most,
+  which also stops an arrival scene that refreshes from looping on itself.
+- **Checked like Gladys checks them.** The tests run every widget content
+  through the SDK's `validateWidgetContent` (budget of 8 components included),
+  and the manifest tests keep keys, handlers, variables and outputs in sync.
+
 ## How it works
 
 Apple has no official Find My API, so the integration talks to the same
@@ -99,6 +139,8 @@ freshness window is what enforces your `poll_frequency`.
 │  ├─ tracker.js                     # sign-in, device cache, refresh, publication
 │  ├─ presence.js                    # haversine + presence rules (accuracy, hysteresis)
 │  ├─ config.js                      # config defaults, normalization and bounds
+│  ├─ scenes.js                      # scene trigger data and scene action outputs
+│  ├─ widgets.js                     # dashboard widget contents (pure functions)
 │  ├─ icloud/
 │  │  ├─ client.js                   #   the only file that talks to Apple
 │  │  └─ srp.js                      #   SRP-6a client (RFC 5054, 2048-bit, SHA-256)
@@ -107,7 +149,7 @@ freshness window is what enforces your `poll_frequency`.
 │     └─ appleDevice.js              #   one Apple device: features and states
 ├─ docs/en.md, docs/fr.md            # user documentation, linked from Gladys
 ├─ cover.svg, cover.png              # store cover: the SVG is the source (see below)
-├─ gladys-assistant-integration.json # manifest (config schema, actions, image…)
+├─ gladys-assistant-integration.json # manifest (config, actions, widgets, scenes…)
 ├─ Dockerfile                        # Node 24 Alpine, read-only rootfs ready
 └─ .github/workflows/                # CI, multi-arch build, UI-driven release
 ```
