@@ -622,6 +622,39 @@ test('playSound rings the Apple device id, not the Gladys external_id', async ()
   assert.equal(ring.body.device, 'APPLE-DEVICE-ID');
 });
 
+test('sendMessage shows the text on the Apple device, with the user text flag', async () => {
+  const { client, apple } = createClient(
+    {
+      '/accountLogin': ACCOUNT_LOGIN_OK,
+      '/sendMessage': { status: 200, body: {} },
+    },
+    { sessionToken: 'session-token' },
+  );
+
+  await client.login();
+  await client.sendMessage('APPLE-DEVICE-ID', 'Dinner is ready', { sound: true });
+
+  const [message] = apple.find('/sendMessage');
+  assert.equal(message.body.device, 'APPLE-DEVICE-ID');
+  assert.equal(message.body.text, 'Dinner is ready');
+  // Without it, Apple shows its own generic text instead of ours.
+  assert.equal(message.body.userText, true);
+  assert.equal(message.body.sound, true);
+});
+
+test('sendMessage reports a refusal of Find My', async () => {
+  const { client } = createClient(
+    {
+      '/accountLogin': ACCOUNT_LOGIN_OK,
+      '/sendMessage': { status: 500, body: {} },
+    },
+    { sessionToken: 'session-token' },
+  );
+
+  await client.login();
+  await assert.rejects(() => client.sendMessage('APPLE-DEVICE-ID', 'hello'), /refused/);
+});
+
 test('forgetSession clears the tokens and persists the empty session', async () => {
   const saved = [];
   const apple = createFakeApple({ '/accountLogin': ACCOUNT_LOGIN_OK });

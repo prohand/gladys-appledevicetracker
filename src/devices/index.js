@@ -25,6 +25,7 @@ export {
   deviceExternalId,
   featureExternalId,
   normalizeAppleDevice,
+  summarizeDevice,
 } from './appleDevice.js';
 
 /**

@@ -63,6 +63,62 @@ Gladys yet.
 > in case Apple starts serving them: they would then be discovered without a
 > new release.
 
+## Dashboard widgets (Gladys 5.1+)
+
+Two widgets can be added from the dashboard editor, under the integration:
+
+- **Who is home** — one line per device: "At home" or "Away · 5.6 km". On top,
+  how many devices are at home. Setting: the devices to show (empty = every
+  device created in Gladys, 10 at most).
+- **Apple device** — one device in detail: battery and distance (live), the
+  distance chart of the last 24 h, presence, charging, accuracy and age of the
+  position, and three buttons: **Ring**, **Map** (opens the position in Apple
+  Maps) and **Refresh**.
+
+The **Refresh** button asks Find My right away, without waiting for the refresh
+interval. To stay clear of Apple's rate limit, the integration never calls Find
+My more than once every 30 s: a quicker press reuses the last reading.
+
+## Scenes (Gladys 5.1+)
+
+**Presence** is still the simplest trigger ("the presence of my iPhone becomes
+1"). Gladys 5.1 adds dedicated cards to the scene editor.
+
+**Triggers**
+
+| Trigger                               | When                                               | Variables                                       |
+| ------------------------------------- | -------------------------------------------------- | ----------------------------------------------- |
+| An Apple device arrives home          | Once, when the device enters the radius            | Device name, battery, devices at home           |
+| An Apple device leaves home           | Once, when the device goes past 125% of the radius | Device name, distance, battery, devices at home |
+| iCloud asks for a new two-factor code | Once, when the positions stop for lack of a code   | —                                               |
+
+- Pick one or more devices on the card, or leave it empty for "any device".
+- Only the devices **created in Gladys** start a scene.
+- When the integration restarts, a phone already at home does not "arrive" a
+  second time.
+- "Devices at home" is `0` when the last device leaves: handy for a "the house
+  is empty" message.
+- The "new code" trigger is there to warn you (notification, message): without
+  the code, the presences stop moving.
+
+**Actions**
+
+- **Show a message on an Apple device** — the message shows on the screen of
+  the device (like the Find My message of icloud.com), with an optional sound.
+  Scene variables are allowed. 500 characters at most.
+- **Refresh the Apple device positions** — asks Find My right away. Returns how
+  many devices are at home and how many are tracked. Put it before a condition
+  on a presence.
+- **Get the position of an Apple device** — returns the name, "at home", the
+  distance, latitude, longitude, accuracy, age of the position, battery,
+  charging and a **map link**. Example: "Mary is {{distance}} km away: {{map
+  link}}" in a Telegram message. Option: ask Find My for a fresh position first.
+
+The "Refresh" actions follow the same rule as the widget button: one call to
+Apple every 30 s at most.
+
+> **Gladys 5.1 or later is required** for these widgets and scene cards.
+
 ## Configuration
 
 1. Open the **Configuration** tab of the integration.

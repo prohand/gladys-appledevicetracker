@@ -8,7 +8,7 @@
   },
   "version": "1.0.10",
   "docker_image": "ghcr.io/prohand/gladys-appledevicetracker:1.0.10",
-  "gladys_version": ">=4.86.0",
+  "gladys_version": ">=5.1.0",
   "cover_image": "https://raw.githubusercontent.com/prohand/gladys-appledevicetracker/main/cover.png",
   "categories": ["security", "services"],
   "transports": ["cloud"],
@@ -267,6 +267,394 @@
             "fr": "Appareil"
           },
           "required": true
+        }
+      ]
+    }
+  ],
+  "widgets": [
+    {
+      "key": "presence",
+      "label": {
+        "en": "Who is home",
+        "fr": "Qui est a la maison"
+      },
+      "description": {
+        "en": "Your Apple devices, at home or how far away.",
+        "fr": "Vos appareils Apple, a la maison ou a quelle distance."
+      },
+      "icon": "users",
+      "settings": [
+        {
+          "key": "devices",
+          "type": "multi_select",
+          "source": "devices",
+          "label": {
+            "en": "Devices",
+            "fr": "Appareils"
+          },
+          "description": {
+            "en": "Leave empty to show every device created in Gladys (10 at most).",
+            "fr": "Laisser vide pour afficher tous les appareils crees dans Gladys (10 au maximum)."
+          },
+          "required": false
+        }
+      ],
+      "action_timeout_seconds": 60
+    },
+    {
+      "key": "device",
+      "label": {
+        "en": "Apple device",
+        "fr": "Appareil Apple"
+      },
+      "description": {
+        "en": "One device: battery, distance, 24 h chart, ring button and map.",
+        "fr": "Un appareil : batterie, distance, courbe 24 h, bouton sonner et carte."
+      },
+      "icon": "smartphone",
+      "settings": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Device",
+            "fr": "Appareil"
+          },
+          "required": true
+        }
+      ],
+      "action_timeout_seconds": 60
+    }
+  ],
+  "scene_triggers": [
+    {
+      "key": "device_arrived_home",
+      "label": {
+        "en": "An Apple device arrives home",
+        "fr": "Un appareil Apple arrive a la maison"
+      },
+      "description": {
+        "en": "Fires once when the device enters the home radius.",
+        "fr": "Se declenche une fois quand l'appareil entre dans le rayon du domicile."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "multi_select",
+          "source": "devices",
+          "label": {
+            "en": "Devices",
+            "fr": "Appareils"
+          },
+          "description": {
+            "en": "Leave empty for any device.",
+            "fr": "Laisser vide pour n'importe quel appareil."
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "device_name",
+          "type": "string",
+          "label": {
+            "en": "Device name",
+            "fr": "Nom de l'appareil"
+          }
+        },
+        {
+          "key": "battery",
+          "type": "number",
+          "label": {
+            "en": "Battery (%)",
+            "fr": "Batterie (%)"
+          }
+        },
+        {
+          "key": "devices_at_home",
+          "type": "number",
+          "label": {
+            "en": "Devices at home",
+            "fr": "Appareils a la maison"
+          },
+          "description": {
+            "en": "Counted among the devices created in Gladys, after this move.",
+            "fr": "Compte parmi les appareils crees dans Gladys, apres ce mouvement."
+          }
+        }
+      ]
+    },
+    {
+      "key": "device_left_home",
+      "label": {
+        "en": "An Apple device leaves home",
+        "fr": "Un appareil Apple quitte la maison"
+      },
+      "description": {
+        "en": "Fires once when the device goes past 125% of the home radius.",
+        "fr": "Se declenche une fois quand l'appareil depasse 125% du rayon du domicile."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "multi_select",
+          "source": "devices",
+          "label": {
+            "en": "Devices",
+            "fr": "Appareils"
+          },
+          "description": {
+            "en": "Leave empty for any device.",
+            "fr": "Laisser vide pour n'importe quel appareil."
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "device_name",
+          "type": "string",
+          "label": {
+            "en": "Device name",
+            "fr": "Nom de l'appareil"
+          }
+        },
+        {
+          "key": "distance_km",
+          "type": "number",
+          "label": {
+            "en": "Distance from home (km)",
+            "fr": "Distance du domicile (km)"
+          }
+        },
+        {
+          "key": "battery",
+          "type": "number",
+          "label": {
+            "en": "Battery (%)",
+            "fr": "Batterie (%)"
+          }
+        },
+        {
+          "key": "devices_at_home",
+          "type": "number",
+          "label": {
+            "en": "Devices at home",
+            "fr": "Appareils a la maison"
+          },
+          "description": {
+            "en": "Counted among the devices created in Gladys, after this move.",
+            "fr": "Compte parmi les appareils crees dans Gladys, apres ce mouvement."
+          }
+        }
+      ]
+    },
+    {
+      "key": "sign_in_required",
+      "label": {
+        "en": "iCloud asks for a new two-factor code",
+        "fr": "iCloud demande un nouveau code de double authentification"
+      },
+      "description": {
+        "en": "The positions stop updating until the code is entered in the Configuration tab.",
+        "fr": "Les positions ne sont plus mises a jour tant que le code n'est pas saisi dans l'onglet Configuration."
+      }
+    }
+  ],
+  "scene_actions": [
+    {
+      "key": "send_message",
+      "label": {
+        "en": "Show a message on an Apple device",
+        "fr": "Afficher un message sur un appareil Apple"
+      },
+      "description": {
+        "en": "The message appears on the screen of the device, like the Find My message of icloud.com.",
+        "fr": "Le message s'affiche sur l'ecran de l'appareil, comme le message de Localiser sur icloud.com."
+      },
+      "timeout_seconds": 30,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Device",
+            "fr": "Appareil"
+          },
+          "required": true
+        },
+        {
+          "key": "message",
+          "type": "string",
+          "label": {
+            "en": "Message",
+            "fr": "Message"
+          },
+          "description": {
+            "en": "500 characters at most. Scene variables are allowed.",
+            "fr": "500 caracteres au maximum. Les variables de scene sont acceptees."
+          },
+          "placeholder": {
+            "en": "Dinner is ready!",
+            "fr": "A table !"
+          },
+          "required": true
+        },
+        {
+          "key": "sound",
+          "type": "boolean",
+          "label": {
+            "en": "Also play the Find My sound",
+            "fr": "Jouer aussi le son de Localiser"
+          },
+          "required": false,
+          "default": false
+        }
+      ]
+    },
+    {
+      "key": "refresh_positions",
+      "label": {
+        "en": "Refresh the Apple device positions",
+        "fr": "Rafraichir la position des appareils Apple"
+      },
+      "description": {
+        "en": "Asks Find My now instead of waiting for the next refresh (once every 30 s at most).",
+        "fr": "Interroge Localiser tout de suite au lieu d'attendre le prochain rafraichissement (une fois toutes les 30 s au plus)."
+      },
+      "timeout_seconds": 90,
+      "outputs": [
+        {
+          "key": "devices_at_home",
+          "type": "number",
+          "label": {
+            "en": "Devices at home",
+            "fr": "Appareils a la maison"
+          }
+        },
+        {
+          "key": "devices_count",
+          "type": "number",
+          "label": {
+            "en": "Devices tracked",
+            "fr": "Appareils suivis"
+          }
+        }
+      ]
+    },
+    {
+      "key": "get_device_position",
+      "label": {
+        "en": "Get the position of an Apple device",
+        "fr": "Recuperer la position d'un appareil Apple"
+      },
+      "description": {
+        "en": "Gives its position to the next actions of the scene, a map link included.",
+        "fr": "Donne sa position aux actions suivantes de la scene, lien vers la carte compris."
+      },
+      "timeout_seconds": 90,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Device",
+            "fr": "Appareil"
+          },
+          "required": true
+        },
+        {
+          "key": "refresh",
+          "type": "boolean",
+          "label": {
+            "en": "Ask Find My for a fresh position first",
+            "fr": "Demander d'abord une position fraiche a Localiser"
+          },
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        {
+          "key": "device_name",
+          "type": "string",
+          "label": {
+            "en": "Device name",
+            "fr": "Nom de l'appareil"
+          }
+        },
+        {
+          "key": "at_home",
+          "type": "boolean",
+          "label": {
+            "en": "At home",
+            "fr": "A la maison"
+          }
+        },
+        {
+          "key": "distance_km",
+          "type": "number",
+          "label": {
+            "en": "Distance from home (km)",
+            "fr": "Distance du domicile (km)"
+          }
+        },
+        {
+          "key": "latitude",
+          "type": "number",
+          "label": {
+            "en": "Latitude",
+            "fr": "Latitude"
+          }
+        },
+        {
+          "key": "longitude",
+          "type": "number",
+          "label": {
+            "en": "Longitude",
+            "fr": "Longitude"
+          }
+        },
+        {
+          "key": "accuracy_m",
+          "type": "number",
+          "label": {
+            "en": "Position accuracy (m)",
+            "fr": "Precision de la position (m)"
+          }
+        },
+        {
+          "key": "position_age_min",
+          "type": "number",
+          "label": {
+            "en": "Position age (min)",
+            "fr": "Age de la position (min)"
+          }
+        },
+        {
+          "key": "battery",
+          "type": "number",
+          "label": {
+            "en": "Battery (%)",
+            "fr": "Batterie (%)"
+          }
+        },
+        {
+          "key": "charging",
+          "type": "boolean",
+          "label": {
+            "en": "Charging",
+            "fr": "En charge"
+          }
+        },
+        {
+          "key": "map_url",
+          "type": "string",
+          "label": {
+            "en": "Map link",
+            "fr": "Lien vers la carte"
+          }
         }
       ]
     }

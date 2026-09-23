@@ -410,3 +410,59 @@ export function buildStates(gladys, config, device, wasPresent = null) {
 
   return { states, presence, ignored: !accurate };
 }
+
+/**
+ * Where one device stands, in plain values: what the dashboard widgets show
+ * and what the "Get the position of a device" scene action hands to a scene.
+ *
+ * Read from the same inputs as the states (the last Find My answer and the
+ * presence the tracker resolved), so a widget never contradicts the features
+ * sitting next to it on the dashboard.
+ *
+ * @param {object} config normalized integration config
+ * @param {object} device output of normalizeAppleDevice()
+ * @param {boolean|null} present presence resolved by the tracker (null: never)
+ * @param {number} [now] current time, in milliseconds
+ */
+export function summarizeDevice(config, device, present, now = Date.now()) {
+  const summary = {
+    name: device.name,
+    model: device.model,
+    present: typeof present === 'boolean' ? present : null,
+    batteryLevel: device.batteryLevel,
+    charging: device.charging,
+    located: false,
+    latitude: null,
+    longitude: null,
+    accuracy: null,
+    distanceKm: null,
+    ageMinutes: null,
+    mapUrl: null,
+  };
+  if (!isPositionKnown(device.location)) {
+    return summary;
+  }
+
+  const { latitude, longitude, accuracy, timestamp } = device.location;
+  const distance = distanceInMeters(
+    { latitude: config.home_latitude, longitude: config.home_longitude },
+    { latitude, longitude },
+  );
+  return {
+    ...summary,
+    located: true,
+    latitude,
+    longitude,
+    accuracy: Number.isFinite(accuracy) ? Math.round(accuracy) : null,
+    // Same rounding as the Distance feature: the meter, in kilometers.
+    distanceKm: Math.round(distance) / 1000,
+    ageMinutes:
+      Number.isFinite(timestamp) && timestamp > 0
+        ? Math.max(0, Math.round((now - timestamp) / 60000))
+        : null,
+    // Apple Maps answers on every platform (the web version off Apple devices).
+    mapUrl:
+      `https://maps.apple.com/?ll=${latitude.toFixed(6)},${longitude.toFixed(6)}` +
+      `&q=${encodeURIComponent(device.name)}`,
+  };
+}

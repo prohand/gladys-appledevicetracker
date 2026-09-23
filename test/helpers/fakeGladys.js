@@ -4,6 +4,7 @@
 // It reproduces the only surface this integration relies on:
 //   - externalIds(type, platformId) -> { device, feature(key) }
 //   - publishStates / publishDiscoveredDevices / setConfig / setConnectionStatus
+//     / publishSceneEvent / requestWidgetRefresh
 //     -> record the calls so tests can assert them
 // No running Gladys server, no WebSocket.
 // -----------------------------------------------------------------------------
@@ -13,12 +14,18 @@ export function createFakeGladys() {
   const discovered = [];
   const configs = [];
   const connectionStatuses = [];
+  const sceneEvents = [];
+  const widgetRefreshes = [];
 
   return {
     published,
     discovered,
     configs,
     connectionStatuses,
+    sceneEvents,
+    widgetRefreshes,
+    /** Set to an Error to make the next publishSceneEvent calls fail with it. */
+    sceneEventError: null,
     // The devices the user actually created, as the SDK keeps them.
     devices: [],
 
@@ -61,6 +68,18 @@ export function createFakeGladys() {
     async setConnectionStatus(connected, message) {
       connectionStatuses.push({ connected, message });
       return { success: true };
+    },
+
+    async publishSceneEvent(key, data = {}) {
+      if (this.sceneEventError) {
+        throw this.sceneEventError;
+      }
+      sceneEvents.push({ key, data });
+      return { success: true };
+    },
+
+    requestWidgetRefresh(key) {
+      widgetRefreshes.push(key);
     },
   };
 }
