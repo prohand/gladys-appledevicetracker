@@ -171,9 +171,9 @@ async function prefillHomeCoordinates(raw) {
     home_latitude: String(coordinates.latitude),
     home_longitude: String(coordinates.longitude),
   };
-  logger.info(
-    `Home coordinates pre-filled from the Gladys house (${filled.home_latitude}, ${filled.home_longitude})`,
-  );
+  // The coordinates themselves are personal data: they go to the
+  // configuration, never to the logs.
+  logger.info('Home coordinates pre-filled from the Gladys house');
   await gladys.setConfig(filled).catch((err) => logger.error('Saving the coordinates failed', err));
   return { ...raw, ...filled };
 }

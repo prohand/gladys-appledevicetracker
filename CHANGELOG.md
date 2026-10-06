@@ -16,6 +16,10 @@ All notable changes to this integration are documented here. The format follows
 
 - Development dependencies updated to their latest versions (ESLint 10.12, Prettier 3.9.9, globals 17.13).
 
+### Fixed
+
+- The home coordinates pre-filled from the Gladys house are no longer written to the logs: they are personal data.
+
 ## [2.0.0] - 2026-09-23
 
 ### Added
