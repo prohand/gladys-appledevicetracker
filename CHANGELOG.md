@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-06
+
 ### Added
 
 - `SECURITY.md`: how to report a vulnerability.
@@ -105,7 +107,8 @@ First public release.
 - Publish the values of a device as soon as it is created
 - Publish the location features again, and refresh on time
 
-[Unreleased]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/prohand/gladys-appledevicetracker/compare/v1.0.10...v2.0.0
 [1.0.10]: https://github.com/prohand/gladys-appledevicetracker/compare/v1.0.9...v1.0.10
 [1.0.9]: https://github.com/prohand/gladys-appledevicetracker/compare/v1.0.8...v1.0.9
