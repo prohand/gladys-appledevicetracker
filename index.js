@@ -552,7 +552,21 @@ gladys.onConfigUpdated(async (newConfig) => {
 // The SDK logs the WebSocket lifecycle itself (under the `gladys-sdk` name):
 // this handler only runs the integration's own (re)initialization.
 gladys.on('connected', async () => {
-  await initialize();
+  // The SDK emits this event without awaiting it: a rejection escaping here is
+  // an unhandled one, and Node takes the whole container down with it. A WebSocket
+  // that comes back while iCloud does not answer (Gladys restarted during an
+  // internet outage) used to do exactly that, from the "still signed in" path.
+  try {
+    await initialize();
+  } catch (err) {
+    await reportFailure(
+      {
+        en: `Initialization failed: ${err.message}`,
+        fr: `L'initialisation a échoué : ${err.message}`,
+      },
+      err,
+    );
+  }
 });
 
 // --- Graceful shutdown -------------------------------------------------------
