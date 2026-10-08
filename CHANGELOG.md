@@ -6,9 +6,28 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A sign-in that fails at startup because of the network or an Apple outage is now retried on its own (after 1, 5, 15, then every 30 minutes) instead of leaving the integration idle until "Test the iCloud connection"; the Configuration screen says when the next attempt is due.
+- While Find My keeps failing, it is asked less and less often (1, 2, 4, 8… minutes, up to 30 minutes or the configured interval) instead of on every Gladys tick.
+- A session Find My keeps refusing triggers at most one full password sign-in every 15 minutes, so the Apple account is not put at risk of being locked.
+- A server error (HTTP 5xx) from Apple's sign-in service is treated as an outage: the saved session is kept instead of being replaced by a full sign-in.
+- Ringing a device or showing a message on it right after the iCloud session expired now signs in again and goes through, like a refresh does.
+
+### Changed
+
+- Node.js 22 or later is required to run the integration outside its Docker image.
+- The Docker image installs exactly the locked dependencies and leaves no npm cache behind.
+
 ## [2.2.0] - 2026-10-07
 
-- Maintenance release, no functional change.
+### Fixed
+
+- A WebSocket reconnection while iCloud does not answer no longer stops the container (the `connected` handler never rejects any more).
+
+### Changed
+
+- Pull requests run the store admission checks; Dependabot keeps dependencies and actions up to date.
 
 ## [2.1.0] - 2026-10-06
 

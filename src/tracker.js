@@ -12,7 +12,12 @@
 // -----------------------------------------------------------------------------
 
 import { createLogger } from '@gladysassistant/integration-sdk';
-import { ICloudClient, LOGIN_STATUS, SessionExpiredError } from './icloud/client.js';
+import {
+  AuthenticationError,
+  ICloudClient,
+  LOGIN_STATUS,
+  SessionExpiredError,
+} from './icloud/client.js';
 import {
   FEATURE,
   buildDiscoveredDevices,
@@ -53,6 +58,39 @@ const STATE_HEARTBEAT_MS = 30 * 60 * 1000;
 // values on the dashboard have really stopped moving.
 const UNHEALTHY_AFTER_FAILURES = 3;
 
+// A refresh that failed is not retried on every Gladys tick: Find My being down
+// for an hour used to mean sixty calls to Apple, and a session Apple keeps
+// refusing sixty full sign-ins. The wait doubles with each failure in a row,
+// from one tick, up to the configured interval or this cap, whichever is longer.
+const FAILURE_BACKOFF_BASE_MS = 60_000;
+const FAILURE_BACKOFF_MAX_MS = 30 * 60 * 1000;
+
+// A full password sign-in (SRP) is what Apple counts when it locks an account
+// after too many attempts. A session that Find My refuses again right after a
+// fresh sign-in will not be fixed by another one a minute later: at most one
+// forced sign-in per this window, whatever the refresh loop and the buttons ask.
+const MIN_FULL_SIGN_IN_INTERVAL_MS = 15 * 60 * 1000;
+
+// When the sign-in at startup fails for a reason that is not the account's
+// (network not up yet when the container starts, Apple answering 503), the
+// integration tries again on its own after these delays — the last one repeats.
+// Without it, nothing was armed and the integration stayed dead until the user
+// pressed "Test the iCloud connection".
+const START_RETRY_DELAYS_MS = [1, 5, 15, 30].map((minutes) => minutes * 60 * 1000);
+
+/**
+ * May a failed sign-in be retried later without the user doing anything?
+ *
+ * Yes for an outage (network error, timeout, Apple 5xx). No when Apple gave a
+ * verdict on the account — credentials refused, a two-factor code required, no
+ * Find My service: retrying those only piles up failed attempts on the account.
+ *
+ * @param {Error} err what login() threw
+ */
+export function isTransientSignInFailure(err) {
+  return !(err instanceof AuthenticationError) && !(err instanceof SessionExpiredError);
+}
+
 // A dashboard is considered stale when nothing has been refreshed for three
 // intervals — never less than this, so a 60 s interval does not raise an alarm
 // on a two-minute hiccup.
@@ -85,14 +123,23 @@ export const TRACKER_HEALTH = {
 export class AppleDeviceTracker {
   /**
    * @param {object} gladys the SDK instance
-   * @param {{ createClient?: Function, now?: () => number }} [deps] injected in tests
+   * @param {{ createClient?: Function, now?: () => number, setTimeout?: Function,
+   *   clearTimeout?: Function }} [deps] injected in tests
    */
   constructor(gladys, deps = {}) {
     this.gladys = gladys;
     this.createClient = deps.createClient ?? ((options) => new ICloudClient(options));
     this.now = deps.now ?? (() => Date.now());
+    this.setTimeout = deps.setTimeout ?? setTimeout;
+    this.clearTimeout = deps.clearTimeout ?? clearTimeout;
     /** `(code, error) => Promise`, set by index.js: see TRACKER_HEALTH. */
     this.onHealth = deps.onHealth ?? null;
+    /**
+     * `() => Promise`, set by index.js: what a scheduled sign-in retry runs (the
+     * whole initialization, so the catalog and the connection status follow).
+     * Defaults to start() with the last configuration.
+     */
+    this.onStartRetry = deps.onStartRetry ?? null;
 
     this.config = null;
     this.client = null;
@@ -123,6 +170,18 @@ export class AppleDeviceTracker {
     this.health = null;
     /** Refreshes that failed in a row (see UNHEALTHY_AFTER_FAILURES). */
     this.failedRefreshes = 0;
+    /** No scheduled refresh before this time, after failures (see FAILURE_BACKOFF_*). */
+    this.retryNotBefore = 0;
+    /** When the last forced full sign-in was attempted (see MIN_FULL_SIGN_IN_INTERVAL_MS). */
+    this.lastFullSignInAt = 0;
+    /** A forced sign-in in flight, shared by everything that hit an expired session. */
+    this.inflightSignIn = null;
+    /** Handle of the next sign-in retry after a startup failure (see START_RETRY_DELAYS_MS). */
+    this.startRetryTimer = null;
+    /** Startup sign-ins that failed in a row, to pick the next delay. */
+    this.startRetries = 0;
+    /** Delay of the retry scheduled by the last failed start(), in ms (null: none). */
+    this.startRetryDelay = null;
     /** Handle of the integration's own refresh loop (see startPolling). */
     this.pollTimer = null;
     /** Signature of the device list, to re-publish only when it changes. */
@@ -151,6 +210,8 @@ export class AppleDeviceTracker {
   /** Sign in to iCloud, then publish the devices when it worked. */
   async start(config) {
     this.config = config;
+    // This start IS the attempt a pending retry was waiting for.
+    this.cancelStartRetry();
 
     let session = {};
     if (config.icloud_session) {
@@ -168,7 +229,16 @@ export class AppleDeviceTracker {
       onSessionChange: (updated) => this.saveSession(updated),
     });
 
-    const result = await this.client.login();
+    let result;
+    try {
+      result = await this.client.login();
+    } catch (err) {
+      if (isTransientSignInFailure(err)) {
+        this.scheduleStartRetry(err);
+      }
+      throw err;
+    }
+    this.startRetries = 0;
     if (result === LOGIN_STATUS.TWO_FACTOR_REQUIRED) {
       await this.setStatus(TRACKER_STATUS.TWO_FACTOR_REQUIRED);
       return this.status;
@@ -189,6 +259,57 @@ export class AppleDeviceTracker {
     }
     this.startPolling();
     return this.status;
+  }
+
+  /**
+   * Try the sign-in again later, after a startup that failed on an outage.
+   *
+   * @param {Error} err why the sign-in failed, for the logs
+   */
+  scheduleStartRetry(err) {
+    this.cancelStartRetry();
+    const delay =
+      START_RETRY_DELAYS_MS[Math.min(this.startRetries, START_RETRY_DELAYS_MS.length - 1)];
+    this.startRetries += 1;
+    this.startRetryDelay = delay;
+    logger.warn(
+      `Signing in to iCloud failed (${err.message}): next attempt in ${delay / 60000} min`,
+    );
+    this.startRetryTimer = this.setTimeout(() => this.runStartRetry(), delay);
+    // A timer must never be the reason the process stays alive.
+    this.startRetryTimer?.unref?.();
+  }
+
+  /** The scheduled retry itself; never rejects (it runs from a timer). */
+  async runStartRetry() {
+    this.startRetryTimer = null;
+    this.startRetryDelay = null;
+    try {
+      await (this.onStartRetry ? this.onStartRetry() : this.start(this.config));
+    } catch (err) {
+      // start() has already scheduled the next attempt when it is worth one.
+      logger.error('Signing in to iCloud failed again', err);
+    }
+  }
+
+  /** Drop the pending sign-in retry, if any. */
+  cancelStartRetry() {
+    if (this.startRetryTimer) {
+      this.clearTimeout(this.startRetryTimer);
+      this.startRetryTimer = null;
+    }
+    this.startRetryDelay = null;
+  }
+
+  /** Minutes until the next automatic sign-in attempt, or null when none is due. */
+  get startRetryMinutes() {
+    return this.startRetryTimer && this.startRetryDelay ? this.startRetryDelay / 60000 : null;
+  }
+
+  /** Stop every timer of the tracker (shutdown). */
+  stop() {
+    this.stopPolling();
+    this.cancelStartRetry();
   }
 
   /**
@@ -322,6 +443,9 @@ export class AppleDeviceTracker {
       throw new Error('Not signed in to iCloud yet');
     }
     await this.client.submitSecurityCode(code);
+    // A brand-new session: whatever was refused before is not this one.
+    this.lastFullSignInAt = 0;
+    this.retryNotBefore = 0;
     await this.setStatus(TRACKER_STATUS.CONNECTED);
     await this.refresh({ force: true });
     this.startPolling();
@@ -331,6 +455,8 @@ export class AppleDeviceTracker {
   /** Drop the saved session, so the next start() runs a full sign-in. */
   async forgetSession() {
     this.stopPolling();
+    this.cancelStartRetry();
+    this.startRetries = 0;
     if (this.client) {
       await this.client.forgetSession();
     }
@@ -348,6 +474,8 @@ export class AppleDeviceTracker {
     this.deviceSignature = null;
     this.health = null;
     this.failedRefreshes = 0;
+    this.retryNotBefore = 0;
+    this.lastFullSignInAt = 0;
   }
 
   isConnected() {
@@ -491,15 +619,23 @@ export class AppleDeviceTracker {
     if (!force && this.now() - this.lastRefreshAt < maxAge) {
       return this.devices;
     }
+    // Failing: wait out the backoff. A forced refresh (a button, a scan) still
+    // goes through — the user asked, and the sign-in guard below protects the
+    // account whatever happens.
+    if (!force && this.now() < this.retryNotBefore) {
+      return this.devices;
+    }
 
     this.inflightRefresh = this.doRefresh();
     try {
       const devices = await this.inflightRefresh;
       this.failedRefreshes = 0;
+      this.retryNotBefore = 0;
       await this.reportHealth(TRACKER_HEALTH.OK);
       return devices;
     } catch (err) {
       this.failedRefreshes += 1;
+      this.retryNotBefore = this.now() + this.failureBackoffMs();
       if (this.status === TRACKER_STATUS.TWO_FACTOR_REQUIRED) {
         // Apple wants a new code: no amount of retrying will fix this one, only
         // the user can, so the Configuration screen has to say it.
@@ -513,6 +649,81 @@ export class AppleDeviceTracker {
     }
   }
 
+  /**
+   * How long to wait before the next scheduled refresh, after
+   * `failedRefreshes` failures in a row: one tick, then twice as long each time,
+   * capped at the configured interval or FAILURE_BACKOFF_MAX_MS, whichever is
+   * longer. The tolerance keeps a tick landing a little early from being
+   * skipped.
+   */
+  failureBackoffMs() {
+    const cap = Math.max(FAILURE_BACKOFF_MAX_MS, this.config.poll_frequency * 1000);
+    const wait = Math.min(cap, FAILURE_BACKOFF_BASE_MS * 2 ** (this.failedRefreshes - 1));
+    return wait - POLL_TOLERANCE_MS;
+  }
+
+  /**
+   * Run one call to Find My, renewing the session once if Apple says it expired.
+   *
+   * Only while connected: a call refused because the tracker is waiting for a
+   * two-factor code must not start a sign-in that would ask Apple for one more.
+   *
+   * @param {() => Promise<any>} call the call to Apple
+   */
+  async withSessionRenewal(call) {
+    try {
+      return await call();
+    } catch (err) {
+      if (!(err instanceof SessionExpiredError) || !this.isConnected()) {
+        throw err;
+      }
+      await this.renewSession(err);
+      return call();
+    }
+  }
+
+  /**
+   * Sign in again from scratch, after Find My refused the session.
+   *
+   * `force` is what makes this work. Apple keeps renewing the session on its
+   * sign-in endpoint for a while AFTER Find My stopped accepting it, so a plain
+   * login() answered "signed in with the saved session" and the retry hit the
+   * very same rejection — the integration reported "connection failed" and
+   * never came back.
+   *
+   * At most one such sign-in per MIN_FULL_SIGN_IN_INTERVAL_MS, and concurrent
+   * callers (a refresh and a ring) share it: a Find My that keeps answering 450
+   * used to cost a full password sign-in every minute.
+   *
+   * @param {Error} cause the refusal that triggered it
+   */
+  async renewSession(cause) {
+    if (this.inflightSignIn) {
+      return this.inflightSignIn;
+    }
+    const since = this.now() - this.lastFullSignInAt;
+    if (this.lastFullSignInAt > 0 && since < MIN_FULL_SIGN_IN_INTERVAL_MS) {
+      const minutes = Math.ceil((MIN_FULL_SIGN_IN_INTERVAL_MS - since) / 60000);
+      throw new Error(`iCloud refused the session again: next sign-in attempt in ${minutes} min`, {
+        cause,
+      });
+    }
+    this.lastFullSignInAt = this.now();
+    this.inflightSignIn = (async () => {
+      logger.info('The iCloud session expired, signing in again');
+      const result = await this.client.login({ force: true });
+      if (result === LOGIN_STATUS.TWO_FACTOR_REQUIRED) {
+        await this.setStatus(TRACKER_STATUS.TWO_FACTOR_REQUIRED);
+        throw new Error('iCloud is asking for a new two-factor code', { cause });
+      }
+    })();
+    try {
+      await this.inflightSignIn;
+    } finally {
+      this.inflightSignIn = null;
+    }
+  }
+
   async doRefresh() {
     // Measured BEFORE calling Apple, not after: the refresh loop ticks every
     // `poll_frequency` seconds from the tick, so a call that takes a few
@@ -520,28 +731,10 @@ export class AppleDeviceTracker {
     // then judged "too early" and skipped, and a 60 s interval updated the
     // values every 120 s.
     const startedAt = this.now();
-    let rawDevices;
-    try {
-      rawDevices = await this.client.fetchDevices({ includeFamily: this.config.include_family });
-    } catch (err) {
-      if (!(err instanceof SessionExpiredError)) {
-        throw err;
-      }
-      // Expired session: sign in again once, then retry.
-      //
-      // `force` is what makes this work. Apple keeps renewing the session on
-      // its sign-in endpoint for a while AFTER Find My stopped accepting it, so
-      // a plain login() answered "signed in with the saved session" and the
-      // retry below hit the very same rejection — the integration reported
-      // "connection failed" and never came back.
-      logger.info('The iCloud session expired, signing in again');
-      const result = await this.client.login({ force: true });
-      if (result === LOGIN_STATUS.TWO_FACTOR_REQUIRED) {
-        await this.setStatus(TRACKER_STATUS.TWO_FACTOR_REQUIRED);
-        throw new Error('iCloud is asking for a new two-factor code', { cause: err });
-      }
-      rawDevices = await this.client.fetchDevices({ includeFamily: this.config.include_family });
-    }
+    // Expired session: sign in again once, then retry (see renewSession).
+    const rawDevices = await this.withSessionRenewal(() =>
+      this.client.fetchDevices({ includeFamily: this.config.include_family }),
+    );
 
     this.devices = normalizeAppleDevices(rawDevices);
     this.keepLastKnownLocations();
@@ -905,7 +1098,9 @@ export class AppleDeviceTracker {
     if (!device) {
       throw new Error('This device is not in the Find My list any more');
     }
-    await this.client.playSound(device.id);
+    // Same expired-session recovery as a refresh: a ring pressed right after
+    // Apple dropped the session must not fail while the next tick would recover.
+    await this.withSessionRenewal(() => this.client.playSound(device.id));
     return device;
   }
 
@@ -932,7 +1127,7 @@ export class AppleDeviceTracker {
       throw new Error(`The feature ${featureId} is read-only`);
     }
 
-    await this.client.playSound(device.id);
+    await this.withSessionRenewal(() => this.client.playSound(device.id));
     return device;
   }
 
@@ -1022,7 +1217,7 @@ export class AppleDeviceTracker {
     if (!device) {
       throw new Error('This device is not in the Find My list any more');
     }
-    await this.client.sendMessage(device.id, text, options);
+    await this.withSessionRenewal(() => this.client.sendMessage(device.id, text, options));
     return device;
   }
 }

@@ -9,6 +9,7 @@ import { randomBytes } from 'node:crypto';
 import {
   AuthenticationError,
   ICloudClient,
+  ICloudUnavailableError,
   LOGIN_STATUS,
   SessionExpiredError,
   TWO_FACTOR_MODE,
@@ -673,4 +674,42 @@ test('forgetSession clears the tokens and persists the empty session', async () 
   assert.equal(client.trustToken, null);
   assert.equal(client.isAuthenticated(), false);
   assert.equal(saved.at(-1).sessionToken, null);
+});
+
+test('a server error on accountLogin is an outage, not an expired session', async () => {
+  // Treated as an expired session, a 500 threw the saved session away and ran a
+  // full password sign-in in the middle of an Apple outage.
+  const { client, apple } = createClient(
+    {
+      '/accountLogin': { status: 500, body: {} },
+      '/signin/init': SIGNIN_INIT,
+      '/signin/complete': { status: 200 },
+    },
+    { sessionToken: 'session-token' },
+  );
+
+  await assert.rejects(() => client.login(), ICloudUnavailableError);
+  assert.equal(apple.find('/signin/init').length, 0, 'no password sign-in during an outage');
+  assert.equal(client.sessionToken, 'session-token', 'the session is kept for the next try');
+});
+
+test('a 401 on accountLogin still means the saved session expired', async () => {
+  const { client, apple } = createClient(
+    {
+      '/accountLogin': { status: 401, body: {} },
+      '/signin/init': SIGNIN_INIT,
+      '/signin/complete': { status: 409 },
+      ...TRUSTED_DEVICE_ROUTES,
+    },
+    { sessionToken: 'session-token' },
+  );
+
+  assert.equal(await client.login(), LOGIN_STATUS.TWO_FACTOR_REQUIRED);
+  assert.equal(apple.find('/signin/init').length, 1, 'a full sign-in replaced it');
+});
+
+test('a sign-in endpoint answering 503 is reported as an outage', async () => {
+  const { client } = createClient({ '/signin/init': { status: 503, body: {} } });
+
+  await assert.rejects(() => client.login(), ICloudUnavailableError);
 });

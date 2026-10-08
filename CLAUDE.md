@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Gladys Assistant **external integration** (Node 20+, ESM, no build step, one runtime
+A Gladys Assistant **external integration** (Node 22+, ESM, no build step, one runtime
 dependency: `@gladysassistant/integration-sdk`) that tracks Apple devices through **Find My**
 (iCloud) and exposes them as **presence sensors**. One Gladys device per Find My device:
 presence (binary, the scene trigger), distance from home, position accuracy, position (text),
@@ -50,8 +50,12 @@ src/widgets.js           dashboard widgets
   two-factor code. The Apple ID password is a `secret` field. Never log either.
 - **Two-factor flow**: Apple pushes a code to trusted devices (or SMS on request); the user types
   it with the `submit_2fa_code` action. The connection status names where the code was sent.
-- **An expired session is replayed once** with a forced sign-in; if Apple wants a new 2FA code,
-  `tracker.onHealth` reports it in the Configuration screen instead of freezing silently.
+- **An expired session is replayed once** with a forced sign-in (refresh, ring, message all go
+  through `withSessionRenewal`); if Apple wants a new 2FA code, `tracker.onHealth` reports it in
+  the Configuration screen instead of freezing silently. At most one forced sign-in per 15 min
+  (account lock risk), and failed refreshes back off exponentially.
+- **A startup sign-in that fails on an outage** (network, Apple 5xx = `ICloudUnavailableError`)
+  is retried by the tracker (1, 5, 15, 30 min); refused credentials and 2FA never are.
 - **Polling**: devices carry `should_poll: true` (Gladys never polls without it) and the slowest
   Gladys tick not above the configured interval (Gladys only accepts 1 s–60 s in ms, any other
   value rejects the whole discovery). The configured interval (60–3600 s) is enforced by the
