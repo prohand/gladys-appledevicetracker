@@ -7,8 +7,11 @@
 #   2. ESLint    -> catch real mistakes (undefined vars, dead code, ...);
 #   3. Tests     -> `node --test`, the built-in runner (no extra dependency).
 #
-# Runs on Node 24, the version the Docker image ships with (see the Dockerfile),
-# so the check exercises the exact runtime the integration runs on.
+# Tests run on Node 22 (the `engines` floor) and Node 24 (the version the Docker
+# image ships with), so the check exercises the exact runtime the integration
+# runs on without breaking anyone who runs it on the oldest supported one.
+# Pull requests also build the Docker image (not pushed), so a broken Dockerfile
+# shows up before the release, not during it.
 # -----------------------------------------------------------------------------
 name: CI
 
@@ -21,15 +24,19 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    name: Lint & test
+    name: Lint & test (Node ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
           cache: npm
 
       - name: Install dependencies
@@ -56,9 +63,29 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
 
       - name: Validate like the store indexer
         run: npx --yes github:GladysAssistant/integration-store .
+
+  docker:
+    # Build the image the way build.yml does, without pushing it: a Dockerfile
+    # or a lockfile that no longer installs fails here, on the pull request.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    name: Docker build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build (amd64, not pushed)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false

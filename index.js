@@ -27,6 +27,14 @@ import { AppleDeviceTracker, TRACKER_HEALTH, TRACKER_STATUS } from './src/tracke
 import { normalizeMessage, positionOutputs } from './src/scenes.js';
 import { WIDGET_ACTION, buildDeviceWidget, buildPresenceWidget, widgetTtl } from './src/widgets.js';
 
+// Last-resort net: a promise rejected with nobody listening (a handler the SDK
+// emits without awaiting, a timer callback) makes Node stop the whole container
+// by default — and the supervisor then restarts it into the same failure. Log
+// it instead, so the integration keeps tracking the devices it can.
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection', reason);
+});
+
 const gladys = new GladysIntegration();
 const tracker = new AppleDeviceTracker(gladys);
 
@@ -216,15 +224,26 @@ async function initialize() {
     await tracker.resync();
     logger.info(`Connected to iCloud, tracking ${tracker.devices.length} device(s)`);
   } catch (err) {
+    // An outage (network not up yet, Apple 503) is retried by the tracker on
+    // its own: say when, so the user knows there is nothing to do but wait.
+    const minutes = tracker.startRetryMinutes;
     await reportFailure(
       {
-        en: `iCloud connection failed: ${err.message}`,
-        fr: `Connexion a iCloud impossible : ${err.message}`,
+        en:
+          `iCloud connection failed: ${err.message}` +
+          (minutes ? `. Next attempt in ${minutes} min.` : ''),
+        fr:
+          `Connexion a iCloud impossible : ${err.message}` +
+          (minutes ? `. Nouvel essai dans ${minutes} min.` : ''),
       },
       err,
     );
   }
 }
+
+// A sign-in that failed on an outage is retried through the whole
+// initialization, so the catalog and the connection status follow it.
+tracker.onStartRetry = () => initialize();
 
 // --- Discovery: Gladys asks for the list of devices --------------------------
 gladys.onScanRequest(async () => {
@@ -572,6 +591,7 @@ gladys.on('connected', async () => {
 // --- Graceful shutdown -------------------------------------------------------
 gladys.handleShutdown((signal) => {
   logger.info(`Received ${signal} -> graceful shutdown`);
+  tracker.stop();
 });
 
 // --- Startup -----------------------------------------------------------------

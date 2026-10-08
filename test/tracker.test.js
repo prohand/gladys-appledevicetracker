@@ -1,7 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { AppleDeviceTracker, TRACKER_HEALTH, TRACKER_STATUS } from '../src/tracker.js';
-import { LOGIN_STATUS, SessionExpiredError } from '../src/icloud/client.js';
+import {
+  AuthenticationError,
+  ICloudUnavailableError,
+  LOGIN_STATUS,
+  SessionExpiredError,
+} from '../src/icloud/client.js';
 import { FEATURE, deviceExternalId, featureExternalId } from '../src/devices/index.js';
 import { normalizeConfig } from '../src/config.js';
 import { createFakeGladys, fakeFindMyDevice } from './helpers/fakeGladys.js';
@@ -79,6 +84,7 @@ function createTracker(options = {}) {
     createClient: () => client,
     now: () => clock,
     onHealth: async (code, error) => health.push({ code, error }),
+    ...(options.timers ?? {}),
   });
   return { gladys, client, tracker, health, advance: (ms) => (clock += ms) };
 }
@@ -565,7 +571,8 @@ test('a failed refresh does not hold the next tick back', async () => {
   advance(300_000);
   await assert.rejects(() => tracker.refresh());
 
-  advance(1_000);
+  // The next Gladys tick, one minute later.
+  advance(60_000);
   await tracker.refresh();
   assert.equal(client.calls.fetchDevices, 3, 'the failure is retried on the next tick');
 
@@ -992,4 +999,191 @@ test('a departure is not lost when Gladys refuses the states', async () => {
     gladys.sceneEvents.map((event) => event.key),
     ['device_left_home'],
   );
+});
+
+/** Timers that only fire when the test says so. */
+function createFakeTimers() {
+  const scheduled = [];
+  const cleared = [];
+  return {
+    scheduled,
+    cleared,
+    deps: {
+      setTimeout: (fn, delay) => {
+        const handle = { fn, delay };
+        scheduled.push(handle);
+        return handle;
+      },
+      clearTimeout: (handle) => cleared.push(handle),
+    },
+  };
+}
+
+test('a sign-in that fails on the network at startup recovers on its own', async () => {
+  const timers = createFakeTimers();
+  const { client, tracker } = createTracker({
+    devices: [fakeFindMyDevice()],
+    timers: timers.deps,
+  });
+  // The container started before the network: the first two sign-ins fail.
+  const signIn = client.login;
+  let outages = 2;
+  client.login = async (options) => {
+    if (outages > 0) {
+      outages -= 1;
+      throw new TypeError('fetch failed');
+    }
+    return signIn(options);
+  };
+
+  await assert.rejects(() => tracker.start(CONFIG), /fetch failed/);
+  assert.equal(timers.scheduled.length, 1, 'a retry is scheduled');
+  assert.equal(timers.scheduled[0].delay, 60_000);
+  assert.equal(tracker.startRetryMinutes, 1);
+
+  await timers.scheduled[0].fn();
+  assert.equal(timers.scheduled.length, 2, 'still down: the next one waits longer');
+  assert.equal(timers.scheduled[1].delay, 5 * 60_000);
+
+  await timers.scheduled[1].fn();
+  assert.equal(tracker.isConnected(), true, 'signed in without the user doing anything');
+  assert.equal(tracker.devices.length, 1);
+  assert.ok(tracker.pollTimer, 'the refresh loop is armed');
+  assert.equal(timers.scheduled.length, 2, 'nothing more to retry');
+  assert.equal(tracker.startRetryMinutes, null);
+  tracker.stop();
+});
+
+test('the startup retry waits 1, 5, 15 then 30 min, and stays at 30', async () => {
+  const timers = createFakeTimers();
+  const { client, tracker } = createTracker({ timers: timers.deps });
+  client.login = async () => {
+    throw new ICloudUnavailableError('iCloud is unavailable: HTTP 503');
+  };
+
+  await assert.rejects(() => tracker.start(CONFIG));
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await timers.scheduled.at(-1).fn();
+  }
+  assert.deepEqual(
+    timers.scheduled.map((timer) => timer.delay / 60_000),
+    [1, 5, 15, 30, 30],
+  );
+});
+
+test('a sign-in Apple refused, or one waiting for a code, is not retried', async () => {
+  const refused = createFakeTimers();
+  const first = createTracker({ timers: refused.deps });
+  first.client.login = async () => {
+    throw new AuthenticationError('iCloud rejected the Apple ID or the password');
+  };
+  await assert.rejects(() => first.tracker.start(CONFIG));
+  assert.equal(refused.scheduled.length, 0, 'retrying refused credentials risks a lock');
+
+  const twoFactor = createFakeTimers();
+  const second = createTracker({
+    loginStatus: LOGIN_STATUS.TWO_FACTOR_REQUIRED,
+    timers: twoFactor.deps,
+  });
+  await second.tracker.start(CONFIG);
+  assert.equal(twoFactor.scheduled.length, 0, 'only the user can type the code');
+});
+
+test('a pending startup retry is dropped when the session is forgotten', async () => {
+  const timers = createFakeTimers();
+  const { client, tracker } = createTracker({ timers: timers.deps });
+  client.login = async () => {
+    throw new TypeError('fetch failed');
+  };
+  await assert.rejects(() => tracker.start(CONFIG));
+
+  await tracker.forgetSession();
+
+  assert.deepEqual(timers.cleared, [timers.scheduled[0]]);
+  assert.equal(tracker.startRetryMinutes, null);
+});
+
+test('a Find My that keeps failing is asked less and less often', async () => {
+  const { client, tracker, advance } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(normalizeConfig({ ...CONFIG, poll_frequency: 60 }));
+  client.fetchDevices = async () => {
+    client.calls.fetchDevices += 1;
+    throw new Error('Find My is down');
+  };
+
+  // One Gladys tick a minute for an hour: it used to be sixty calls to Apple.
+  for (let minute = 0; minute < 60; minute += 1) {
+    advance(60_000);
+    await tracker.refresh().catch(() => {});
+  }
+
+  // 1, 2, 4, 8, 16 then 30 min apart: a handful of attempts, not sixty.
+  assert.ok(client.calls.fetchDevices <= 8, `${client.calls.fetchDevices} calls`);
+  assert.ok(client.calls.fetchDevices >= 5, 'but it keeps trying');
+
+  // Back to the normal pace as soon as Apple answers again.
+  client.fetchDevices = async () => [fakeFindMyDevice()];
+  advance(30 * 60_000);
+  await tracker.refresh();
+  assert.equal(tracker.retryNotBefore, 0);
+  tracker.stopPolling();
+});
+
+test('a session Find My keeps refusing costs one full sign-in per 15 min, not per minute', async () => {
+  const { client, tracker, advance } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(normalizeConfig({ ...CONFIG, poll_frequency: 60 }));
+  // Apple answers 450 whatever the session, freshly signed in or not.
+  client.fetchDevices = async () => {
+    throw new SessionExpiredError('expired');
+  };
+  const forcedSignIns = () => client.loginOptions.filter((options) => options.force).length;
+
+  await assert.rejects(() => tracker.refresh({ force: true }), /expired/);
+  assert.equal(forcedSignIns(), 1);
+
+  // Even forced refreshes (a button pressed again and again) wait for the window.
+  for (let minute = 0; minute < 14; minute += 1) {
+    advance(60_000);
+    await assert.rejects(() => tracker.refresh({ force: true }), /next sign-in attempt/);
+  }
+  assert.equal(forcedSignIns(), 1, 'no password sign-in inside the window');
+
+  advance(60_000);
+  await assert.rejects(() => tracker.refresh({ force: true }), /expired/);
+  assert.equal(forcedSignIns(), 2, 'a new attempt once the window is over');
+  tracker.stopPolling();
+});
+
+test('ringing right after the session expired signs in again and rings', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
+  await tracker.start(CONFIG);
+  const ring = client.playSound;
+  let expired = true;
+  client.playSound = async (id) => {
+    if (expired) {
+      expired = false;
+      throw new SessionExpiredError('expired');
+    }
+    return ring(id);
+  };
+
+  await tracker.ring(deviceExternalId(gladys, 'A'));
+
+  assert.deepEqual(client.calls.playSound, ['A'], 'the sound was played after all');
+  assert.equal(client.loginOptions.at(-1).force, true, 'through a full sign-in');
+  tracker.stopPolling();
+});
+
+test('a ring refused while a code is awaited does not ask Apple for another one', async () => {
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice({ id: 'A' })] });
+  await tracker.start(CONFIG);
+  tracker.status = TRACKER_STATUS.TWO_FACTOR_REQUIRED;
+  const logins = client.calls.login;
+  client.playSound = async () => {
+    throw new SessionExpiredError('Not signed in to Find My');
+  };
+
+  await assert.rejects(() => tracker.ring(deviceExternalId(gladys, 'A')), SessionExpiredError);
+  assert.equal(client.calls.login, logins);
+  tracker.stopPolling();
 });

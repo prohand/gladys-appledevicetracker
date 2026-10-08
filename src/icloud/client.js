@@ -70,6 +70,20 @@ export class SessionExpiredError extends Error {}
 /** Thrown when Apple refuses the credentials or the security code. */
 export class AuthenticationError extends Error {}
 
+/**
+ * Thrown when Apple's sign-in servers answer with a server error (5xx).
+ *
+ * That is an outage, not a verdict on the account: the caller should try again
+ * later with the same session, never fall back to a full password sign-in
+ * (which only adds sign-in attempts against an account Apple may then lock).
+ */
+export class ICloudUnavailableError extends Error {}
+
+/** A 5xx answer: Apple is down or overloaded, the request itself was fine. */
+function isServerError(status) {
+  return status >= 500 && status <= 599;
+}
+
 function readErrorMessage(body, status) {
   if (body && typeof body === 'object') {
     const serviceError = Array.isArray(body.serviceErrors) ? body.serviceErrors[0] : null;
@@ -351,6 +365,11 @@ export class ICloudClient {
     });
     this.rememberAuthHeaders(init.headers);
 
+    if (isServerError(init.status)) {
+      throw new ICloudUnavailableError(
+        `iCloud sign-in is unavailable: ${readErrorMessage(init.body, init.status)}`,
+      );
+    }
     if (init.status !== 200 || !init.body) {
       throw new AuthenticationError(
         `iCloud refused the sign-in request: ${readErrorMessage(init.body, init.status)}`,
@@ -391,6 +410,11 @@ export class ICloudClient {
     if (complete.status === 409) {
       logger.info('iCloud accepted the password and is asking for a two-factor code');
       return true;
+    }
+    if (isServerError(complete.status)) {
+      throw new ICloudUnavailableError(
+        `iCloud sign-in is unavailable: ${readErrorMessage(complete.body, complete.status)}`,
+      );
     }
     if (complete.status === 401 || complete.status === 403) {
       throw new AuthenticationError(
@@ -641,8 +665,18 @@ export class ICloudClient {
       },
     });
 
-    if (response.status === 421 || response.status === 450 || response.status === 500) {
+    if (response.status === 401 || response.status === 421 || response.status === 450) {
       throw new SessionExpiredError('The iCloud session is no longer valid');
+    }
+    // A 500 used to be read as an expired session too (pyicloud does so on the
+    // Find My endpoints). Here it threw away a session Apple had not refused and
+    // ran a full password sign-in in the middle of an outage — one more failed
+    // attempt against the account each time. A server error is an outage: keep
+    // the session, try again later.
+    if (isServerError(response.status)) {
+      throw new ICloudUnavailableError(
+        `iCloud is unavailable: ${readErrorMessage(response.body, response.status)}`,
+      );
     }
     if (response.status < 200 || response.status >= 300 || !response.body) {
       throw new AuthenticationError(
