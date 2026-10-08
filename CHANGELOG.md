@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-10-08
+
 ### Fixed
 
 - A sign-in that fails at startup because of the network or an Apple outage is now retried on its own (after 1, 5, 15, then every 30 minutes) instead of leaving the integration idle until "Test the iCloud connection"; the Configuration screen says when the next attempt is due.
@@ -130,7 +132,8 @@ First public release.
 - Publish the values of a device as soon as it is created
 - Publish the location features again, and refresh on time
 
-[Unreleased]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.1...HEAD
+[2.2.1]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/prohand/gladys-appledevicetracker/compare/v1.0.10...v2.0.0
