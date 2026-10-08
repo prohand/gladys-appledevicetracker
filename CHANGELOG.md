@@ -6,6 +6,10 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.2.2] - 2026-10-08
+
+- Maintenance release, no functional change.
+
 ## [2.2.1] - 2026-10-08
 
 ### Fixed
@@ -132,7 +136,8 @@ First public release.
 - Publish the values of a device as soon as it is created
 - Publish the location features again, and refresh on time
 
-[Unreleased]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.1...HEAD
+[Unreleased]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.2...HEAD
+[2.2.2]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.1...v2.2.2
 [2.2.1]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.0.0...v2.1.0
