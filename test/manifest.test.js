@@ -153,20 +153,49 @@ test('dynamic selects declare a source and no static options', () => {
   const dynamicSelects = allFields.filter((f) => f.source !== undefined);
   assert.ok(dynamicSelects.length > 0, 'the ring action targets one of our own devices');
   for (const field of dynamicSelects) {
-    assert.equal(field.source, 'devices', 'the only core-defined source in V1 is "devices"');
+    assert.ok(['devices', 'houses'].includes(field.source), `unknown source "${field.source}"`);
     assert.equal(field.options, undefined, 'source and options together reject the manifest');
+    assert.equal(field.default, undefined, 'a dynamic select cannot declare a default');
   }
 });
+
+test('the home house is an optional select over the Gladys houses', () => {
+  // Optional: left empty, the typed coordinates stay in force, as before 5.2.
+  const field = manifest.config_schema.find((f) => f.key === 'home_house');
+  assert.equal(field.type, 'select');
+  assert.equal(field.source, 'houses');
+  assert.equal(field.required, false);
+  assert.equal(DEFAULT_CONFIG.home_house, '');
+  // The value is a selector; reading the position of that house needs the
+  // permission, or getHouses() answers 403.
+  assert.equal(manifest.location, true);
+});
+
+/** The minimum of `gladys_version`, as [major, minor]. */
+function gladysFloor() {
+  const minVersion = manifest.gladys_version.match(/>=\s*(\d+)\.(\d+)\.\d+/);
+  assert.ok(minVersion, 'gladys_version must declare a minimum version');
+  const [, major, minor] = minVersion.map(Number);
+  return [major, minor];
+}
 
 test('widgets and scene declarations require Gladys >= 5.1.0', () => {
   // An older Gladys refuses the whole manifest over the unknown `widgets`,
   // `scene_triggers` and `scene_actions` fields. 5.1 also covers the catalog
   // categories (4.86).
   assert.ok(manifest.categories.length >= 1 && manifest.categories.length <= 3);
-  const minVersion = manifest.gladys_version.match(/>=\s*(\d+)\.(\d+)\.\d+/);
-  assert.ok(minVersion, 'gladys_version must declare a minimum version');
-  const [, major, minor] = minVersion.map(Number);
+  const [major, minor] = gladysFloor();
   assert.ok(major > 5 || (major === 5 && minor >= 1), `got "${manifest.gladys_version}"`);
+});
+
+test('a "houses" select requires Gladys >= 5.2.0', () => {
+  // An older core rejects a dynamic source it does not know, and the store
+  // indexer refuses the pair.
+  if (!allFields.some((field) => field.source === 'houses')) {
+    return;
+  }
+  const [major, minor] = gladysFloor();
+  assert.ok(major > 5 || (major === 5 && minor >= 2), `got "${manifest.gladys_version}"`);
 });
 
 const keysOf = (list) => (list ?? []).map((entry) => entry.key).sort();

@@ -129,7 +129,8 @@ Les actions « Rafraîchir » suivent la même règle que le bouton des widgets 
 un appel à Apple toutes les 30 s au plus.
 
 > **Gladys 5.1 ou plus est nécessaire** pour ces widgets et ces cartes de
-> scène.
+> scène, et **Gladys 5.2 ou plus** pour choisir la maison depuis laquelle la
+> présence est mesurée.
 
 ## Configuration
 
@@ -137,14 +138,26 @@ un appel à Apple toutes les 30 s au plus.
 2. Renseignez votre **identifiant Apple** (l'e-mail du compte iCloud) et votre
    **mot de passe**. Ils sont stockés chiffrés par Gladys et ne sont envoyés
    qu'à Apple.
-3. La **latitude** et la **longitude** de votre domicile sont pré-remplies avec
-   la position de votre maison Gladys : n'y touchez que si vous voulez un autre
+3. Choisissez la **Maison de référence** parmi vos maisons Gladys : sa position
+   (Paramètres > Maisons, elle doit être placée sur la carte) l'emporte sur les
+   coordonnées saisies plus bas. Avec plusieurs maisons — un appartement en
+   ville, une maison de vacances — c'est ainsi que vous dites laquelle est « le
+   domicile ». Une maison déplacée dans Gladys est prise en compte au prochain
+   enregistrement de la configuration ou redémarrage de l'intégration. Si la
+   maison choisie est supprimée ou n'a pas de position, l'écran Configuration le
+   dit et les coordonnées saisies sont utilisées en attendant. Laissez vide pour
+   continuer d'utiliser les coordonnées saisies.
+
+   La **latitude** et la **longitude** de votre domicile sont pré-remplies avec
+   la position de votre maison Gladys (celle choisie, sinon la première placée
+   sur la carte) : n'y touchez que si vous voulez un autre
    point de référence. Si elles restent vides — maison créée sans adresse —
    cliquez sur **Récupérer les coordonnées de ma maison Gladys** (l'action vous
    dit ce qui bloque), ou saisissez-les en degrés décimaux (`48.8566`,
    `2.3522`, à copier depuis n'importe quelle carte). Réglez le **rayon** dans lequel un appareil est
    considéré comme présent (150 m par défaut, à augmenter si votre terrain est
    grand ou si vos appareils sont souvent localisés par le Wi-Fi).
+
 4. Enregistrez.
 
 ### Double authentification (2FA)
@@ -205,7 +218,7 @@ de zone déclenche vos scènes en boucle à cause du bruit GPS.
 - **M'envoyer le code par SMS** — force l'envoi sur un numéro de téléphone de
   confiance, même quand le compte a des appareils de confiance.
 - **Récupérer les coordonnées de ma maison Gladys** — remplit la latitude et la
-  longitude depuis votre maison Gladys, et affiche l'erreur exacte si Gladys ne
+  longitude depuis votre maison Gladys (celle choisie, le cas échéant), et affiche l'erreur exacte si Gladys ne
   les donne pas. Rechargez la page pour voir les champs remplis.
 - **Tester la connexion iCloud** — relance une connexion et affiche le nombre
   d'appareils trouvés avec leurs noms.
@@ -330,7 +343,8 @@ enregistré : sans l'un des deux, Apple n'a nulle part où envoyer le code.
 maison via l'API de Gladys, ce qui demande l'autorisation `location` (déclarée
 dans son manifeste) et une maison avec une adresse (Réglages → Maison).
 L'action **Récupérer les coordonnées de ma maison Gladys** affiche la raison
-exacte du refus.
+exacte du refus. Une maison jamais placée sur la carte est signalée, jamais
+prise pour la position 0, 0.
 
 **Le code 2FA est redemandé souvent** : c'est Apple qui décide de la durée de
 confiance d'une session. Évitez de changer le mot de passe ou de révoquer les

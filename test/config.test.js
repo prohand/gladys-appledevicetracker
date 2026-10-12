@@ -95,3 +95,20 @@ test('the poll frequency sent to Gladys is one of the values it accepts', () => 
     assert.ok(GLADYS_POLL_FREQUENCIES_MS.includes(gladysPollFrequency(seconds)));
   }
 });
+
+test('picking a home house is a setting change', () => {
+  const before = normalizeConfig({ home_latitude: '48.8566', home_longitude: '2.3522' });
+  const picked = normalizeConfig({
+    home_latitude: '48.8566',
+    home_longitude: '2.3522',
+    home_house: ' maison ',
+  });
+  assert.equal(before.home_house, '');
+  assert.equal(picked.home_house, 'maison');
+  assert.equal(sameSettings(before, picked), false);
+});
+
+test('the Gladys poll ticks come from the SDK enum', () => {
+  assert.deepEqual(GLADYS_POLL_FREQUENCIES_MS, [1000, 2000, 10000, 15000, 30000, 60000]);
+  assert.equal(gladysPollFrequency(300), 60000);
+});
