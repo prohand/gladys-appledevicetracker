@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-12
+
 ### Added
 
 - "House to measure presence from": pick one of your Gladys houses in the Configuration screen; its position wins over the typed home coordinates. A deleted house, or one never placed on the map, is reported in the Configuration screen (never taken as the position 0, 0) and the typed coordinates are used meanwhile. Requires Gladys 5.2.0.
@@ -150,7 +152,8 @@ First public release.
 - Publish the values of a device as soon as it is created
 - Publish the location features again, and refresh on time
 
-[Unreleased]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.3...HEAD
+[Unreleased]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.3...v2.3.0
 [2.2.3]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.2...v2.2.3
 [2.2.2]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.1...v2.2.2
 [2.2.1]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.0...v2.2.1
