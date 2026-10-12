@@ -6,6 +6,16 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- "House to measure presence from": pick one of your Gladys houses in the Configuration screen; its position wins over the typed home coordinates. A deleted house, or one never placed on the map, is reported in the Configuration screen (never taken as the position 0, 0) and the typed coordinates are used meanwhile. Requires Gladys 5.2.0.
+
+### Changed
+
+- `@gladysassistant/integration-sdk` updated to 0.15.0.
+- The Gladys houses are read through the SDK (`getHouses`) instead of hand-made requests.
+- Unchanged values are now skipped by the SDK's `publishChangedStates` (same rules: re-sent every 30 minutes, and in full when a device is created).
+
 ## [2.2.3] - 2026-10-08
 
 - Maintenance release, no functional change.

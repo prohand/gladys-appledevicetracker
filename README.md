@@ -57,8 +57,8 @@ the "Make a device ring" action of the Configuration screen.
 ## Widgets, scene triggers and scene actions (Gladys 5.1+)
 
 Declared in the manifest (`widgets`, `scene_triggers`, `scene_actions`), drawn
-by Gladys itself — hence `gladys_version: ">=5.1.0"` (an older Gladys refuses
-the unknown manifest fields).
+by Gladys itself — hence a `gladys_version` of at least 5.1.0 (an older Gladys
+refuses the unknown manifest fields; 5.2.0 today, for the house select).
 
 | Kind          | Key                   | What it does                                                   |
 | ------------- | --------------------- | -------------------------------------------------------------- |
@@ -164,6 +164,7 @@ code.
 | ---------------- | ------- | ------------------------------------------- |
 | `apple_id`       | —       | Apple ID email (required)                   |
 | `apple_password` | —       | Apple ID password, stored as a secret       |
+| `home_house`     | —       | Gladys house presence is measured from      |
 | `home_latitude`  | 48.8566 | Home position, decimal degrees (pre-filled) |
 | `home_longitude` | 2.3522  | Home position, decimal degrees (pre-filled) |
 | `home_radius`    | 150     | Meters, radius marking a device as present  |
@@ -171,6 +172,11 @@ code.
 | `max_accuracy`   | 500     | Meters, above which a position is ignored   |
 | `include_family` | true    | Include the Family Sharing devices          |
 
+`home_house` is a select over the Gladys houses (`source: "houses"`, Gladys
+5.2+, hence `gladys_version: ">=5.2.0"`): the integration receives the house
+selector and reads its position with `gladys.getHouses()`. When set, that
+position wins over the typed coordinates; a deleted or unlocated house is
+reported in the Configuration screen and the typed coordinates stay in force.
 The coordinates are pre-filled from the position of your Gladys house
 (`GET /house` on the host API), which is why the manifest declares
 `"location": true` — without that permission Gladys answers 403 and the fields

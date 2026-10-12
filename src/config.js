@@ -10,11 +10,17 @@
 // as a string from the form.
 // -----------------------------------------------------------------------------
 
+import { DEVICE_POLL_FREQUENCIES } from '@gladysassistant/integration-sdk';
+
 // Defaults: they MUST stay consistent with the `default` values declared in the
 // `config_schema` of the manifest (see test/manifest.test.js).
 export const DEFAULT_CONFIG = {
   apple_id: '',
   apple_password: '',
+  // The selector of the Gladys house presence is measured from (a select with
+  // `source: "houses"`, so no `default` in the manifest): empty = the typed
+  // coordinates below. When set, its position wins (src/homeLocation.js).
+  home_house: '',
   // The coordinates are optional text fields in the manifest (no `default`
   // there): they are pre-filled from the Gladys house at startup, and these
   // values are the last resort when Gladys itself has no position.
@@ -61,16 +67,18 @@ function toNumber(raw, key) {
 }
 
 // Gladys stores `poll_frequency` on a device as an ENUM of MILLISECONDS
-// (DEVICE_POLL_FREQUENCIES): 1000, 2000, 10000, 15000, 30000 and 60000. Any
-// other value is rejected when publishing the devices, with
-// `devices[0].poll_frequency: invalid poll frequency`.
+// (DEVICE_POLL_FREQUENCIES, exported by the SDK): 1000, 2000, 10000, 15000,
+// 30000 and 60000. Any other value is rejected when publishing the devices,
+// with `devices[0].poll_frequency: invalid poll frequency`.
 //
 // The user setting is in seconds and goes up to an hour, so it cannot be sent
 // as-is: we ask Gladys for the SLOWEST tick it accepts (one minute) and the
 // tracker throttles the real Find My calls to the configured interval. Gladys
 // calling onPoll more often than needed is free — the tracker just answers with
 // its cache.
-export const GLADYS_POLL_FREQUENCIES_MS = [1000, 2000, 10000, 15000, 30000, 60000];
+export const GLADYS_POLL_FREQUENCIES_MS = Object.values(DEVICE_POLL_FREQUENCIES).sort(
+  (a, b) => a - b,
+);
 
 /**
  * The largest poll frequency Gladys accepts that is not slower than the
@@ -93,6 +101,7 @@ export function normalizeConfig(raw = {}) {
     ...raw,
     apple_id: String(raw.apple_id ?? '').trim(),
     apple_password: String(raw.apple_password ?? ''),
+    home_house: String(raw.home_house ?? '').trim(),
     home_latitude: toNumber(raw.home_latitude, 'home_latitude'),
     home_longitude: toNumber(raw.home_longitude, 'home_longitude'),
     home_radius: toNumber(raw.home_radius, 'home_radius'),
@@ -141,6 +150,7 @@ export function sameAccount(a, b) {
 // deliberately NOT one of them: the integration writes it itself, and that write
 // comes back as a config update — reacting to it would call Apple for nothing.
 const SETTINGS_KEYS = [
+  'home_house',
   'home_latitude',
   'home_longitude',
   'home_radius',

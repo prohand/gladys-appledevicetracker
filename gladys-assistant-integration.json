@@ -8,7 +8,7 @@
   },
   "version": "2.2.3",
   "docker_image": "ghcr.io/prohand/gladys-appledevicetracker:2.2.3",
-  "gladys_version": ">=5.1.0",
+  "gladys_version": ">=5.2.0",
   "cover_image": "https://raw.githubusercontent.com/prohand/gladys-appledevicetracker/main/cover.png",
   "categories": ["security", "services"],
   "transports": ["cloud"],
@@ -73,9 +73,23 @@
         "fr": "Votre domicile"
       },
       "description": {
-        "en": "A device is considered present when it is inside the radius below. The coordinates are pre-filled with the position of your Gladys house: correct them only if you want another reference point.",
-        "fr": "Un appareil est considere present quand il se trouve dans le rayon ci-dessous. Les coordonnees sont pre-remplies avec la position de votre maison Gladys : corrigez-les seulement si vous voulez un autre point de reference."
+        "en": "A device is considered present when it is inside the radius below, around the Gladys house you pick. Without a house picked, the coordinates below are used: they are pre-filled with the position of your Gladys house, correct them only if you want another reference point.",
+        "fr": "Un appareil est considere present quand il se trouve dans le rayon ci-dessous, autour de la maison Gladys choisie. Sans maison choisie, les coordonnees ci-dessous sont utilisees : elles sont pre-remplies avec la position de votre maison Gladys, corrigez-les seulement si vous voulez un autre point de reference."
       }
+    },
+    {
+      "key": "home_house",
+      "type": "select",
+      "source": "houses",
+      "label": {
+        "en": "House to measure presence from",
+        "fr": "Maison de reference"
+      },
+      "description": {
+        "en": "One of your Gladys houses: its position wins over the coordinates below. It must be placed on the map in Settings > Houses. Leave empty to use the coordinates below.",
+        "fr": "Une de vos maisons Gladys : sa position l'emporte sur les coordonnees ci-dessous. Elle doit etre placee sur la carte dans Parametres > Maisons. Laisser vide pour utiliser les coordonnees ci-dessous."
+      },
+      "required": false
     },
     {
       "key": "home_latitude",

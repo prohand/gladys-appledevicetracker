@@ -6,6 +6,11 @@
 //   - publishStates / publishDiscoveredDevices / setConfig / setConnectionStatus
 //     / publishSceneEvent / requestWidgetRefresh
 //     -> record the calls so tests can assert them
+//   - publishChangedStates / forgetPublishedStates -> the SDK's dedup, same
+//     rules (exact match, heartbeat, remembered only once accepted, 100 per
+//     request), on top of this fake's publishStates so a test replacing it
+//     still sees what goes out
+//   - getHouses -> the `houses` list (set `housesError` to make it throw)
 // No running Gladys server, no WebSocket.
 // -----------------------------------------------------------------------------
 
@@ -16,6 +21,8 @@ export function createFakeGladys() {
   const connectionStatuses = [];
   const sceneEvents = [];
   const widgetRefreshes = [];
+  // Last value accepted per feature, as the SDK remembers it.
+  const publishedStates = new Map();
 
   return {
     published,
@@ -28,6 +35,18 @@ export function createFakeGladys() {
     sceneEventError: null,
     // The devices the user actually created, as the SDK keeps them.
     devices: [],
+    publishedStates,
+    // The houses of Gladys, as GET /house answers them (sorted by name).
+    houses: [],
+    /** Set to an Error to make getHouses fail with it (a 403, Gladys down...). */
+    housesError: null,
+
+    async getHouses() {
+      if (this.housesError) {
+        throw this.housesError;
+      }
+      return this.houses;
+    },
 
     externalIds(type, platformId) {
       const device = `${type}:${platformId}`;
@@ -52,6 +71,47 @@ export function createFakeGladys() {
           state: state.state,
           text: state.text,
         });
+      }
+    },
+
+    async publishChangedStates(states, { heartbeat } = {}) {
+      const now = Date.now();
+      const previous = new Map();
+      const changed = states.filter((state) => {
+        const id = state.device_feature_external_id;
+        const last = previous.has(id) ? previous.get(id) : publishedStates.get(id);
+        previous.set(id, { state: state.state, text: state.text, at: now });
+        return (
+          last === undefined ||
+          last.state !== state.state ||
+          last.text !== state.text ||
+          (heartbeat !== undefined && now - last.at >= heartbeat)
+        );
+      });
+      for (let start = 0; start < changed.length; start += 100) {
+        const batch = changed.slice(start, start + 100);
+        batch.forEach(({ device_feature_external_id: id, state, text }) => {
+          publishedStates.set(id, { state, text, at: now });
+        });
+        try {
+          await this.publishStates(batch);
+        } catch (err) {
+          batch.forEach(({ device_feature_external_id: id }) => publishedStates.delete(id));
+          throw err;
+        }
+      }
+      return { success: true, count: changed.length };
+    },
+
+    forgetPublishedStates(externalId) {
+      if (externalId === undefined) {
+        publishedStates.clear();
+        return;
+      }
+      for (const id of [...publishedStates.keys()]) {
+        if (id === externalId || id.startsWith(`${externalId}:`)) {
+          publishedStates.delete(id);
+        }
       }
     },
 

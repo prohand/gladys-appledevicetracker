@@ -218,7 +218,9 @@ test('unchanged values are not published again', async () => {
   );
 });
 
-test('an unchanged value is published again once Gladys would call it outdated', async () => {
+test('an unchanged value is published again once Gladys would call it outdated', async (t) => {
+  // The heartbeat is the SDK's (publishChangedStates), dated by the real clock.
+  t.mock.timers.enable({ apis: ['Date'], now: 1_000_000 });
   const { gladys, client, tracker, advance } = createTracker({ devices: [fakeFindMyDevice()] });
   await tracker.start(CONFIG);
   const firstBatch = gladys.published.length;
@@ -228,6 +230,7 @@ test('an unchanged value is published again once Gladys would call it outdated',
   // sitting at home.
   client.devices = [fakeFindMyDevice()];
   advance(30 * 60 * 1000);
+  t.mock.timers.tick(30 * 60 * 1000);
   await tracker.refresh({ force: true });
 
   const republished = gladys.published.slice(firstBatch).map((s) => s.featureExternalId);
@@ -465,7 +468,7 @@ test('a command on a device that left the Find My list explains itself', async (
 });
 
 test('forgetSession() clears every cached trace of the account', async () => {
-  const { client, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
+  const { gladys, client, tracker } = createTracker({ devices: [fakeFindMyDevice()] });
   await tracker.start(CONFIG);
 
   await tracker.forgetSession();
@@ -474,7 +477,7 @@ test('forgetSession() clears every cached trace of the account', async () => {
   assert.equal(tracker.status, TRACKER_STATUS.DISCONNECTED);
   assert.deepEqual(tracker.devices, []);
   assert.equal(tracker.presence.size, 0);
-  assert.equal(tracker.lastValues.size, 0);
+  assert.equal(gladys.publishedStates.size, 0);
 });
 
 test('refresh() does nothing while the integration is not connected', async () => {
@@ -609,8 +612,9 @@ test('forgetDevice() drops what was remembered for the deleted device only', asy
 
   tracker.forgetDevice(gone);
 
-  assert.ok(![...tracker.lastValues.keys()].some((key) => key.startsWith(`${gone}:`)));
-  assert.ok([...tracker.lastValues.keys()].some((key) => key.startsWith(`${kept}:`)));
+  const remembered = [...gladys.publishedStates.keys()];
+  assert.ok(!remembered.some((key) => key.startsWith(`${gone}:`)));
+  assert.ok(remembered.some((key) => key.startsWith(`${kept}:`)));
 });
 
 test('a session Apple will not renew without a code stops being a silent freeze', async () => {

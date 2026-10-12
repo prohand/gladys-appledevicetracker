@@ -42,9 +42,6 @@ const MIN_REFRESH_INTERVAL_MS = 30_000;
 // must still refresh, otherwise a 300 s interval would drift to 360 s.
 const POLL_TOLERANCE_MS = 5_000;
 
-// The host API accepts up to 100 states per POST /state.
-const STATES_PER_BATCH = 100;
-
 // Gladys marks a value as outdated when nothing has been published for it for a
 // while (48 h by default, less if the user lowered the setting) and then shows
 // "no recent value" instead of the value. A device that does not move publishes
@@ -153,8 +150,6 @@ export class AppleDeviceTracker {
     this.lastLocations = new Map();
     /** Last battery Apple gave us per device id (see keepLastKnownBattery). */
     this.lastBatteries = new Map();
-    /** `{ value, publishedAt }` per feature, so we only publish what changed. */
-    this.lastValues = new Map();
     /** Apple device ids whose states must be published again, unchanged or not. */
     this.pendingFullPublish = new Set();
     /** Gladys external_ids already polled, to spot a device the user just created. */
@@ -465,7 +460,9 @@ export class AppleDeviceTracker {
     this.presence.clear();
     this.lastLocations.clear();
     this.lastBatteries.clear();
-    this.lastValues.clear();
+    // The values the SDK remembers belong to this account's devices: a new
+    // sign-in must publish everything again.
+    this.gladys.forgetPublishedStates();
     this.pendingFullPublish.clear();
     this.polledDevices.clear();
     this.missingFeatures.clear();
@@ -532,7 +529,9 @@ export class AppleDeviceTracker {
    *
    * Its features are gone, so the values remembered for them are stale — and
    * they are exactly what would make a device created again under the same
-   * external_id look "already published" to the dedup below.
+   * external_id look "already published" to the dedup below. The SDK already
+   * forgets them when Gladys announces the deletion; doing it here too keeps
+   * this method complete on its own.
    *
    * @param {string} externalId the Gladys external_id of the deleted device
    */
@@ -541,12 +540,8 @@ export class AppleDeviceTracker {
       return;
     }
     this.polledDevices.delete(externalId);
-    for (const key of this.lastValues.keys()) {
-      // Feature external_ids are the device one, plus the feature key.
-      if (key === externalId || key.startsWith(`${externalId}:`)) {
-        this.lastValues.delete(key);
-      }
-    }
+    // Feature external_ids are the device one, plus the feature key.
+    this.gladys.forgetPublishedStates(externalId);
   }
 
   /**
@@ -888,7 +883,7 @@ export class AppleDeviceTracker {
     // Whatever we remember about it is wrong: the host never stored it. Forget
     // it, so the value goes out on the very first refresh after the user adds
     // the feature instead of waiting for the next heartbeat.
-    this.lastValues.delete(featureId);
+    this.gladys.forgetPublishedStates(featureId);
     if (!this.missingFeatures.has(featureId)) {
       this.missingFeatures.add(featureId);
       logger.warn(
@@ -905,13 +900,17 @@ export class AppleDeviceTracker {
    * An unchanged value is normally skipped — the host API rate-limits states —
    * but not forever: past STATE_HEARTBEAT_MS it is published again so Gladys
    * keeps considering it recent, and a device flagged by `pollDevice` is
-   * published in full straight away.
+   * published in full straight away. The dedup itself is the SDK's
+   * `publishChangedStates`: it remembers a value only once Gladys ACCEPTED it
+   * (a POST refused by the 300 states per minute limit, or by a core
+   * restarting, is sent again by the next call instead of being taken for
+   * published — a feature that does not move, like a battery, used to stay
+   * empty for half an hour that way), and splits the batch by 100.
    */
   async publishStates() {
     const states = [];
     const republished = [];
     const moves = [];
-    const now = this.now();
 
     for (const device of this.devices) {
       // The user just created this device in Gladys: it missed everything
@@ -919,6 +918,7 @@ export class AppleDeviceTracker {
       const republishAll = this.pendingFullPublish.has(device.id);
       if (republishAll) {
         republished.push(device.id);
+        this.gladys.forgetPublishedStates(deviceExternalId(this.gladys, device.id));
       }
       const wasPresent = this.presence.has(device.id) ? this.presence.get(device.id) : null;
       const result = buildStates(this.gladys, this.config, device, wasPresent);
@@ -942,38 +942,19 @@ export class AppleDeviceTracker {
       for (const state of result.states) {
         // A feature Gladys does not hold: publishing is pointless (the host
         // drops it) and remembering it as published is what froze it.
-        if (!this.featureExists(device, features, state.device_feature_external_id)) {
-          continue;
+        if (this.featureExists(device, features, state.device_feature_external_id)) {
+          states.push(state);
         }
-        const value = state.state ?? state.text;
-        const last = this.lastValues.get(state.device_feature_external_id);
-        const unchanged = last !== undefined && last.value === value;
-        if (!republishAll && unchanged && now - last.publishedAt < STATE_HEARTBEAT_MS) {
-          continue; // unchanged and still recent for Gladys: not worth a state
-        }
-        states.push(state);
       }
     }
 
+    let published;
     try {
-      for (let index = 0; index < states.length; index += STATES_PER_BATCH) {
-        const batch = states.slice(index, index + STATES_PER_BATCH);
-        await this.gladys.publishStates(batch);
-        // Remembered as published only once Gladys has ACCEPTED them. They used
-        // to be recorded before the call: a POST that failed (the 300 states per
-        // minute limit of the host API, a core restarting) was remembered as sent
-        // all the same, and the dedup above then skipped those values until they
-        // moved again — a feature that does not move, like a battery, stayed
-        // empty for half an hour.
-        for (const state of batch) {
-          this.lastValues.set(state.device_feature_external_id, {
-            value: state.state ?? state.text,
-            publishedAt: now,
-          });
-        }
-      }
-      // Same reason: the "this device missed everything" flag is only cleared
-      // once the whole picture really went through.
+      ({ count: published } = await this.gladys.publishChangedStates(states, {
+        heartbeat: STATE_HEARTBEAT_MS,
+      }));
+      // The "this device missed everything" flag is only cleared once the
+      // whole picture really went through.
       for (const id of republished) {
         this.pendingFullPublish.delete(id);
       }
@@ -985,10 +966,10 @@ export class AppleDeviceTracker {
       // good — the next refresh sees no change.
       await this.publishPresenceEvents(moves);
     }
-    if (states.length > 0) {
+    if (published > 0) {
       this.requestWidgetRefresh();
     }
-    return states;
+    return published;
   }
 
   /**

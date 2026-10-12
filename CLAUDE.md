@@ -32,7 +32,7 @@ CI runs `format:check`, `lint`, `test`. Releases: **Actions → Release** only (
 ```
 index.js                 SDK wiring: initialize(), 2FA actions, health reporting, widgets, scenes
 src/config.js            defaults, bounds, Gladys poll tick (gladysPollFrequency), helpers
-src/homeLocation.js      read the Gladys house position (pre-fills the home coordinates)
+src/homeLocation.js      the picked Gladys house (`home_house`) and the coordinates pre-fill
 src/icloud/srp.js        Apple's SRP-6a sign-in maths
 src/icloud/client.js     iCloud client: sign-in, 2FA (trusted devices / SMS), Find My calls
 src/tracker.js           AppleDeviceTracker: session, refresh, polls, health, ring
@@ -68,13 +68,17 @@ src/widgets.js           dashboard widgets
   read.
 - **Every feature declares `min`/`max`** (NOT NULL in Gladys). Ring is `button/push`.
 - **Home coordinates are personal data**: pre-filled from the Gladys house (`"location": true` in
-  the manifest), they only serve the distance computation.
+  the manifest), they only serve the distance computation. A house picked in `home_house`
+  (`source: "houses"`, Gladys 5.2+) wins over them, in memory only; a deleted or unlocated house
+  is reported through the connection status, never read as 0, 0.
+- **State dedupe is the SDK's** (`publishChangedStates`, 30 min heartbeat): a device flagged for a
+  full publish is forgotten (`forgetPublishedStates`) right before it.
 - Widget, trigger and action keys are stored by users: never rename them.
 
 ### Manifest
 
 `test/manifest.test.js` keeps `gladys-assistant-integration.json` in sync with `DEFAULT_CONFIG`,
-the bounds and the handlers (`gladys_version >=5.1.0`).
+the bounds and the handlers (`gladys_version >=5.2.0`, for the `houses` select).
 
 ## Testing
 

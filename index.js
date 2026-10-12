@@ -22,7 +22,7 @@ import {
   sameAccount,
   sameSettings,
 } from './src/config.js';
-import { fetchGladysHomeCoordinates } from './src/homeLocation.js';
+import { applyHomeHouse, fetchGladysHomeCoordinates } from './src/homeLocation.js';
 import { AppleDeviceTracker, TRACKER_HEALTH, TRACKER_STATUS } from './src/tracker.js';
 import { normalizeMessage, positionOutputs } from './src/scenes.js';
 import { WIDGET_ACTION, buildDeviceWidget, buildPresenceWidget, widgetTtl } from './src/widgets.js';
@@ -40,6 +40,17 @@ const tracker = new AppleDeviceTracker(gladys);
 
 // Current configuration (hot-reloaded via onConfigUpdated).
 let config = normalizeConfig();
+
+// Why the house picked in "House to measure presence from" gives no position
+// (deleted, never placed on the map, permission missing), or null. Carried by
+// every "connected" status: the tracker works, from the typed coordinates, but
+// the user must know their pick is not the one in force.
+let homeWarning = null;
+
+/** Report the integration as connected, with the home warning when there is one. */
+function reportConnected() {
+  return gladys.setConnectionStatus(true, homeWarning ?? undefined);
+}
 
 const MESSAGES = {
   missingCredentials: {
@@ -137,9 +148,7 @@ async function reportFailure(message, err) {
 tracker.onHealth = async (code, error) => {
   if (code === TRACKER_HEALTH.OK) {
     logger.info('The values are being refreshed again');
-    await gladys
-      .setConnectionStatus(true)
-      .catch((err) => logger.error('setConnectionStatus failed', err));
+    await reportConnected().catch((err) => logger.error('setConnectionStatus failed', err));
     return;
   }
 
@@ -167,7 +176,8 @@ async function prefillHomeCoordinates(raw) {
     return raw;
   }
 
-  const coordinates = await fetchGladysHomeCoordinates(gladys);
+  // The picked house first, when there is one: the typed fields are its fallback.
+  const coordinates = await fetchGladysHomeCoordinates(gladys, { house: raw.home_house });
   if (!coordinates) {
     logger.info('Gladys has no house position: fill in the home coordinates by hand');
     return raw;
@@ -186,10 +196,23 @@ async function prefillHomeCoordinates(raw) {
   return { ...raw, ...filled };
 }
 
+/**
+ * The config in force: the raw one, with the position of the picked house
+ * replacing the typed coordinates when it has one. Houses have no update event:
+ * a house moved in Gladys is read again on the next (re)connection or save.
+ *
+ * @param {Record<string, unknown>} raw the config as returned by the SDK
+ */
+async function resolveConfig(raw) {
+  const { config: resolved, warning } = await applyHomeHouse(gladys, raw);
+  homeWarning = warning;
+  return normalizeConfig(resolved);
+}
+
 /** Sign in to iCloud and publish what Find My reports. */
 async function initialize() {
   const previous = config;
-  config = normalizeConfig(await prefillHomeCoordinates(await gladys.getConfig()));
+  config = await resolveConfig(await prefillHomeCoordinates(await gladys.getConfig()));
   tracker.updateConfig(config);
 
   // This runs on every (re)connection to Gladys, including a WebSocket that
@@ -198,7 +221,7 @@ async function initialize() {
   if (tracker.isConnected() && sameAccount(previous, config)) {
     logger.info('Still signed in to iCloud, re-publishing the devices');
     await tracker.publishDiscoveredDevices();
-    await gladys.setConnectionStatus(true);
+    await reportConnected();
     await tracker.refresh();
     // The user may have created a device while we were not listening: its
     // features exist now, so send them their values.
@@ -220,7 +243,7 @@ async function initialize() {
       return;
     }
     await tracker.publishDiscoveredDevices();
-    await gladys.setConnectionStatus(true);
+    await reportConnected();
     await tracker.resync();
     logger.info(`Connected to iCloud, tracking ${tracker.devices.length} device(s)`);
   } catch (err) {
@@ -309,7 +332,7 @@ gladys.onPoll(async (device) => {
 gladys.onAction('submit_2fa_code', async (fields) => {
   const count = await tracker.submitSecurityCode(fields.code);
   await tracker.publishDiscoveredDevices();
-  await gladys.setConnectionStatus(true);
+  await reportConnected();
   await tracker.resync();
   return {
     en: `Code accepted: ${count} device(s) found. This session is now trusted by Apple.`,
@@ -373,8 +396,15 @@ gladys.onAction('send_2fa_code_by_sms', async () => {
 gladys.onAction('refresh_home_location', async () => {
   let coordinates;
   try {
-    coordinates = await fetchGladysHomeCoordinates(gladys, { strict: true });
+    coordinates = await fetchGladysHomeCoordinates(gladys, {
+      strict: true,
+      house: config.home_house,
+    });
   } catch (err) {
+    // The picked house is deleted or not on the map: already worded for the user.
+    if (err.homeHouseProblem) {
+      throw err;
+    }
     throw new Error(
       `Gladys did not give the position of your house (${err.message}). ` +
         'Check that your house has an address in Settings > House.',
@@ -539,7 +569,8 @@ gladys.onWidgetAction('device', refreshFromWidget);
 // --- Configuration updated by the user ---------------------------------------
 gladys.onConfigUpdated(async (newConfig) => {
   const previous = config;
-  config = normalizeConfig(newConfig);
+  const previousWarning = homeWarning;
+  config = await resolveConfig(newConfig);
 
   // The account changed (or credentials were filled in): sign in again.
   if (!sameAccount(previous, config)) {
@@ -547,6 +578,12 @@ gladys.onConfigUpdated(async (newConfig) => {
     await tracker.forgetSession();
     await initialize();
     return;
+  }
+
+  // A house picked, deleted or placed on the map since: the Configuration
+  // screen must stop (or start) saying the typed coordinates are in force.
+  if (tracker.isConnected() && JSON.stringify(homeWarning) !== JSON.stringify(previousWarning)) {
+    await reportConnected();
   }
 
   // Nothing the user set changed: this update is the integration saving its own

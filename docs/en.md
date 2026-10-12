@@ -117,21 +117,33 @@ My more than once every 30 s: a quicker press reuses the last reading.
 The "Refresh" actions follow the same rule as the widget button: one call to
 Apple every 30 s at most.
 
-> **Gladys 5.1 or later is required** for these widgets and scene cards.
+> **Gladys 5.1 or later is required** for these widgets and scene cards, and
+> **Gladys 5.2 or later** to pick the house presence is measured from.
 
 ## Configuration
 
 1. Open the **Configuration** tab of the integration.
 2. Fill in your **Apple ID** (the email of the iCloud account) and your
    **password**. Gladys stores them encrypted and only sends them to Apple.
-3. The **latitude** and **longitude** of your home are pre-filled with the
-   position of your Gladys house: leave them alone unless you want another
+3. Pick the **House to measure presence from** among your Gladys houses: its
+   position (Settings > Houses, it must be placed on the map) wins over the
+   coordinates typed below. With several houses — a flat in town, a holiday
+   home — this is how you say which one is "home". Moving the house in Gladys
+   is taken into account at the next save of the configuration or restart of
+   the integration. If the picked house is deleted or has no position, the
+   Configuration screen says so and the typed coordinates are used meanwhile.
+   Leave it empty to keep using the typed coordinates.
+
+   The **latitude** and **longitude** of your home are pre-filled with the
+   position of your Gladys house (the picked one, otherwise the first one placed
+   on the map): leave them alone unless you want another
    reference point. If they stay empty — a house created without an address —
    click **Get the coordinates of my Gladys house** (the action tells you what
    is blocking), or type them in decimal degrees (`48.8566`, `2.3522`, copied
    from any map service). Set the **radius** inside which a device counts as present (150 m
    by default — raise it if you have a large property, or if your devices are
    often located through Wi-Fi).
+
 4. Save.
 
 ### Two-factor authentication
@@ -186,7 +198,7 @@ zone from firing your scenes over and over because of GPS noise.
 - **Send me the code by SMS** — forces the code to a trusted phone number, even
   when the account has trusted devices.
 - **Get the coordinates of my Gladys house** — fills the latitude and longitude
-  from your Gladys house, and shows the exact error when Gladys does not serve
+  from your Gladys house (the picked one, when there is one), and shows the exact error when Gladys does not serve
   them. Reload the page to see the filled fields.
 - **Test the iCloud connection** — signs in again and shows how many devices
   were found, with their names.
@@ -240,6 +252,8 @@ trusted phone number — without one of the two, Apple has nowhere to send it.
 house through the Gladys API, which needs the `location` permission (declared
 in its manifest) and a house with an address (Settings → House). The **Get the
 coordinates of my Gladys house** action shows the exact reason it was refused.
+A house that was never placed on the map is reported, never taken as the
+position 0, 0.
 
 **My AirTag does not show up**: expected, and nothing the integration can fix
 (see the note above). Apple only gives the position of Find My items to the
