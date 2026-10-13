@@ -888,7 +888,7 @@ export class AppleDeviceTracker {
       this.missingFeatures.add(featureId);
       logger.warn(
         `${device.name}: Gladys has no feature ${featureId}, so its value is dropped. ` +
-          'Open the Discovery tab of the integration and click Update on this device.',
+          'Open the Discover tab of the integration and click Update on this device.',
       );
     }
     return false;

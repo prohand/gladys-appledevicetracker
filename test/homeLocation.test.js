@@ -13,6 +13,7 @@ import {
   resolveHomeHouse,
 } from '../src/homeLocation.js';
 import { hasHomeCoordinates } from '../src/config.js';
+import { LANGUAGES } from '../src/i18n.js';
 import { createFakeGladys } from './helpers/fakeGladys.js';
 
 /** A fake SDK whose getHouses answers these houses (sorted by name, as Gladys). */
@@ -156,10 +157,15 @@ test('a picked house without a position is reported, never taken as 0,0', async 
   assert.match(warning.fr, /"Chalet" n'a pas de position/);
 });
 
-test('every home house warning is bilingual', () => {
+test('every home house warning is written in every language', () => {
   for (const problem of Object.values(HOME_HOUSE_PROBLEM)) {
     const warning = homeHouseWarning(problem, { name: 'Chalet' });
-    assert.ok(warning.en.length > 0 && warning.fr.length > 0, problem);
+    assert.deepEqual(Object.keys(warning), LANGUAGES, problem);
+    for (const lang of LANGUAGES) {
+      assert.ok(warning[lang].length > 0, `${problem} (${lang})`);
+    }
+    assert.match(warning.de, /Koordinaten/);
+    assert.match(warning.es, /coordenadas/);
     assert.match(warning.en, /typed below/);
     assert.doesNotMatch(homeHouseWarning(problem, null, { meanwhile: false }).en, /typed below/);
   }

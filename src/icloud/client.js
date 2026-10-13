@@ -480,6 +480,9 @@ export class ICloudClient {
     this.twoFactorTarget = {
       en: 'your trusted Apple devices',
       fr: 'vos appareils Apple de confiance',
+      // German and Spanish carry their preposition: "an …" / "a …" vs "per SMS an …".
+      de: 'an deine vertrauenswürdigen Apple-Geräte',
+      es: 'a sus dispositivos Apple de confianza',
     };
     logger.info('Apple pushed a two-factor code to the trusted devices');
     return true;
@@ -511,7 +514,12 @@ export class ICloudClient {
     const number = phone.numberWithDialCode || phone.obfuscatedNumber || `#${phone.id}`;
     this.twoFactorMode = TWO_FACTOR_MODE.SMS;
     this.twoFactorPhoneId = phone.id;
-    this.twoFactorTarget = { en: `an SMS to ${number}`, fr: `un SMS au ${number}` };
+    this.twoFactorTarget = {
+      en: `an SMS to ${number}`,
+      fr: `un SMS au ${number}`,
+      de: `per SMS an ${number}`,
+      es: `por SMS al ${number}`,
+    };
     logger.info(`Apple sent a two-factor code by SMS to ${number}`);
     return true;
   }
@@ -523,7 +531,7 @@ export class ICloudClient {
    * Called right after the 409 of the sign-in, and again by the "resend the
    * code" action.
    *
-   * @returns {Promise<{en: string, fr: string}>} where the code was sent
+   * @returns {Promise<{en: string, fr: string, de: string, es: string}>} where the code was sent
    */
   async requestSecurityCode({ preferSms = false } = {}) {
     this.twoFactorError = null;

@@ -1,0 +1,361 @@
+# Apple Device Tracker
+
+Esta integración inicia sesión en su cuenta de iCloud, lee la posición de los
+dispositivos visibles en **Buscar** y los expone en Gladys como **sensores de
+presencia**. Así puede activar escenas con "mi iPhone llega a casa" o "ya no
+queda nadie".
+
+## Qué obtiene
+
+Un dispositivo de Gladys por cada dispositivo visible en **Buscar** en
+iCloud.com (iPhone, iPad, Mac, Apple Watch y los AirPods que Apple muestra
+allí), con estas medidas:
+
+| Medida                    | Tipo         | Para qué sirve                                           |
+| ------------------------- | ------------ | -------------------------------------------------------- |
+| Presencia                 | Binario      | El activador de las escenas (1 = en casa)                |
+| Distancia al hogar        | Decimal (km) | Seguir a qué distancia está, precalentar la casa         |
+| Precisión de la posición  | Entero (m)   | Distinguir una ubicación GPS de una estimación por Wi-Fi |
+| Posición                  | Texto        | "latitud,longitud", práctico para depurar                |
+| Antigüedad de la posición | Entero (min) | Detectar un dispositivo que ha dejado de informar        |
+| Batería                   | Entero (%)   | Avisar de una batería baja                               |
+| Cargando                  | Binario      | Saber si el dispositivo está enchufado                   |
+| Hacer sonar               | Botón        | Reproduce el sonido de Buscar en ese dispositivo         |
+
+La batería y la carga solo aparecen en los dispositivos que las informan: un
+accesorio no tiene ninguna de las dos.
+
+Cuando Apple no puede contactar con un dispositivo (apagado, sin red, en reposo
+profundo), responde con una batería del 0 %: es el valor por defecto del campo,
+no una medida. La integración no lo publica —Gladys enviaría una alerta de
+"batería baja" para un teléfono que está lejos de agotarse— y conserva en su
+lugar el último nivel conocido, como la app Buscar.
+
+La medida "Cargando" **no** está a propósito en la categoría de batería, aunque
+Gladys tenga una para ello. Gladys avisa de "nivel de batería inferior al 10 %"
+para cada característica de la **categoría de batería** cuyo valor esté por
+debajo del umbral, sea cual sea su tipo: un sensor de carga vale 0 o 1, así que
+se leía como "0 %" y avisaba todos los días en todos los teléfonos. En su lugar
+se publica como una **entrada binaria** (la medida binaria genérica de Gladys):
+el mismo valor sí/no, el mismo uso en una escena, pero fuera de la categoría
+que recorre esa comprobación.
+
+### Hacer sonar un dispositivo desde el panel
+
+Todas las medidas anteriores son de solo lectura, pero **Hacer sonar** es un
+botón: ponga el dispositivo en un panel y su botón "**Pulsar**" reproduce el
+sonido de Buscar en ese iPhone, iPad, Mac o Apple Watch —lo mismo que hace la
+app Buscar—. Es un pulsador, no un interruptor: no hay nada que volver a
+apagar, una pulsación es un sonido. Una escena también puede pulsarlo ("cuando
+suene el timbre por la noche, hacer sonar mi iPhone").
+
+La acción **Hacer sonar un dispositivo** de la pestaña Configuración hace
+exactamente lo mismo y sigue disponible: es la forma de hacer sonar un
+dispositivo que aún no ha añadido a Gladys.
+
+> **¿Ya tiene sus dispositivos en Gladys?** Gladys nunca cambia por sí solo las
+> características de un dispositivo que usted ha creado: abra la pestaña
+> **Descubrir** de la integración y pulse **Actualizar** en cada dispositivo
+> para que aparezca el botón.
+
+> **Los AirTags no se muestran.** Apple no los ofrece a través de la API web de
+> Buscar: su posición está cifrada de extremo a extremo y solo la descifra la
+> app Buscar en un dispositivo Apple. El propio iCloud.com solo muestra la
+> pestaña "Dispositivos", nunca la de "Objetos", así que ninguna integración
+> que inicie sesión en una cuenta de iCloud puede verlos. La integración sigue
+> leyendo las listas de accesorios por si Apple empieza a ofrecerlos: entonces
+> se descubrirían sin una nueva versión.
+
+## Widgets del panel (Gladys 5.1+)
+
+Se pueden añadir dos widgets desde **Panel → Editar → Nuevo widget**, en
+**Widgets de integraciones**:
+
+- **Quién está en casa** — una línea por dispositivo: "En casa" o
+  "Fuera · 5,6 km". Arriba, cuántos dispositivos están en casa. Ajuste: los
+  dispositivos que se muestran (vacío = todos los dispositivos creados en
+  Gladys, 10 como máximo).
+- **Dispositivo Apple** — un dispositivo en detalle: batería y distancia (en
+  directo), el gráfico de distancia de las últimas 24 h, presencia, carga,
+  precisión y antigüedad de la posición, y tres botones: **Hacer sonar**,
+  **Mapa** (abre la posición en Apple Mapas) y **Actualizar**.
+
+El botón **Actualizar** consulta Buscar de inmediato, sin esperar al intervalo
+de actualización. Para no superar el límite de consultas de Apple, la
+integración nunca llama a Buscar más de una vez cada 30 s: una pulsación más
+rápida reutiliza la última lectura.
+
+## Escenas (Gladys 5.1+)
+
+La **Presencia** sigue siendo el activador más sencillo (un activador **Cambio
+de estado del dispositivo**: "la presencia de mi iPhone pasa a 1"). Gladys 5.1
+añade tarjetas propias al editor de escenas, en **Integraciones**.
+
+**Activadores**
+
+| Activador                                   | Cuándo                                                         | Variables                                                        |
+| ------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Un dispositivo Apple llega a casa           | Una vez, cuando el dispositivo entra en el radio               | Nombre del dispositivo, batería, dispositivos en casa            |
+| Un dispositivo Apple sale de casa           | Una vez, cuando el dispositivo supera el 125 % del radio       | Nombre del dispositivo, distancia, batería, dispositivos en casa |
+| iCloud pide un nuevo código de doble factor | Una vez, cuando las posiciones se detienen por falta de código | —                                                                |
+
+- Elija uno o varios dispositivos en la tarjeta, o déjela vacía para
+  "cualquier dispositivo".
+- Solo los dispositivos **creados en Gladys** inician una escena.
+- Cuando la integración se reinicia, un teléfono que ya está en casa no
+  "llega" una segunda vez.
+- "Dispositivos en casa" vale `0` cuando sale el último dispositivo: práctico
+  para un mensaje de "la casa está vacía".
+- El activador "nuevo código" sirve para avisarle (notificación, mensaje): sin
+  el código, las presencias dejan de moverse.
+
+**Acciones**
+
+- **Mostrar un mensaje en un dispositivo Apple** — el mensaje aparece en la
+  pantalla del dispositivo (como el mensaje de Buscar en icloud.com), con un
+  sonido opcional. Se admiten variables de escena. 500 caracteres como máximo.
+- **Actualizar las posiciones de los dispositivos Apple** — consulta Buscar de
+  inmediato. Devuelve cuántos dispositivos están en casa y cuántos se siguen.
+  Póngala antes de una condición sobre una presencia.
+- **Obtener la posición de un dispositivo Apple** — devuelve el nombre, "en
+  casa", la distancia, la latitud, la longitud, la precisión, la antigüedad de
+  la posición, la batería, la carga y un **enlace al mapa**. Ejemplo: "María
+  está a {{distancia}} km: {{enlace al mapa}}" en un mensaje de Telegram.
+  Opción: pedir primero una posición actualizada a Buscar.
+
+Las acciones de actualización siguen la misma regla que el botón del widget:
+como mucho una llamada a Apple cada 30 s.
+
+> **Se necesita Gladys 5.1 o posterior** para estos widgets y tarjetas de
+> escena, y **Gladys 5.2 o posterior** para elegir la vivienda desde la que se
+> mide la presencia.
+
+## Configuración
+
+1. Abra la pestaña **Configuración** de la integración.
+2. Introduzca su **ID de Apple** (el correo electrónico de la cuenta de iCloud)
+   y su **contraseña**. Gladys los guarda cifrados y solo los envía a Apple.
+3. Elija la **Vivienda de referencia** entre sus viviendas de Gladys: su
+   posición (Configuración > Viviendas, debe estar colocada en el mapa)
+   prevalece sobre las coordenadas introducidas abajo. Con varias viviendas
+   —un piso en la ciudad, una casa de vacaciones— así es como indica cuál es
+   "el hogar". Si mueve la vivienda en Gladys, se tiene en cuenta al guardar de
+   nuevo la configuración o al reiniciar la integración. Si la vivienda elegida
+   se elimina o no tiene posición, la pestaña «Configuración» lo indica y
+   mientras tanto se usan las coordenadas introducidas. Déjelo vacío para
+   seguir usando las coordenadas introducidas.
+
+   La **latitud** y la **longitud** de su hogar vienen rellenadas con la
+   posición de su vivienda de Gladys (la elegida o, si no, la primera colocada
+   en el mapa): no las toque salvo que quiera otro punto de referencia. Si se
+   quedan vacías —una vivienda creada sin dirección—, pulse **Obtener las
+   coordenadas de mi vivienda de Gladys** (la acción le indica qué lo impide),
+   o introdúzcalas en grados decimales (`48.8566`, `2.3522`, copiadas de
+   cualquier servicio de mapas). Defina el **radio** dentro del cual un
+   dispositivo cuenta como presente (150 m por defecto; auméntelo si tiene una
+   finca grande o si sus dispositivos se ubican a menudo por Wi-Fi).
+
+4. Guarde.
+
+### Autenticación de doble factor
+
+Si su cuenta usa la autenticación de doble factor —la opción por defecto de
+Apple—, aparece un código de 6 dígitos en sus dispositivos Apple justo después
+de guardar. La integración **pide expresamente** a Apple que lo envíe: una
+cuenta sin dispositivo de confianza (solo con un número de teléfono) lo recibe
+por **SMS**.
+
+1. Anote el código. El mensaje que aparece en la pestaña Configuración indica
+   adónde se envió (dispositivos de confianza o número de teléfono).
+2. En la pestaña **Configuración**, pulse **Enviar el código de doble
+   factor**, introdúzcalo y valide.
+3. La integración pide entonces a Apple que **confíe** en esta sesión, para que
+   el código no se vuelva a pedir en los próximos reinicios (Apple mantiene esa
+   confianza unos 30 días, a veces menos).
+
+Si no llega nada, pulse **Enviarme un nuevo código de doble factor**: Apple
+envía otro (primero por notificación, por SMS como alternativa) sin empezar de
+cero. Y si la notificación sigue sin aparecer en sus dispositivos, **Enviarme
+el código por SMS** lo fuerza a un número de teléfono de confianza.
+
+## Ajustes avanzados
+
+- **Intervalo de actualización** (`poll_frequency`, 300 s por defecto): cada
+  cuánto la integración pide a Apple una nueva posición. Es el primer ajuste
+  que conviene tocar: más corto significa una presencia más reactiva, pero más
+  llamadas a Apple y más batería consumida en sus dispositivos. El mínimo es
+  60 s. Gladys no puede consultar con menos frecuencia que una vez por minuto:
+  entre dos actualizaciones reales, la integración responde simplemente con la
+  última posición conocida. Sea cual sea el ajuste, nunca llama a Apple más de
+  una vez cada 30 segundos, y una sola llamada cubre todos sus dispositivos.
+- **Precisión máxima** (500 m por defecto): una posición informada con un
+  radio de incertidumbre mayor se **ignora**. Sin esta protección, una
+  posición deducida de una red Wi-Fi de un operador haría saltar su presencia
+  varios kilómetros.
+- **Incluir los dispositivos de la familia**: mostrar también los dispositivos
+  compartidos mediante En familia.
+
+### Histéresis de presencia
+
+Un dispositivo pasa a presente en cuanto entra en el radio, pero solo pasa a
+ausente más allá del **125 % del radio**. Con un radio de 150 m, tiene que
+alejarse más de 187 m para contar como ausente. Así, un teléfono situado en el
+borde de la zona no activa sus escenas una y otra vez por el ruido del GPS.
+
+## Acciones
+
+- **Enviar el código de doble factor** — valida el código de 6 dígitos y hace
+  que Apple confíe en la sesión.
+- **Enviarme un nuevo código de doble factor** — pide otro código a Apple: una
+  notificación a los dispositivos de confianza, o un SMS si la cuenta no tiene
+  ninguno.
+- **Enviarme el código por SMS** — fuerza el envío del código a un número de
+  teléfono de confianza, aunque la cuenta tenga dispositivos de confianza.
+- **Obtener las coordenadas de mi vivienda de Gladys** — rellena la latitud y
+  la longitud desde su vivienda de Gladys (la elegida, si la hay) y muestra el
+  error exacto cuando Gladys no las proporciona. Recargue la página para ver
+  los campos rellenados.
+- **Probar la conexión con iCloud** — vuelve a iniciar sesión y muestra
+  cuántos dispositivos se han encontrado, con sus nombres.
+- **Olvidar la sesión guardada** — elimina los tokens guardados. Úsela cuando
+  la conexión se quede atascada en un estado extraño: el siguiente inicio de
+  sesión empieza de cero (y pedirá un nuevo código de doble factor).
+- **Hacer sonar un dispositivo** — elija uno de sus dispositivos y reproducirá
+  el sonido de Buscar. Práctico para encontrar un teléfono en el sofá, y la
+  forma de hacer sonar un dispositivo que aún no ha añadido a Gladys. Los
+  dispositivos que sí ha añadido tienen el mismo botón en su tarjeta del panel
+  (ver arriba).
+
+## Solución de problemas
+
+**Los valores ya no se actualizan**: mire primero la pestaña **Configuración**
+de la integración. Cuando la integración deja de actualizar sus valores, ahora
+lo indica allí, con el motivo: Apple pide un nuevo código de doble factor (la
+sesión de iCloud ha caducado, y también la confianza que se le concedió),
+Buscar no responde, o no se ha actualizado nada desde hace mucho. En el primer
+caso, introduzca el nuevo código con la acción **Enviar el código de doble
+factor** y los valores vuelven a moverse enseguida. En los demás, la acción
+**Probar la conexión con iCloud** muestra dónde está el bloqueo. Mientras
+tanto, el panel conserva los últimos valores conocidos: no son incorrectos,
+solo antiguos.
+
+**Un dispositivo eliminado y creado de nuevo se queda vacío**: corregido. La
+integración vuelve a publicar todas sus lecturas en el momento en que lo crea
+de nuevo, en lugar de tomar el evento por un duplicado y dejar el dispositivo
+vacío hasta que cambie un valor.
+
+**"No se ha podido conectar con iCloud: ..."**: el mensaje repite la propia
+respuesta de Apple. Las causas habituales son una contraseña cambiada, una
+cuenta bloqueada temporalmente tras demasiados intentos o una sesión que hay
+que volver a aprobar. Cuando la causa es la red o una caída de Apple (el
+contenedor arrancó antes que la red, Apple responde "503"), el mensaje termina
+con "Próximo intento en N min": la integración vuelve a iniciar sesión por sí
+sola al cabo de 1, 5, 15 y después cada 30 minutos, y no hay nada que hacer
+salvo esperar. Una contraseña rechazada o un código de doble factor nunca se
+reintentan automáticamente, para evitar que se bloquee la cuenta.
+
+**Buscar no responde**: la integración sigue intentándolo, pero cada vez con
+menos frecuencia (al cabo de 1, 2, 4, 8… minutos, hasta 30 minutos o el
+intervalo de actualización), y nunca hace más de un inicio de sesión completo
+cada 15 minutos si Apple sigue rechazando la sesión. La acción **Probar la
+conexión con iCloud** lo intenta igualmente de inmediato.
+
+**No llega ningún código de doble factor**: use **Enviarme un nuevo código de
+doble factor** y después **Enviarme el código por SMS**. El mensaje que
+aparece en la pestaña Configuración repite el motivo que dio Apple al negarse
+a enviar nada. Compruebe después en appleid.apple.com que la cuenta tiene
+realmente un dispositivo de confianza o un número de teléfono de confianza: sin
+uno de los dos, Apple no tiene adónde enviarlo.
+
+**Las coordenadas se quedan vacías**: la integración lee la posición de su
+vivienda a través de la API de Gladys, lo que requiere el permiso `location`
+(declarado en su manifiesto) y una vivienda con dirección (Configuración →
+Viviendas). La acción **Obtener las coordenadas de mi vivienda de Gladys**
+muestra el motivo exacto del rechazo. Una vivienda que nunca se colocó en el
+mapa se indica como tal, nunca se toma como la posición 0, 0.
+
+**Mi AirTag no aparece**: es lo esperado, y la integración no puede
+solucionarlo (ver la nota anterior). Apple solo da la posición de los objetos
+de Buscar a la app Buscar en un dispositivo Apple. Para activar una escena con
+un objeto, siga un dispositivo que sí informe de su posición (iPhone, Apple
+Watch), o use un localizador de otra marca con su propia integración.
+
+**No aparece ningún dispositivo**: compruebe que **Buscar mi iPhone** está
+activado en esos dispositivos (Ajustes → su nombre → Buscar). Un dispositivo
+que lleva mucho tiempo apagado o sin conexión puede no informar de ninguna
+posición; aparece en Gladys pero sin presencia hasta que Apple tenga algo
+reciente.
+
+**El dispositivo que acabo de añadir se queda vacío**: sus valores se publican
+en cuanto se crea y después en cada actualización. Si se queda vacío,
+compruebe la pestaña Configuración (la integración debe estar conectada a
+iCloud) y la lectura de _Precisión_: un dispositivo del que Apple no tiene
+posición no recibe ni presencia ni distancia.
+
+**"Sin valor reciente" en el panel**: Gladys considera que un valor está
+desactualizado cuando no se ha publicado nada para él desde hace un tiempo (48
+horas por defecto). La integración vuelve a publicar cada valor al menos cada
+30 minutos, así que esto solo debería aparecer cuando la integración está
+detenida, ya no puede iniciar sesión en iCloud (compruebe la pestaña
+Configuración) o cuando el dispositivo no informa de ninguna posición.
+
+**Antes recibía cada día "nivel de batería inferior al 10 % (actual: 0 %)" para
+un iPhone**: era la antigua medida "Cargando", clasificada en la categoría de
+batería, que vale 0 siempre que el teléfono no está enchufado. La nueva medida
+"Cargando" es una entrada binaria y ya nunca alimenta la antigua. La antigua
+sigue registrada en los dispositivos creados antes: abra la pestaña
+**Descubrir** de la integración y pulse **Actualizar** en ese dispositivo;
+Gladys elimina las medidas que ya no se publican y la alerta se detiene.
+
+**La medida "Cargando" indica "No se recibió ningún valor"**: dos causas
+posibles, y los registros indican cuál.
+
+1. _El dispositivo se creó en Gladys antes de que existiera esa medida_ (la
+   medida "Cargando" actual llegó en la 1.0.8). Gladys nunca añade por sí solo
+   una nueva medida a un dispositivo ya creado: abra la pestaña **Descubrir**
+   de la integración y pulse **Actualizar** en ese dispositivo; los valores se
+   publican justo después de ese clic. Mientras falte la medida, la
+   integración lo indica ahora en sus registros:
+   `Gladys has no feature ...:charging-state`.
+2. _Apple no da ningún estado de carga para ese dispositivo_. Buscar solo
+   incluye el campo `batteryStatus` para los dispositivos que ha podido
+   contactar, y un accesorio (AirTag, AirPods) no lo tiene en absoluto. La
+   integración no publica entonces nada en lugar de un "no está cargando"
+   inventado. La acción **Probar la conexión con iCloud** muestra lo que Apple
+   responde para cada dispositivo, por ejemplo `iPhone de Juan (87%, estado de
+carga desconocido (batteryStatus: Unknown))`, y los registros lo repiten cada
+   vez que cambia. No hay nada que corregir en Gladys: el valor vuelve en
+   cuanto Apple lo informe de nuevo.
+
+**Falta el botón "Hacer sonar"**: el dispositivo se creó antes de que existiera
+esa característica. Abra la pestaña **Descubrir** de la integración y pulse
+**Actualizar** en ese dispositivo.
+
+**El dispositivo no suena**: el sonido lo reproduce Apple, no Gladys. Un
+dispositivo apagado, sin conexión o en reposo prolongado solo suena la próxima
+vez que se conecte. El mensaje de error repite la propia respuesta de Apple;
+`LOG_LEVEL=debug` da todo el detalle en los registros.
+
+**La presencia nunca cambia**: mire la medida _Precisión de la posición_. Si
+está cerca o por encima de su ajuste "Precisión máxima", las posiciones se
+están ignorando: suba el umbral o el radio del hogar.
+
+**El código de doble factor se pide a menudo**: Apple decide cuánto tiempo
+sigue siendo de confianza una sesión. Evite cambiar la contraseña o revocar
+sesiones desde appleid.apple.com.
+
+La integración registra todo lo que hace: lea sus registros desde la interfaz
+de Gladys (o con `docker logs` en el equipo anfitrión), con `LOG_LEVEL=debug`
+para todo el detalle.
+
+## Conviene saber
+
+Apple no publica **ninguna API oficial** para Buscar. Esta integración usa la
+misma interfaz que el sitio web icloud.com, con el mismo mecanismo de inicio de
+sesión seguro (SRP: su contraseña nunca sale de su equipo, solo se envía una
+prueba criptográfica). Apple puede cambiar esa interfaz sin previo aviso: si la
+integración deja de funcionar de un día para otro, esa es la causa más
+probable.
+
+Sus credenciales se quedan con usted, en su instancia de Gladys, y nunca pasan
+por ningún servicio de terceros.

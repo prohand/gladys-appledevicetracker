@@ -52,7 +52,7 @@ same and is still there: it is the way to ring a device you have not added to
 Gladys yet.
 
 > **Already have your devices in Gladys?** Gladys never changes the features of
-> a device you created on its own: open the **Discovery** tab of the
+> a device you created on its own: open the **Discover** tab of the
 > integration and click **Update** on each device for the button to appear.
 
 > **AirTags are not reported.** Apple does not serve them through the Find My
@@ -65,7 +65,8 @@ Gladys yet.
 
 ## Dashboard widgets (Gladys 5.1+)
 
-Two widgets can be added from the dashboard editor, under the integration:
+Two widgets can be added from **Dashboard → Edit → New widget**, under
+**Integration widgets**:
 
 - **Who is home** — one line per device: "At home" or "Away · 5.6 km". On top,
   how many devices are at home. Setting: the devices to show (empty = every
@@ -81,8 +82,9 @@ My more than once every 30 s: a quicker press reuses the last reading.
 
 ## Scenes (Gladys 5.1+)
 
-**Presence** is still the simplest trigger ("the presence of my iPhone becomes
-1"). Gladys 5.1 adds dedicated cards to the scene editor.
+**Presence** is still the simplest trigger (a **Device state change** trigger:
+"the presence of my iPhone becomes 1"). Gladys 5.1 adds dedicated cards to the
+scene editor, under **Integrations**.
 
 **Triggers**
 
@@ -131,7 +133,7 @@ Apple every 30 s at most.
    home — this is how you say which one is "home". Moving the house in Gladys
    is taken into account at the next save of the configuration or restart of
    the integration. If the picked house is deleted or has no position, the
-   Configuration screen says so and the typed coordinates are used meanwhile.
+   Configuration tab says so and the typed coordinates are used meanwhile.
    Leave it empty to keep using the typed coordinates.
 
    The **latitude** and **longitude** of your home are pre-filled with the
@@ -250,7 +252,7 @@ trusted phone number — without one of the two, Apple has nowhere to send it.
 
 **The coordinates stay empty**: the integration reads the position of your
 house through the Gladys API, which needs the `location` permission (declared
-in its manifest) and a house with an address (Settings → House). The **Get the
+in its manifest) and a house with an address (Settings → Houses). The **Get the
 coordinates of my Gladys house** action shows the exact reason it was refused.
 A house that was never placed on the map is reported, never taken as the
 position 0, 0.
@@ -281,7 +283,7 @@ only show up when the integration is stopped, cannot sign in to iCloud any more
 iPhone**: that was the old "Charging" measurement, filed under the battery
 category, which holds 0 whenever the phone is not plugged in. The new "Charging"
 measurement is a binary input and never feeds that old one again. The old one
-stays recorded on the devices created before: open the **Discovery** tab of the
+stays recorded on the devices created before: open the **Discover** tab of the
 integration and click **Update** on that device — Gladys deletes the
 measurements that are no longer published, and the alert stops.
 
@@ -290,7 +292,7 @@ and the logs say which one.
 
 1. _The device was created in Gladys before that measurement existed_ (the
    current "Charging" one landed in 1.0.8). Gladys never adds a new measurement
-   to an already created device on its own: open the **Discovery** tab of the
+   to an already created device on its own: open the **Discover** tab of the
    integration and click **Update** on that device — the values are published
    straight after that click. While the measurement is missing, the integration
    now says so in its logs: `Gladys has no feature ...:charging-state`.
@@ -304,7 +306,7 @@ charging state unknown (batteryStatus: Unknown))`, and the logs repeat it
    as soon as Apple reports it again.
 
 **The "Ring" button is missing**: the device was created before the feature
-existed. Open the **Discovery** tab of the integration and click **Update** on
+existed. Open the **Discover** tab of the integration and click **Update** on
 that device.
 
 **The device does not ring**: the sound is played by Apple, not by Gladys. A

@@ -8,7 +8,8 @@ template](https://github.com/GladysAssistant/integration-template-js) and the
 [`@gladysassistant/integration-sdk`](https://github.com/GladysAssistant/integration-sdk-js).
 
 > User documentation: [`docs/en.md`](./docs/en.md) —
-> [`docs/fr.md`](./docs/fr.md) (Gladys re-hosts them and links to them from the
+> [`docs/fr.md`](./docs/fr.md) — [`docs/de.md`](./docs/de.md) —
+> [`docs/es.md`](./docs/es.md) (Gladys re-hosts them and links to them from the
 > Configuration screen).
 
 ## What it does
@@ -147,7 +148,7 @@ freshness window is what enforces your `poll_frequency`.
 │  └─ devices/
 │     ├─ index.js                    #   registry: raw Find My list <-> Gladys devices
 │     └─ appleDevice.js              #   one Apple device: features and states
-├─ docs/en.md, docs/fr.md            # user documentation, linked from Gladys
+├─ docs/{en,fr,de,es}.md             # user documentation, linked from Gladys
 ├─ cover.svg, cover.png              # store cover: the SVG is the source (see below)
 ├─ gladys-assistant-integration.json # manifest (config, actions, widgets, scenes…)
 ├─ Dockerfile                        # Node 24 Alpine, read-only rootfs ready

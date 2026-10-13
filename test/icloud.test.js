@@ -160,6 +160,8 @@ test('the 409 is followed by an explicit request to SEND the code', async () => 
   assert.equal(push.method, 'GET', 'the code is requested, not just awaited');
   assert.equal(client.twoFactorMode, TWO_FACTOR_MODE.DEVICE);
   assert.match(client.twoFactorTarget.fr, /appareils Apple/);
+  assert.match(client.twoFactorTarget.de, /Apple-Geräte/);
+  assert.match(client.twoFactorTarget.es, /dispositivos Apple/);
 });
 
 test('an account that only reports hasTrustedDevices still gets the push', async () => {
@@ -246,6 +248,8 @@ test('an account with no trusted device gets the code by SMS', async () => {
   assert.deepEqual(sms.body, { phoneNumber: { id: 3 }, mode: 'sms' });
   assert.equal(client.twoFactorMode, TWO_FACTOR_MODE.SMS);
   assert.match(client.twoFactorTarget.fr, /\+33/);
+  assert.match(client.twoFactorTarget.de, /^per SMS an \+33/);
+  assert.match(client.twoFactorTarget.es, /^por SMS al \+33/);
 
   // A code received by SMS is validated on the phone endpoint, with the number
   // it was sent to: the trusted-device endpoint would reject it.

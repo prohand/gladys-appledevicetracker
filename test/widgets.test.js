@@ -22,6 +22,7 @@ import { FEATURE, summarizeDevice } from '../src/devices/index.js';
 import { normalizeAppleDevice } from '../src/devices/appleDevice.js';
 import { normalizeConfig } from '../src/config.js';
 import { TRACKER_STATUS } from '../src/tracker.js';
+import { LANGUAGES } from '../src/i18n.js';
 import { fakeFindMyDevice } from './helpers/fakeGladys.js';
 
 const CONFIG = normalizeConfig({
@@ -193,7 +194,21 @@ test('ages read naturally', () => {
   assert.equal(formatAge(12, t), 'il y a 12 min');
   assert.equal(formatAge(150, t), 'il y a 3 h');
   assert.equal(formatAge(3000, t), 'il y a 2 j');
-  assert.equal(formatAge(null, textsFor('de')), 'Unknown', 'English for any other language');
+  assert.equal(formatAge(12, textsFor('de')), 'vor 12 Min.');
+  assert.equal(formatAge(12, textsFor('es')), 'hace 12 min');
+  assert.equal(formatAge(null, textsFor('it')), 'Unknown', 'English for any other language');
+});
+
+test('every language of the widgets has every text, within the rules of Gladys', () => {
+  const keys = Object.keys(textsFor('en')).sort();
+  for (const language of LANGUAGES) {
+    assert.deepEqual(Object.keys(textsFor(language)).sort(), keys, language);
+    assert.deepEqual(validateWidgetContent(presence({ language })), [], language);
+    assert.deepEqual(validateWidgetContent(device({ language })), [], language);
+    for (const status of [TRACKER_STATUS.DISCONNECTED, TRACKER_STATUS.TWO_FACTOR_REQUIRED]) {
+      assert.deepEqual(validateWidgetContent(presence({ language, status })), [], language);
+    }
+  }
 });
 
 test('the widgets are re-read at the pace of Find My, within the bounds of Gladys', () => {

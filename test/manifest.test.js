@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { DEFAULT_CONFIG } from '../src/config.js';
 import { SCENE_ACTION, SCENE_TRIGGER, positionOutputs, presenceEventData } from '../src/scenes.js';
 import { WIDGET, WIDGET_ACTION } from '../src/widgets.js';
+import { LANGUAGES } from '../src/i18n.js';
 
 const manifest = JSON.parse(
   await readFile(new URL('../gladys-assistant-integration.json', import.meta.url), 'utf8'),
@@ -300,6 +301,47 @@ test('the scene and widget declarations respect the bounds of Gladys', () => {
       if (entry.timeout_seconds !== undefined) {
         assert.ok(entry.timeout_seconds >= 5 && entry.timeout_seconds <= 120);
       }
+    }
+  }
+});
+
+/** Every multi-language object of the manifest, with where it sits. */
+function multiLanguageTexts(node, path = 'manifest', found = []) {
+  if (Array.isArray(node)) {
+    node.forEach((entry, index) => multiLanguageTexts(entry, `${path}[${index}]`, found));
+  } else if (node && typeof node === 'object') {
+    if (typeof node.en === 'string') {
+      found.push({ path, text: node });
+    } else {
+      for (const [key, value] of Object.entries(node)) {
+        multiLanguageTexts(value, `${path}.${key}`, found);
+      }
+    }
+  }
+  return found;
+}
+
+test('every text of the manifest is written in English, French, German and Spanish', () => {
+  // Gladys shows the reader's language and falls back on English: a missing
+  // language is not an error, it is a screen in English for that user.
+  const texts = multiLanguageTexts(manifest);
+  assert.ok(texts.length > 50, 'the walk must find the texts');
+  for (const { path, text } of texts) {
+    assert.deepEqual(Object.keys(text), LANGUAGES, `${path} must carry ${LANGUAGES.join(', ')}`);
+    for (const lang of LANGUAGES) {
+      assert.ok(text[lang].trim().length > 0, `${path}.${lang} is empty`);
+    }
+  }
+});
+
+test('the texts of every language respect the store length limits', () => {
+  // The store checks each language on its own: one German description over
+  // 100 characters rejects the whole manifest.
+  for (const lang of LANGUAGES) {
+    const { length } = manifest.description[lang];
+    assert.ok(length >= 10 && length <= 100, `catalog description (${lang}): ${length} chars`);
+    for (const section of manifest.config_schema.filter((f) => f.type === 'section')) {
+      assert.ok(section.description[lang].length <= 1000, `${section.key} (${lang})`);
     }
   }
 });

@@ -4,7 +4,9 @@
   "name": "Apple Device Tracker",
   "description": {
     "en": "Track your Apple devices with Find My and use them as presence sensors in Gladys.",
-    "fr": "Suivez vos appareils Apple via Localiser et utilisez-les comme capteurs de présence."
+    "fr": "Suivez vos appareils Apple via Localiser et utilisez-les comme capteurs de présence.",
+    "de": "Orte deine Apple-Geräte mit „Wo ist?“ und nutze sie als Anwesenheitssensoren.",
+    "es": "Localice sus dispositivos Apple con Buscar y úselos como sensores de presencia en Gladys."
   },
   "version": "2.3.0",
   "docker_image": "ghcr.io/prohand/gladys-appledevicetracker:2.3.0",
@@ -19,18 +21,24 @@
       "type": "section",
       "label": {
         "en": "Your iCloud account",
-        "fr": "Votre compte iCloud"
+        "fr": "Votre compte iCloud",
+        "de": "Dein iCloud-Account",
+        "es": "Su cuenta de iCloud"
       },
       "description": {
         "en": "This integration signs in to iCloud with your Apple ID and reads the position of the devices visible in Find My. Your credentials stay in Gladys, on your machine. Two-factor authentication is supported: after saving, use the action below to enter the 6-digit code Apple sends you, and the \"Send me a new two-factor code\" action if nothing arrives.",
-        "fr": "Cette integration se connecte a iCloud avec votre identifiant Apple et lit la position des appareils visibles dans Localiser. Vos identifiants restent dans Gladys, chez vous. La double authentification est geree : apres avoir enregistre, utilisez l'action ci-dessous pour saisir le code a 6 chiffres envoye par Apple, et l'action \"M'envoyer un nouveau code\" si rien n'arrive."
+        "fr": "Cette integration se connecte a iCloud avec votre identifiant Apple et lit la position des appareils visibles dans Localiser. Vos identifiants restent dans Gladys, chez vous. La double authentification est geree : apres avoir enregistre, utilisez l'action ci-dessous pour saisir le code a 6 chiffres envoye par Apple, et l'action \"M'envoyer un nouveau code\" si rien n'arrive.",
+        "de": "Diese Integration meldet sich mit deiner Apple-ID bei iCloud an und liest die Position der Geräte, die in „Wo ist?“ sichtbar sind. Deine Zugangsdaten bleiben in Gladys, auf deinem Rechner. Die Zwei-Faktor-Authentifizierung wird unterstützt: Verwende nach dem Speichern die Aktion unten, um den 6-stelligen Code einzugeben, den Apple dir sendet, und die Aktion „Neuen Zwei-Faktor-Code anfordern“, falls nichts ankommt.",
+        "es": "Esta integración inicia sesión en iCloud con su ID de Apple y lee la posición de los dispositivos visibles en Buscar. Sus credenciales se quedan en Gladys, en su equipo. Se admite la autenticación de doble factor: después de guardar, use la acción de abajo para introducir el código de 6 dígitos que le envía Apple, y la acción \"Enviarme un nuevo código de doble factor\" si no llega nada."
       },
       "links": [
         {
           "url": "https://support.apple.com/en-us/HT204756",
           "label": {
             "en": "About Find My",
-            "fr": "A propos de Localiser"
+            "fr": "A propos de Localiser",
+            "de": "Über „Wo ist?“",
+            "es": "Acerca de Buscar"
           }
         }
       ]
@@ -40,15 +48,21 @@
       "type": "string",
       "label": {
         "en": "Apple ID",
-        "fr": "Identifiant Apple"
+        "fr": "Identifiant Apple",
+        "de": "Apple-ID",
+        "es": "ID de Apple"
       },
       "description": {
         "en": "The email address of the iCloud account that owns the devices.",
-        "fr": "L'adresse e-mail du compte iCloud proprietaire des appareils."
+        "fr": "L'adresse e-mail du compte iCloud proprietaire des appareils.",
+        "de": "Die E-Mail-Adresse des iCloud-Accounts, dem die Geräte gehören.",
+        "es": "La dirección de correo electrónico de la cuenta de iCloud propietaria de los dispositivos."
       },
       "placeholder": {
         "en": "john@example.com",
-        "fr": "jean@exemple.com"
+        "fr": "jean@exemple.com",
+        "de": "max@beispiel.de",
+        "es": "juan@ejemplo.com"
       },
       "required": true
     },
@@ -57,11 +71,15 @@
       "type": "secret",
       "label": {
         "en": "Apple ID password",
-        "fr": "Mot de passe Apple"
+        "fr": "Mot de passe Apple",
+        "de": "Passwort der Apple-ID",
+        "es": "Contraseña del ID de Apple"
       },
       "description": {
         "en": "Stored encrypted by Gladys and only sent to Apple. Changing it forces a new sign-in.",
-        "fr": "Stocke chiffre par Gladys et envoye uniquement a Apple. Le modifier force une nouvelle connexion."
+        "fr": "Stocke chiffre par Gladys et envoye uniquement a Apple. Le modifier force une nouvelle connexion.",
+        "de": "Von Gladys verschlüsselt gespeichert und nur an Apple gesendet. Eine Änderung erzwingt eine neue Anmeldung.",
+        "es": "Gladys la guarda cifrada y solo la envía a Apple. Cambiarla obliga a iniciar sesión de nuevo."
       },
       "required": true
     },
@@ -70,11 +88,15 @@
       "type": "section",
       "label": {
         "en": "Your home",
-        "fr": "Votre domicile"
+        "fr": "Votre domicile",
+        "de": "Dein Zuhause",
+        "es": "Su hogar"
       },
       "description": {
         "en": "A device is considered present when it is inside the radius below, around the Gladys house you pick. Without a house picked, the coordinates below are used: they are pre-filled with the position of your Gladys house, correct them only if you want another reference point.",
-        "fr": "Un appareil est considere present quand il se trouve dans le rayon ci-dessous, autour de la maison Gladys choisie. Sans maison choisie, les coordonnees ci-dessous sont utilisees : elles sont pre-remplies avec la position de votre maison Gladys, corrigez-les seulement si vous voulez un autre point de reference."
+        "fr": "Un appareil est considere present quand il se trouve dans le rayon ci-dessous, autour de la maison Gladys choisie. Sans maison choisie, les coordonnees ci-dessous sont utilisees : elles sont pre-remplies avec la position de votre maison Gladys, corrigez-les seulement si vous voulez un autre point de reference.",
+        "de": "Ein Gerät gilt als anwesend, wenn es sich innerhalb des unten angegebenen Radius um das gewählte Gladys-Zuhause befindet. Ohne gewähltes Zuhause werden die Koordinaten unten verwendet: Sie sind mit der Position deines Gladys-Zuhauses vorausgefüllt; ändere sie nur, wenn du einen anderen Bezugspunkt möchtest.",
+        "es": "Un dispositivo se considera presente cuando está dentro del radio indicado abajo, alrededor de la vivienda de Gladys que elija. Si no elige ninguna vivienda, se usan las coordenadas de abajo: vienen rellenadas con la posición de su vivienda de Gladys; corríjalas solo si quiere otro punto de referencia."
       }
     },
     {
@@ -83,11 +105,15 @@
       "source": "houses",
       "label": {
         "en": "House to measure presence from",
-        "fr": "Maison de reference"
+        "fr": "Maison de reference",
+        "de": "Referenz-Zuhause für die Anwesenheit",
+        "es": "Vivienda de referencia"
       },
       "description": {
         "en": "One of your Gladys houses: its position wins over the coordinates below. It must be placed on the map in Settings > Houses. Leave empty to use the coordinates below.",
-        "fr": "Une de vos maisons Gladys : sa position l'emporte sur les coordonnees ci-dessous. Elle doit etre placee sur la carte dans Parametres > Maisons. Laisser vide pour utiliser les coordonnees ci-dessous."
+        "fr": "Une de vos maisons Gladys : sa position l'emporte sur les coordonnees ci-dessous. Elle doit etre placee sur la carte dans Parametres > Maisons. Laisser vide pour utiliser les coordonnees ci-dessous.",
+        "de": "Eines deiner Gladys-Zuhause: Seine Position hat Vorrang vor den Koordinaten unten. Es muss unter Einstellungen > Zuhause auf der Karte platziert sein. Leer lassen, um die Koordinaten unten zu verwenden.",
+        "es": "Una de sus viviendas de Gladys: su posición prevalece sobre las coordenadas de abajo. Debe estar colocada en el mapa en Configuración > Viviendas. Déjelo vacío para usar las coordenadas de abajo."
       },
       "required": false
     },
@@ -96,16 +122,22 @@
       "type": "string",
       "label": {
         "en": "Home latitude",
-        "fr": "Latitude du domicile"
+        "fr": "Latitude du domicile",
+        "de": "Breitengrad des Zuhauses",
+        "es": "Latitud del hogar"
       },
       "required": false,
       "placeholder": {
         "en": "48.8566",
-        "fr": "48.8566"
+        "fr": "48.8566",
+        "de": "48.8566",
+        "es": "48.8566"
       },
       "description": {
         "en": "Decimal degrees between -90 and 90 (example: 48.8566). Pre-filled from your Gladys house when left empty. A text field, so the decimals are never rounded.",
-        "fr": "Degres decimaux entre -90 et 90 (exemple : 48.8566). Pre-remplie depuis votre maison Gladys si le champ est vide. Un champ texte, pour que les decimales ne soient jamais arrondies."
+        "fr": "Degres decimaux entre -90 et 90 (exemple : 48.8566). Pre-remplie depuis votre maison Gladys si le champ est vide. Un champ texte, pour que les decimales ne soient jamais arrondies.",
+        "de": "Dezimalgrad zwischen -90 und 90 (Beispiel: 48.8566). Wird aus deinem Gladys-Zuhause vorausgefüllt, wenn das Feld leer ist. Ein Textfeld, damit die Nachkommastellen nie gerundet werden.",
+        "es": "Grados decimales entre -90 y 90 (ejemplo: 48.8566). Se rellena desde su vivienda de Gladys si se deja vacío. Es un campo de texto, para que los decimales nunca se redondeen."
       }
     },
     {
@@ -113,16 +145,22 @@
       "type": "string",
       "label": {
         "en": "Home longitude",
-        "fr": "Longitude du domicile"
+        "fr": "Longitude du domicile",
+        "de": "Längengrad des Zuhauses",
+        "es": "Longitud del hogar"
       },
       "required": false,
       "placeholder": {
         "en": "2.3522",
-        "fr": "2.3522"
+        "fr": "2.3522",
+        "de": "2.3522",
+        "es": "2.3522"
       },
       "description": {
         "en": "Decimal degrees between -180 and 180 (example: 2.3522). Pre-filled from your Gladys house when left empty. A text field, so the decimals are never rounded.",
-        "fr": "Degres decimaux entre -180 et 180 (exemple : 2.3522). Pre-remplie depuis votre maison Gladys si le champ est vide. Un champ texte, pour que les decimales ne soient jamais arrondies."
+        "fr": "Degres decimaux entre -180 et 180 (exemple : 2.3522). Pre-remplie depuis votre maison Gladys si le champ est vide. Un champ texte, pour que les decimales ne soient jamais arrondies.",
+        "de": "Dezimalgrad zwischen -180 und 180 (Beispiel: 2.3522). Wird aus deinem Gladys-Zuhause vorausgefüllt, wenn das Feld leer ist. Ein Textfeld, damit die Nachkommastellen nie gerundet werden.",
+        "es": "Grados decimales entre -180 y 180 (ejemplo: 2.3522). Se rellena desde su vivienda de Gladys si se deja vacío. Es un campo de texto, para que los decimales nunca se redondeen."
       }
     },
     {
@@ -130,11 +168,15 @@
       "type": "number",
       "label": {
         "en": "Home radius (m)",
-        "fr": "Rayon du domicile (m)"
+        "fr": "Rayon du domicile (m)",
+        "de": "Radius des Zuhauses (m)",
+        "es": "Radio del hogar (m)"
       },
       "description": {
         "en": "Radius around your home marking a device as present. A device leaves only once it is 25% beyond it, to avoid flapping.",
-        "fr": "Rayon autour du domicile marquant un appareil comme present. Un appareil n'est absent qu'au dela de 25% de ce rayon, pour eviter les allers-retours."
+        "fr": "Rayon autour du domicile marquant un appareil comme present. Un appareil n'est absent qu'au dela de 25% de ce rayon, pour eviter les allers-retours.",
+        "de": "Radius um dein Zuhause, innerhalb dessen ein Gerät als anwesend gilt. Ein Gerät gilt erst 25 % jenseits davon als abwesend, um ständiges Hin- und Herspringen zu vermeiden.",
+        "es": "Radio alrededor de su hogar dentro del cual un dispositivo se considera presente. Un dispositivo solo pasa a ausente al superarlo en un 25 %, para evitar cambios constantes."
       },
       "required": false,
       "default": 150,
@@ -146,11 +188,15 @@
       "type": "section",
       "label": {
         "en": "Advanced",
-        "fr": "Avance"
+        "fr": "Avance",
+        "de": "Erweitert",
+        "es": "Avanzado"
       },
       "description": {
         "en": "Apple rate-limits Find My: keep the refresh interval reasonable. Positions less accurate than the threshold below are ignored instead of moving your presence around.",
-        "fr": "Apple limite les appels a Localiser : gardez un intervalle de rafraichissement raisonnable. Les positions moins precises que le seuil ci-dessous sont ignorees plutot que de faire bouger votre presence."
+        "fr": "Apple limite les appels a Localiser : gardez un intervalle de rafraichissement raisonnable. Les positions moins precises que le seuil ci-dessous sont ignorees plutot que de faire bouger votre presence.",
+        "de": "Apple begrenzt die Anfragen an „Wo ist?“: Wähle ein vernünftiges Aktualisierungsintervall. Positionen, die ungenauer als der Schwellenwert unten sind, werden ignoriert, statt deine Anwesenheit hin- und herspringen zu lassen.",
+        "es": "Apple limita las consultas a Buscar: mantenga un intervalo de actualización razonable. Las posiciones menos precisas que el umbral de abajo se ignoran en lugar de hacer cambiar su presencia."
       }
     },
     {
@@ -158,11 +204,15 @@
       "type": "number",
       "label": {
         "en": "Refresh interval (s)",
-        "fr": "Intervalle de rafraichissement (s)"
+        "fr": "Intervalle de rafraichissement (s)",
+        "de": "Aktualisierungsintervall (s)",
+        "es": "Intervalo de actualización (s)"
       },
       "description": {
         "en": "How often the integration asks Apple for a new position, in seconds. Gladys itself ticks every minute (its own limit) and the integration answers from its cache until this interval has passed.",
-        "fr": "Frequence a laquelle l'integration demande une nouvelle position a Apple, en secondes. Gladys interroge l'integration chaque minute (sa propre limite) et l'integration repond depuis son cache tant que cet intervalle n'est pas ecoule."
+        "fr": "Frequence a laquelle l'integration demande une nouvelle position a Apple, en secondes. Gladys interroge l'integration chaque minute (sa propre limite) et l'integration repond depuis son cache tant que cet intervalle n'est pas ecoule.",
+        "de": "Wie oft die Integration Apple nach einer neuen Position fragt, in Sekunden. Gladys selbst fragt jede Minute ab (seine eigene Grenze), und die Integration antwortet aus ihrem Cache, bis dieses Intervall abgelaufen ist.",
+        "es": "Cada cuánto la integración pide a Apple una nueva posición, en segundos. Gladys consulta cada minuto (su propio límite) y la integración responde desde su caché hasta que pasa este intervalo."
       },
       "required": false,
       "default": 300,
@@ -174,11 +224,15 @@
       "type": "number",
       "label": {
         "en": "Maximum accuracy (m)",
-        "fr": "Precision maximale (m)"
+        "fr": "Precision maximale (m)",
+        "de": "Maximaler Genauigkeitsradius (m)",
+        "es": "Precisión máxima (m)"
       },
       "description": {
         "en": "Positions reported with a worse accuracy radius than this are ignored.",
-        "fr": "Les positions dont le rayon de precision depasse cette valeur sont ignorees."
+        "fr": "Les positions dont le rayon de precision depasse cette valeur sont ignorees.",
+        "de": "Positionen mit einem größeren Genauigkeitsradius als diesem Wert werden ignoriert.",
+        "es": "Se ignoran las posiciones cuyo radio de precisión supere este valor."
       },
       "required": false,
       "default": 500,
@@ -190,11 +244,15 @@
       "type": "boolean",
       "label": {
         "en": "Include family devices",
-        "fr": "Inclure les appareils de la famille"
+        "fr": "Inclure les appareils de la famille",
+        "de": "Geräte der Familie einbeziehen",
+        "es": "Incluir los dispositivos de la familia"
       },
       "description": {
         "en": "Also expose the devices shared with you through Family Sharing.",
-        "fr": "Exposer aussi les appareils partages via le partage familial."
+        "fr": "Exposer aussi les appareils partages via le partage familial.",
+        "de": "Auch die Geräte bereitstellen, die über die Familienfreigabe mit dir geteilt werden.",
+        "es": "Mostrar también los dispositivos compartidos con usted mediante En familia."
       },
       "required": false,
       "default": true
@@ -205,7 +263,9 @@
       "key": "submit_2fa_code",
       "label": {
         "en": "Send the two-factor code",
-        "fr": "Envoyer le code de double authentification"
+        "fr": "Envoyer le code de double authentification",
+        "de": "Zwei-Faktor-Code übermitteln",
+        "es": "Enviar el código de doble factor"
       },
       "timeout_seconds": 60,
       "fields": [
@@ -214,11 +274,15 @@
           "type": "string",
           "label": {
             "en": "6-digit code",
-            "fr": "Code a 6 chiffres"
+            "fr": "Code a 6 chiffres",
+            "de": "6-stelliger Code",
+            "es": "Código de 6 dígitos"
           },
           "placeholder": {
             "en": "123456",
-            "fr": "123456"
+            "fr": "123456",
+            "de": "123456",
+            "es": "123456"
           },
           "required": true
         }
@@ -228,7 +292,9 @@
       "key": "resend_2fa_code",
       "label": {
         "en": "Send me a new two-factor code",
-        "fr": "M'envoyer un nouveau code de double authentification"
+        "fr": "M'envoyer un nouveau code de double authentification",
+        "de": "Neuen Zwei-Faktor-Code anfordern",
+        "es": "Enviarme un nuevo código de doble factor"
       },
       "timeout_seconds": 60
     },
@@ -236,7 +302,9 @@
       "key": "send_2fa_code_by_sms",
       "label": {
         "en": "Send me the code by SMS",
-        "fr": "M'envoyer le code par SMS"
+        "fr": "M'envoyer le code par SMS",
+        "de": "Code per SMS anfordern",
+        "es": "Enviarme el código por SMS"
       },
       "timeout_seconds": 60
     },
@@ -244,7 +312,9 @@
       "key": "refresh_home_location",
       "label": {
         "en": "Get the coordinates of my Gladys house",
-        "fr": "Recuperer les coordonnees de ma maison Gladys"
+        "fr": "Recuperer les coordonnees de ma maison Gladys",
+        "de": "Koordinaten meines Gladys-Zuhauses abrufen",
+        "es": "Obtener las coordenadas de mi vivienda de Gladys"
       },
       "timeout_seconds": 30
     },
@@ -252,7 +322,9 @@
       "key": "check_connection",
       "label": {
         "en": "Test the iCloud connection",
-        "fr": "Tester la connexion iCloud"
+        "fr": "Tester la connexion iCloud",
+        "de": "iCloud-Verbindung testen",
+        "es": "Probar la conexión con iCloud"
       },
       "timeout_seconds": 60
     },
@@ -260,7 +332,9 @@
       "key": "forget_session",
       "label": {
         "en": "Forget the saved session",
-        "fr": "Oublier la session enregistree"
+        "fr": "Oublier la session enregistree",
+        "de": "Gespeicherte Sitzung vergessen",
+        "es": "Olvidar la sesión guardada"
       },
       "timeout_seconds": 30
     },
@@ -268,7 +342,9 @@
       "key": "identify",
       "label": {
         "en": "Make a device ring",
-        "fr": "Faire sonner un appareil"
+        "fr": "Faire sonner un appareil",
+        "de": "Ein Gerät klingeln lassen",
+        "es": "Hacer sonar un dispositivo"
       },
       "timeout_seconds": 60,
       "fields": [
@@ -278,7 +354,9 @@
           "source": "devices",
           "label": {
             "en": "Device",
-            "fr": "Appareil"
+            "fr": "Appareil",
+            "de": "Gerät",
+            "es": "Dispositivo"
           },
           "required": true
         }
@@ -290,11 +368,15 @@
       "key": "presence",
       "label": {
         "en": "Who is home",
-        "fr": "Qui est a la maison"
+        "fr": "Qui est a la maison",
+        "de": "Wer ist zu Hause",
+        "es": "Quién está en casa"
       },
       "description": {
         "en": "Your Apple devices, at home or how far away.",
-        "fr": "Vos appareils Apple, a la maison ou a quelle distance."
+        "fr": "Vos appareils Apple, a la maison ou a quelle distance.",
+        "de": "Deine Apple-Geräte: zu Hause oder wie weit entfernt.",
+        "es": "Sus dispositivos Apple: en casa o a qué distancia."
       },
       "icon": "users",
       "settings": [
@@ -304,11 +386,15 @@
           "source": "devices",
           "label": {
             "en": "Devices",
-            "fr": "Appareils"
+            "fr": "Appareils",
+            "de": "Geräte",
+            "es": "Dispositivos"
           },
           "description": {
             "en": "Leave empty to show every device created in Gladys (10 at most).",
-            "fr": "Laisser vide pour afficher tous les appareils crees dans Gladys (10 au maximum)."
+            "fr": "Laisser vide pour afficher tous les appareils crees dans Gladys (10 au maximum).",
+            "de": "Leer lassen, um alle in Gladys erstellten Geräte anzuzeigen (höchstens 10).",
+            "es": "Déjelo vacío para mostrar todos los dispositivos creados en Gladys (10 como máximo)."
           },
           "required": false
         }
@@ -319,11 +405,15 @@
       "key": "device",
       "label": {
         "en": "Apple device",
-        "fr": "Appareil Apple"
+        "fr": "Appareil Apple",
+        "de": "Apple-Gerät",
+        "es": "Dispositivo Apple"
       },
       "description": {
         "en": "One device: battery, distance, 24 h chart, ring button and map.",
-        "fr": "Un appareil : batterie, distance, courbe 24 h, bouton sonner et carte."
+        "fr": "Un appareil : batterie, distance, courbe 24 h, bouton sonner et carte.",
+        "de": "Ein Gerät: Akku, Entfernung, 24-h-Verlauf, Klingeltaste und Karte.",
+        "es": "Un dispositivo: batería, distancia, gráfico de 24 h, botón para hacerlo sonar y mapa."
       },
       "icon": "smartphone",
       "settings": [
@@ -333,7 +423,9 @@
           "source": "devices",
           "label": {
             "en": "Device",
-            "fr": "Appareil"
+            "fr": "Appareil",
+            "de": "Gerät",
+            "es": "Dispositivo"
           },
           "required": true
         }
@@ -346,11 +438,15 @@
       "key": "device_arrived_home",
       "label": {
         "en": "An Apple device arrives home",
-        "fr": "Un appareil Apple arrive a la maison"
+        "fr": "Un appareil Apple arrive a la maison",
+        "de": "Ein Apple-Gerät kommt nach Hause",
+        "es": "Un dispositivo Apple llega a casa"
       },
       "description": {
         "en": "Fires once when the device enters the home radius.",
-        "fr": "Se declenche une fois quand l'appareil entre dans le rayon du domicile."
+        "fr": "Se declenche une fois quand l'appareil entre dans le rayon du domicile.",
+        "de": "Wird einmal ausgelöst, wenn das Gerät den Radius des Zuhauses betritt.",
+        "es": "Se activa una vez cuando el dispositivo entra en el radio del hogar."
       },
       "fields": [
         {
@@ -359,11 +455,15 @@
           "source": "devices",
           "label": {
             "en": "Devices",
-            "fr": "Appareils"
+            "fr": "Appareils",
+            "de": "Geräte",
+            "es": "Dispositivos"
           },
           "description": {
             "en": "Leave empty for any device.",
-            "fr": "Laisser vide pour n'importe quel appareil."
+            "fr": "Laisser vide pour n'importe quel appareil.",
+            "de": "Leer lassen für ein beliebiges Gerät.",
+            "es": "Déjelo vacío para cualquier dispositivo."
           }
         }
       ],
@@ -373,7 +473,9 @@
           "type": "string",
           "label": {
             "en": "Device name",
-            "fr": "Nom de l'appareil"
+            "fr": "Nom de l'appareil",
+            "de": "Gerätename",
+            "es": "Nombre del dispositivo"
           }
         },
         {
@@ -381,7 +483,9 @@
           "type": "number",
           "label": {
             "en": "Battery (%)",
-            "fr": "Batterie (%)"
+            "fr": "Batterie (%)",
+            "de": "Akku (%)",
+            "es": "Batería (%)"
           }
         },
         {
@@ -389,11 +493,15 @@
           "type": "number",
           "label": {
             "en": "Devices at home",
-            "fr": "Appareils a la maison"
+            "fr": "Appareils a la maison",
+            "de": "Geräte zu Hause",
+            "es": "Dispositivos en casa"
           },
           "description": {
             "en": "Counted among the devices created in Gladys, after this move.",
-            "fr": "Compte parmi les appareils crees dans Gladys, apres ce mouvement."
+            "fr": "Compte parmi les appareils crees dans Gladys, apres ce mouvement.",
+            "de": "Gezählt unter den in Gladys erstellten Geräten, nach dieser Bewegung.",
+            "es": "Contados entre los dispositivos creados en Gladys, tras este movimiento."
           }
         }
       ]
@@ -402,11 +510,15 @@
       "key": "device_left_home",
       "label": {
         "en": "An Apple device leaves home",
-        "fr": "Un appareil Apple quitte la maison"
+        "fr": "Un appareil Apple quitte la maison",
+        "de": "Ein Apple-Gerät verlässt das Zuhause",
+        "es": "Un dispositivo Apple sale de casa"
       },
       "description": {
         "en": "Fires once when the device goes past 125% of the home radius.",
-        "fr": "Se declenche une fois quand l'appareil depasse 125% du rayon du domicile."
+        "fr": "Se declenche une fois quand l'appareil depasse 125% du rayon du domicile.",
+        "de": "Wird einmal ausgelöst, wenn das Gerät 125 % des Radius des Zuhauses überschreitet.",
+        "es": "Se activa una vez cuando el dispositivo supera el 125 % del radio del hogar."
       },
       "fields": [
         {
@@ -415,11 +527,15 @@
           "source": "devices",
           "label": {
             "en": "Devices",
-            "fr": "Appareils"
+            "fr": "Appareils",
+            "de": "Geräte",
+            "es": "Dispositivos"
           },
           "description": {
             "en": "Leave empty for any device.",
-            "fr": "Laisser vide pour n'importe quel appareil."
+            "fr": "Laisser vide pour n'importe quel appareil.",
+            "de": "Leer lassen für ein beliebiges Gerät.",
+            "es": "Déjelo vacío para cualquier dispositivo."
           }
         }
       ],
@@ -429,7 +545,9 @@
           "type": "string",
           "label": {
             "en": "Device name",
-            "fr": "Nom de l'appareil"
+            "fr": "Nom de l'appareil",
+            "de": "Gerätename",
+            "es": "Nombre del dispositivo"
           }
         },
         {
@@ -437,7 +555,9 @@
           "type": "number",
           "label": {
             "en": "Distance from home (km)",
-            "fr": "Distance du domicile (km)"
+            "fr": "Distance du domicile (km)",
+            "de": "Entfernung vom Zuhause (km)",
+            "es": "Distancia al hogar (km)"
           }
         },
         {
@@ -445,7 +565,9 @@
           "type": "number",
           "label": {
             "en": "Battery (%)",
-            "fr": "Batterie (%)"
+            "fr": "Batterie (%)",
+            "de": "Akku (%)",
+            "es": "Batería (%)"
           }
         },
         {
@@ -453,11 +575,15 @@
           "type": "number",
           "label": {
             "en": "Devices at home",
-            "fr": "Appareils a la maison"
+            "fr": "Appareils a la maison",
+            "de": "Geräte zu Hause",
+            "es": "Dispositivos en casa"
           },
           "description": {
             "en": "Counted among the devices created in Gladys, after this move.",
-            "fr": "Compte parmi les appareils crees dans Gladys, apres ce mouvement."
+            "fr": "Compte parmi les appareils crees dans Gladys, apres ce mouvement.",
+            "de": "Gezählt unter den in Gladys erstellten Geräten, nach dieser Bewegung.",
+            "es": "Contados entre los dispositivos creados en Gladys, tras este movimiento."
           }
         }
       ]
@@ -466,11 +592,15 @@
       "key": "sign_in_required",
       "label": {
         "en": "iCloud asks for a new two-factor code",
-        "fr": "iCloud demande un nouveau code de double authentification"
+        "fr": "iCloud demande un nouveau code de double authentification",
+        "de": "iCloud verlangt einen neuen Zwei-Faktor-Code",
+        "es": "iCloud pide un nuevo código de doble factor"
       },
       "description": {
         "en": "The positions stop updating until the code is entered in the Configuration tab.",
-        "fr": "Les positions ne sont plus mises a jour tant que le code n'est pas saisi dans l'onglet Configuration."
+        "fr": "Les positions ne sont plus mises a jour tant que le code n'est pas saisi dans l'onglet Configuration.",
+        "de": "Die Positionen werden nicht mehr aktualisiert, bis der Code im Tab „Konfiguration“ eingegeben wird.",
+        "es": "Las posiciones dejan de actualizarse hasta que se introduzca el código en la pestaña \"Configuración\"."
       }
     }
   ],
@@ -479,11 +609,15 @@
       "key": "send_message",
       "label": {
         "en": "Show a message on an Apple device",
-        "fr": "Afficher un message sur un appareil Apple"
+        "fr": "Afficher un message sur un appareil Apple",
+        "de": "Nachricht auf einem Apple-Gerät anzeigen",
+        "es": "Mostrar un mensaje en un dispositivo Apple"
       },
       "description": {
         "en": "The message appears on the screen of the device, like the Find My message of icloud.com.",
-        "fr": "Le message s'affiche sur l'ecran de l'appareil, comme le message de Localiser sur icloud.com."
+        "fr": "Le message s'affiche sur l'ecran de l'appareil, comme le message de Localiser sur icloud.com.",
+        "de": "Die Nachricht erscheint auf dem Bildschirm des Geräts, wie die Nachricht von „Wo ist?“ auf icloud.com.",
+        "es": "El mensaje aparece en la pantalla del dispositivo, como el mensaje de Buscar en icloud.com."
       },
       "timeout_seconds": 30,
       "fields": [
@@ -493,7 +627,9 @@
           "source": "devices",
           "label": {
             "en": "Device",
-            "fr": "Appareil"
+            "fr": "Appareil",
+            "de": "Gerät",
+            "es": "Dispositivo"
           },
           "required": true
         },
@@ -502,15 +638,21 @@
           "type": "string",
           "label": {
             "en": "Message",
-            "fr": "Message"
+            "fr": "Message",
+            "de": "Nachricht",
+            "es": "Mensaje"
           },
           "description": {
             "en": "500 characters at most. Scene variables are allowed.",
-            "fr": "500 caracteres au maximum. Les variables de scene sont acceptees."
+            "fr": "500 caracteres au maximum. Les variables de scene sont acceptees.",
+            "de": "Höchstens 500 Zeichen. Szenenvariablen sind erlaubt.",
+            "es": "500 caracteres como máximo. Se admiten variables de escena."
           },
           "placeholder": {
             "en": "Dinner is ready!",
-            "fr": "A table !"
+            "fr": "A table !",
+            "de": "Das Essen ist fertig!",
+            "es": "¡La cena está lista!"
           },
           "required": true
         },
@@ -519,7 +661,9 @@
           "type": "boolean",
           "label": {
             "en": "Also play the Find My sound",
-            "fr": "Jouer aussi le son de Localiser"
+            "fr": "Jouer aussi le son de Localiser",
+            "de": "Auch den Ton von „Wo ist?“ abspielen",
+            "es": "Reproducir también el sonido de Buscar"
           },
           "required": false,
           "default": false
@@ -530,11 +674,15 @@
       "key": "refresh_positions",
       "label": {
         "en": "Refresh the Apple device positions",
-        "fr": "Rafraichir la position des appareils Apple"
+        "fr": "Rafraichir la position des appareils Apple",
+        "de": "Positionen der Apple-Geräte aktualisieren",
+        "es": "Actualizar las posiciones de los dispositivos Apple"
       },
       "description": {
         "en": "Asks Find My now instead of waiting for the next refresh (once every 30 s at most).",
-        "fr": "Interroge Localiser tout de suite au lieu d'attendre le prochain rafraichissement (une fois toutes les 30 s au plus)."
+        "fr": "Interroge Localiser tout de suite au lieu d'attendre le prochain rafraichissement (une fois toutes les 30 s au plus).",
+        "de": "Fragt „Wo ist?“ sofort ab, statt auf die nächste Aktualisierung zu warten (höchstens alle 30 s).",
+        "es": "Consulta Buscar ahora en lugar de esperar a la próxima actualización (como mucho una vez cada 30 s)."
       },
       "timeout_seconds": 90,
       "outputs": [
@@ -543,7 +691,9 @@
           "type": "number",
           "label": {
             "en": "Devices at home",
-            "fr": "Appareils a la maison"
+            "fr": "Appareils a la maison",
+            "de": "Geräte zu Hause",
+            "es": "Dispositivos en casa"
           }
         },
         {
@@ -551,7 +701,9 @@
           "type": "number",
           "label": {
             "en": "Devices tracked",
-            "fr": "Appareils suivis"
+            "fr": "Appareils suivis",
+            "de": "Verfolgte Geräte",
+            "es": "Dispositivos seguidos"
           }
         }
       ]
@@ -560,11 +712,15 @@
       "key": "get_device_position",
       "label": {
         "en": "Get the position of an Apple device",
-        "fr": "Recuperer la position d'un appareil Apple"
+        "fr": "Recuperer la position d'un appareil Apple",
+        "de": "Position eines Apple-Geräts abrufen",
+        "es": "Obtener la posición de un dispositivo Apple"
       },
       "description": {
         "en": "Gives its position to the next actions of the scene, a map link included.",
-        "fr": "Donne sa position aux actions suivantes de la scene, lien vers la carte compris."
+        "fr": "Donne sa position aux actions suivantes de la scene, lien vers la carte compris.",
+        "de": "Gibt seine Position an die folgenden Aktionen der Szene weiter, einschließlich eines Kartenlinks.",
+        "es": "Pasa su posición a las siguientes acciones de la escena, con un enlace al mapa incluido."
       },
       "timeout_seconds": 90,
       "fields": [
@@ -574,7 +730,9 @@
           "source": "devices",
           "label": {
             "en": "Device",
-            "fr": "Appareil"
+            "fr": "Appareil",
+            "de": "Gerät",
+            "es": "Dispositivo"
           },
           "required": true
         },
@@ -583,7 +741,9 @@
           "type": "boolean",
           "label": {
             "en": "Ask Find My for a fresh position first",
-            "fr": "Demander d'abord une position fraiche a Localiser"
+            "fr": "Demander d'abord une position fraiche a Localiser",
+            "de": "Zuerst eine aktuelle Position von „Wo ist?“ anfordern",
+            "es": "Pedir primero una posición actualizada a Buscar"
           },
           "required": false,
           "default": false
@@ -595,7 +755,9 @@
           "type": "string",
           "label": {
             "en": "Device name",
-            "fr": "Nom de l'appareil"
+            "fr": "Nom de l'appareil",
+            "de": "Gerätename",
+            "es": "Nombre del dispositivo"
           }
         },
         {
@@ -603,7 +765,9 @@
           "type": "boolean",
           "label": {
             "en": "At home",
-            "fr": "A la maison"
+            "fr": "A la maison",
+            "de": "Zu Hause",
+            "es": "En casa"
           }
         },
         {
@@ -611,7 +775,9 @@
           "type": "number",
           "label": {
             "en": "Distance from home (km)",
-            "fr": "Distance du domicile (km)"
+            "fr": "Distance du domicile (km)",
+            "de": "Entfernung vom Zuhause (km)",
+            "es": "Distancia al hogar (km)"
           }
         },
         {
@@ -619,7 +785,9 @@
           "type": "number",
           "label": {
             "en": "Latitude",
-            "fr": "Latitude"
+            "fr": "Latitude",
+            "de": "Breitengrad",
+            "es": "Latitud"
           }
         },
         {
@@ -627,7 +795,9 @@
           "type": "number",
           "label": {
             "en": "Longitude",
-            "fr": "Longitude"
+            "fr": "Longitude",
+            "de": "Längengrad",
+            "es": "Longitud"
           }
         },
         {
@@ -635,7 +805,9 @@
           "type": "number",
           "label": {
             "en": "Position accuracy (m)",
-            "fr": "Precision de la position (m)"
+            "fr": "Precision de la position (m)",
+            "de": "Positionsgenauigkeit (m)",
+            "es": "Precisión de la posición (m)"
           }
         },
         {
@@ -643,7 +815,9 @@
           "type": "number",
           "label": {
             "en": "Position age (min)",
-            "fr": "Age de la position (min)"
+            "fr": "Age de la position (min)",
+            "de": "Alter der Position (min)",
+            "es": "Antigüedad de la posición (min)"
           }
         },
         {
@@ -651,7 +825,9 @@
           "type": "number",
           "label": {
             "en": "Battery (%)",
-            "fr": "Batterie (%)"
+            "fr": "Batterie (%)",
+            "de": "Akku (%)",
+            "es": "Batería (%)"
           }
         },
         {
@@ -659,7 +835,9 @@
           "type": "boolean",
           "label": {
             "en": "Charging",
-            "fr": "En charge"
+            "fr": "En charge",
+            "de": "Wird geladen",
+            "es": "Cargando"
           }
         },
         {
@@ -667,7 +845,9 @@
           "type": "string",
           "label": {
             "en": "Map link",
-            "fr": "Lien vers la carte"
+            "fr": "Lien vers la carte",
+            "de": "Kartenlink",
+            "es": "Enlace al mapa"
           }
         }
       ]
