@@ -481,7 +481,7 @@ export class ICloudClient {
       en: 'your trusted Apple devices',
       fr: 'vos appareils Apple de confiance',
       // German and Spanish carry their preposition: "an …" / "a …" vs "per SMS an …".
-      de: 'an Ihre vertrauenswürdigen Apple-Geräte',
+      de: 'an deine vertrauenswürdigen Apple-Geräte',
       es: 'a sus dispositivos Apple de confianza',
     };
     logger.info('Apple pushed a two-factor code to the trusted devices');

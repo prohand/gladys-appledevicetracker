@@ -154,7 +154,7 @@ export function homeHouseWarning(problem, house = null, { meanwhile = true } = {
     [HOME_HOUSE_PROBLEM.DENIED]: {
       en: 'Gladys refused to give the position of your houses: reinstall the integration to grant it the location permission.',
       fr: "Gladys a refuse de donner la position de vos maisons : reinstallez l'integration pour lui accorder l'autorisation de localisation.",
-      de: 'Gladys hat verweigert, die Position Ihrer Zuhause herauszugeben: Installieren Sie die Integration neu, um ihr die Standortberechtigung zu erteilen.',
+      de: 'Gladys hat verweigert, die Position deiner Zuhause herauszugeben: Installiere die Integration neu, um ihr die Standortberechtigung zu erteilen.',
       es: 'Gladys se ha negado a dar la posición de sus viviendas: reinstale la integración para concederle el permiso de ubicación.',
     },
     [HOME_HOUSE_PROBLEM.UNAVAILABLE]: {
@@ -166,13 +166,13 @@ export function homeHouseWarning(problem, house = null, { meanwhile = true } = {
     [HOME_HOUSE_PROBLEM.NOT_FOUND]: {
       en: 'The house picked in "House to measure presence from" no longer exists in Gladys: pick another one.',
       fr: 'La maison choisie dans "Maison de reference" n\'existe plus dans Gladys : choisissez-en une autre.',
-      de: 'Das unter „Referenz-Zuhause für die Anwesenheit“ gewählte Zuhause existiert in Gladys nicht mehr: Wählen Sie ein anderes.',
+      de: 'Das unter „Referenz-Zuhause für die Anwesenheit“ gewählte Zuhause existiert in Gladys nicht mehr: Wähle ein anderes.',
       es: 'La vivienda elegida en "Vivienda de referencia" ya no existe en Gladys: elija otra.',
     },
     [HOME_HOUSE_PROBLEM.NOT_LOCATED]: {
       en: `Your house${name} has no position in Gladys: place it on the map in Settings > Houses, or pick another one.`,
       fr: `Votre maison${name} n'a pas de position dans Gladys : placez-la sur la carte dans Parametres > Maisons, ou choisissez-en une autre.`,
-      de: `Ihr Zuhause${name} hat keine Position in Gladys: Platzieren Sie es unter Einstellungen > Zuhause auf der Karte oder wählen Sie ein anderes.`,
+      de: `Dein Zuhause${name} hat keine Position in Gladys: Platziere es unter Einstellungen > Zuhause auf der Karte oder wähle ein anderes.`,
       es: `Su vivienda${name} no tiene posición en Gladys: colóquela en el mapa en Configuración > Viviendas, o elija otra.`,
     },
   };

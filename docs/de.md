@@ -1,26 +1,26 @@
 # Apple Device Tracker
 
-Diese Integration meldet sich bei Ihrem iCloud-Account an, liest die Position
+Diese Integration meldet sich bei deinem iCloud-Account an, liest die Position
 der Geräte, die in **„Wo ist?“** sichtbar sind, und stellt sie in Gladys als
-**Anwesenheitssensoren** bereit. Damit können Sie Szenen auslösen wie „mein
+**Anwesenheitssensoren** bereit. Damit kannst du Szenen auslösen wie „mein
 iPhone kommt nach Hause“ oder „niemand ist mehr da“.
 
-## Was Sie bekommen
+## Was du bekommst
 
 Ein Gladys-Gerät pro Gerät, das in **„Wo ist?“** auf iCloud.com sichtbar ist
 (iPhone, iPad, Mac, Apple Watch und die AirPods, die Apple dort auflistet), mit
 diesen Messwerten:
 
-| Messwert               | Typ            | Wozu er dient                                             |
-| ---------------------- | -------------- | --------------------------------------------------------- |
-| Anwesenheit            | Binär          | Der Szenen-Auslöser (1 = zu Hause)                        |
-| Entfernung vom Zuhause | Dezimal (km)   | Verfolgen, wie weit Sie entfernt sind, das Haus vorheizen |
-| Positionsgenauigkeit   | Ganzzahl (m)   | Eine GPS-Ortung von einer WLAN-Schätzung unterscheiden    |
-| Position               | Text           | „Breitengrad,Längengrad“, praktisch bei der Fehlersuche   |
-| Alter der Position     | Ganzzahl (min) | Ein Gerät erkennen, das keine Position mehr meldet        |
-| Akku                   | Ganzzahl (%)   | Bei niedrigem Akkustand warnen                            |
-| Wird geladen           | Binär          | Wissen, ob das Gerät am Strom hängt                       |
-| Klingeln               | Taste          | Spielt den Ton von „Wo ist?“ auf diesem Gerät ab          |
+| Messwert               | Typ            | Wozu er dient                                            |
+| ---------------------- | -------------- | -------------------------------------------------------- |
+| Anwesenheit            | Binär          | Der Szenen-Auslöser (1 = zu Hause)                       |
+| Entfernung vom Zuhause | Dezimal (km)   | Verfolgen, wie weit du entfernt bist, das Haus vorheizen |
+| Positionsgenauigkeit   | Ganzzahl (m)   | Eine GPS-Ortung von einer WLAN-Schätzung unterscheiden   |
+| Position               | Text           | „Breitengrad,Längengrad“, praktisch bei der Fehlersuche  |
+| Alter der Position     | Ganzzahl (min) | Ein Gerät erkennen, das keine Position mehr meldet       |
+| Akku                   | Ganzzahl (%)   | Bei niedrigem Akkustand warnen                           |
+| Wird geladen           | Binär          | Wissen, ob das Gerät am Strom hängt                      |
+| Klingeln               | Taste          | Spielt den Ton von „Wo ist?“ auf diesem Gerät ab         |
 
 Akku und Ladezustand erscheinen nur bei Geräten, die sie melden: Ein Zubehör hat
 keines von beiden.
@@ -43,7 +43,7 @@ Szene, aber außerhalb der Kategorie, die diese Prüfung durchläuft.
 ### Ein Gerät vom Dashboard aus klingeln lassen
 
 Alle oben genannten Messwerte sind schreibgeschützt, aber **Klingeln** ist eine
-Taste: Legen Sie das Gerät auf ein Dashboard, und seine Taste „**Schieben**“
+Taste: Leg das Gerät auf ein Dashboard, und seine Taste „**Schieben**“
 spielt den Ton von „Wo ist?“ auf diesem iPhone, iPad, Mac oder dieser Apple
 Watch ab – genau wie die App „Wo ist?“. Es ist ein Taster, kein Schalter: Es
 gibt nichts wieder auszuschalten, ein Druck ist ein Klingeln. Auch eine Szene
@@ -51,12 +51,12 @@ kann sie drücken („wenn nachts die Türklingel läutet, mein iPhone klingeln
 lassen“).
 
 Die Aktion **Ein Gerät klingeln lassen** im Tab „Konfiguration“ macht genau
-dasselbe und bleibt verfügbar: So lassen Sie ein Gerät klingeln, das Sie noch
+dasselbe und bleibt verfügbar: So lässt du ein Gerät klingeln, das du noch
 nicht zu Gladys hinzugefügt haben.
 
-> **Ihre Geräte sind schon in Gladys?** Gladys ändert die Funktionen eines
-> erstellten Geräts nie von selbst: Öffnen Sie den Tab **Entdecken** der
-> Integration und klicken Sie bei jedem Gerät auf **Aktualisieren**, damit die
+> **Deine Geräte sind schon in Gladys?** Gladys ändert die Funktionen eines
+> erstellten Geräts nie von selbst: Öffne den Tab **Entdecken** der
+> Integration und klicke bei jedem Gerät auf **Aktualisieren**, damit die
 > Taste erscheint.
 
 > **AirTags werden nicht gemeldet.** Apple stellt sie nicht über die Web-API
@@ -69,8 +69,8 @@ nicht zu Gladys hinzugefügt haben.
 
 ## Dashboard-Widgets (Gladys 5.1+)
 
-Zwei Widgets können im Dashboard-Editor unter der Integration hinzugefügt
-werden:
+Zwei Widgets können unter **Dashboard → Bearbeiten → Neues Widget** bei den
+**Integrations-Widgets** hinzugefügt werden:
 
 - **Wer ist zu Hause** – eine Zeile pro Gerät: „Zu Hause“ oder
   „Abwesend · 5,6 km“. Darüber, wie viele Geräte zu Hause sind. Einstellung:
@@ -88,8 +88,9 @@ ab: Ein schnellerer Druck verwendet die letzte Abfrage erneut.
 
 ## Szenen (Gladys 5.1+)
 
-**Anwesenheit** bleibt der einfachste Auslöser („die Anwesenheit meines iPhones
-wird 1“). Gladys 5.1 fügt dem Szenen-Editor eigene Karten hinzu.
+**Anwesenheit** bleibt der einfachste Auslöser (ein Auslöser **Änderung von
+Gerätestatus**: „die Anwesenheit meines iPhones wird 1“). Gladys 5.1 fügt dem
+Szenen-Editor eigene Karten hinzu, unter **Integrationen**.
 
 **Auslöser**
 
@@ -99,14 +100,14 @@ wird 1“). Gladys 5.1 fügt dem Szenen-Editor eigene Karten hinzu.
 | Ein Apple-Gerät verlässt das Zuhause         | Einmal, wenn das Gerät 125 % des Radius überschreitet   | Gerätename, Entfernung, Akku, Geräte zu Hause |
 | iCloud verlangt einen neuen Zwei-Faktor-Code | Einmal, wenn die Positionen mangels Code stehen bleiben | —                                             |
 
-- Wählen Sie auf der Karte ein oder mehrere Geräte, oder lassen Sie sie leer
+- Wähle auf der Karte ein oder mehrere Geräte, oder lass sie leer
   für „ein beliebiges Gerät“.
 - Nur die **in Gladys erstellten** Geräte starten eine Szene.
 - Wenn die Integration neu startet, „kommt“ ein Telefon, das schon zu Hause
   ist, nicht ein zweites Mal an.
 - „Geräte zu Hause“ ist `0`, wenn das letzte Gerät geht: praktisch für eine
   Nachricht „das Haus ist leer“.
-- Der Auslöser „neuer Code“ dient dazu, Sie zu warnen (Benachrichtigung,
+- Der Auslöser „neuer Code“ dient dazu, dich zu warnen (Benachrichtigung,
   Nachricht): Ohne den Code bewegen sich die Anwesenheiten nicht mehr.
 
 **Aktionen**
@@ -116,7 +117,7 @@ wird 1“). Gladys 5.1 fügt dem Szenen-Editor eigene Karten hinzu.
   mit optionalem Ton. Szenenvariablen sind erlaubt. Höchstens 500 Zeichen.
 - **Positionen der Apple-Geräte aktualisieren** – fragt „Wo ist?“ sofort ab.
   Gibt zurück, wie viele Geräte zu Hause sind und wie viele verfolgt werden.
-  Setzen Sie sie vor eine Bedingung auf eine Anwesenheit.
+  Setze sie vor eine Bedingung auf eine Anwesenheit.
 - **Position eines Apple-Geräts abrufen** – gibt den Namen, „zu Hause“, die
   Entfernung, Breitengrad, Längengrad, Genauigkeit, Alter der Position, Akku,
   Ladezustand und einen **Kartenlink** zurück. Beispiel: „Maria ist
@@ -132,53 +133,53 @@ höchstens ein Aufruf bei Apple alle 30 s.
 
 ## Konfiguration
 
-1. Öffnen Sie den Tab **Konfiguration** der Integration.
-2. Geben Sie Ihre **Apple-ID** (die E-Mail-Adresse des iCloud-Accounts) und Ihr
+1. Öffne den Tab **Konfiguration** der Integration.
+2. Gib deine **Apple-ID** (die E-Mail-Adresse des iCloud-Accounts) und dein
    **Passwort** ein. Gladys speichert sie verschlüsselt und sendet sie nur an
    Apple.
-3. Wählen Sie das **Referenz-Zuhause für die Anwesenheit** unter Ihren
+3. Wähle das **Referenz-Zuhause für die Anwesenheit** unter deinen
    Gladys-Zuhause: Seine Position (Einstellungen > Zuhause, es muss auf der
    Karte platziert sein) hat Vorrang vor den unten eingegebenen Koordinaten.
-   Mit mehreren Zuhause – einer Stadtwohnung, einem Ferienhaus – legen Sie so
+   Mit mehreren Zuhause – einer Stadtwohnung, einem Ferienhaus – legst du so
    fest, welches „zu Hause“ ist. Wird das Zuhause in Gladys verschoben, wird
    das beim nächsten Speichern der Konfiguration oder Neustart der Integration
    berücksichtigt. Wird das gewählte Zuhause gelöscht oder hat es keine
-   Position, meldet das der Konfigurationsbildschirm, und in der Zwischenzeit
-   werden die eingegebenen Koordinaten verwendet. Lassen Sie das Feld leer, um
+   Position, meldet das der Tab „Konfiguration“, und in der Zwischenzeit
+   werden die eingegebenen Koordinaten verwendet. Lass das Feld leer, um
    weiterhin die eingegebenen Koordinaten zu verwenden.
 
-   **Breitengrad** und **Längengrad** Ihres Zuhauses sind mit der Position
-   Ihres Gladys-Zuhauses vorausgefüllt (das gewählte, sonst das erste auf der
-   Karte platzierte): Lassen Sie sie unverändert, es sei denn, Sie möchten
+   **Breitengrad** und **Längengrad** deines Zuhauses sind mit der Position
+   deines Gladys-Zuhauses vorausgefüllt (das gewählte, sonst das erste auf der
+   Karte platzierte): Lass sie unverändert, es sei denn, du möchtest
    einen anderen Bezugspunkt. Bleiben sie leer – ein Zuhause ohne Adresse –,
-   klicken Sie auf **Koordinaten meines Gladys-Zuhauses abrufen** (die Aktion
-   nennt Ihnen, was blockiert), oder geben Sie sie in Dezimalgrad ein
-   (`48.8566`, `2.3522`, kopiert aus einem beliebigen Kartendienst). Legen Sie
+   klicke auf **Koordinaten meines Gladys-Zuhauses abrufen** (die Aktion
+   nennt dir, was blockiert), oder gib sie in Dezimalgrad ein
+   (`48.8566`, `2.3522`, kopiert aus einem beliebigen Kartendienst). Lege
    den **Radius** fest, innerhalb dessen ein Gerät als anwesend gilt
-   (standardmäßig 150 m – erhöhen Sie ihn bei einem großen Grundstück oder wenn
-   Ihre Geräte oft über WLAN geortet werden).
+   (standardmäßig 150 m – erhöhe ihn bei einem großen Grundstück oder wenn
+   deine Geräte oft über WLAN geortet werden).
 
-4. Speichern Sie.
+4. Speichere.
 
 ### Zwei-Faktor-Authentifizierung
 
-Wenn Ihr Account die Zwei-Faktor-Authentifizierung nutzt – Apples Standard –,
-erscheint direkt nach dem Speichern ein 6-stelliger Code auf Ihren
+Wenn dein Account die Zwei-Faktor-Authentifizierung nutzt – Apples Standard –,
+erscheint direkt nach dem Speichern ein 6-stelliger Code auf deinen
 Apple-Geräten. Die Integration **fordert** Apple **ausdrücklich** auf, ihn zu
 senden: Ein Account ohne vertrauenswürdiges Gerät (nur mit einer
 Telefonnummer) erhält ihn per **SMS**.
 
-1. Notieren Sie den Code. Die Meldung im Tab „Konfiguration“ sagt, wohin er
+1. Notiere den Code. Die Meldung im Tab „Konfiguration“ sagt, wohin er
    gesendet wurde (vertrauenswürdige Geräte oder Telefonnummer).
-2. Klicken Sie im Tab **Konfiguration** auf **Zwei-Faktor-Code übermitteln**,
-   geben Sie ihn ein und bestätigen Sie.
+2. Klicke im Tab **Konfiguration** auf **Zwei-Faktor-Code übermitteln**,
+   gib ihn ein und bestätige.
 3. Die Integration bittet Apple dann, dieser Sitzung zu **vertrauen**, damit
    der Code bei den nächsten Neustarts nicht erneut verlangt wird (Apple behält
    dieses Vertrauen etwa 30 Tage, manchmal weniger).
 
-Kommt nichts an, klicken Sie auf **Neuen Zwei-Faktor-Code anfordern**: Apple
-sendet einen weiteren (zuerst per Push, ersatzweise per SMS), ohne dass Sie von
-vorne beginnen müssen. Und wenn die Benachrichtigung auf Ihren Geräten immer
+Kommt nichts an, klicke auf **Neuen Zwei-Faktor-Code anfordern**: Apple
+sendet einen weiteren (zuerst per Push, ersatzweise per SMS), ohne dass du von
+vorne beginnen musst. Und wenn die Benachrichtigung auf deinen Geräten immer
 noch nicht erscheint, erzwingt **Code per SMS anfordern** den Versand an eine
 vertrauenswürdige Telefonnummer.
 
@@ -186,17 +187,17 @@ vertrauenswürdige Telefonnummer.
 
 - **Aktualisierungsintervall** (`poll_frequency`, standardmäßig 300 s): wie oft
   die Integration Apple nach einer neuen Position fragt. Das ist der erste
-  Regler, an dem Sie drehen sollten – kürzer bedeutet eine reaktionsschnellere
-  Anwesenheit, aber mehr Aufrufe bei Apple und mehr Akkuverbrauch auf Ihren
+  Regler, an dem du drehen solltest – kürzer bedeutet eine reaktionsschnellere
+  Anwesenheit, aber mehr Aufrufe bei Apple und mehr Akkuverbrauch auf deinen
   Geräten. Das Minimum ist 60 s. Gladys selbst kann nicht seltener als einmal
   pro Minute abfragen: Zwischen zwei echten Aktualisierungen antwortet die
   Integration einfach mit der zuletzt bekannten Position. Unabhängig von der
   Einstellung ruft sie Apple nie öfter als einmal alle 30 Sekunden auf, und
-  ein einziger Aufruf deckt alle Ihre Geräte ab.
+  ein einziger Aufruf deckt alle deine Geräte ab.
 - **Maximaler Genauigkeitsradius** (standardmäßig 500 m): Eine Position, die
   mit einem größeren Unsicherheitsradius gemeldet wird, wird **ignoriert**.
   Ohne diese Schutzmaßnahme würde eine aus einem Mobilfunk-WLAN abgeleitete
-  Position Ihre Anwesenheit um Kilometer springen lassen.
+  Position deine Anwesenheit um Kilometer springen lassen.
 - **Geräte der Familie einbeziehen**: auch die über die Familienfreigabe
   geteilten Geräte bereitstellen.
 
@@ -205,7 +206,7 @@ vertrauenswürdige Telefonnummer.
 Ein Gerät wird anwesend, sobald es den Radius betritt, aber erst jenseits von
 **125 % des Radius** abwesend. Bei einem Radius von 150 m muss es sich mehr als
 187 m entfernen, um als weg zu gelten. So löst ein Telefon, das am Rand der
-Zone liegt, Ihre Szenen nicht wegen GPS-Rauschens immer wieder aus.
+Zone liegt, deine Szenen nicht wegen GPS-Rauschens immer wieder aus.
 
 ## Aktionen
 
@@ -218,37 +219,37 @@ Zone liegt, Ihre Szenen nicht wegen GPS-Rauschens immer wieder aus.
   vertrauenswürdige Telefonnummer, auch wenn der Account vertrauenswürdige
   Geräte hat.
 - **Koordinaten meines Gladys-Zuhauses abrufen** – füllt Breitengrad und
-  Längengrad aus Ihrem Gladys-Zuhause (dem gewählten, falls vorhanden) und
-  zeigt den genauen Fehler an, wenn Gladys sie nicht liefert. Laden Sie die
+  Längengrad aus deinem Gladys-Zuhause (dem gewählten, falls vorhanden) und
+  zeigt den genauen Fehler an, wenn Gladys sie nicht liefert. Lade die
   Seite neu, um die ausgefüllten Felder zu sehen.
 - **iCloud-Verbindung testen** – meldet sich erneut an und zeigt, wie viele
   Geräte gefunden wurden, mit ihren Namen.
 - **Gespeicherte Sitzung vergessen** – löscht die gespeicherten Tokens.
-  Verwenden Sie sie, wenn die Verbindung in einem seltsamen Zustand feststeckt:
+  Verwende sie, wenn die Verbindung in einem seltsamen Zustand feststeckt:
   Die nächste Anmeldung beginnt von vorne (und verlangt einen neuen
   Zwei-Faktor-Code).
-- **Ein Gerät klingeln lassen** – wählen Sie eines Ihrer Geräte, und es spielt
+- **Ein Gerät klingeln lassen** – wähle eines deiner Geräte, und es spielt
   den Ton von „Wo ist?“ ab. Praktisch, um ein Telefon im Sofa zu finden, und
-  der Weg, ein Gerät klingeln zu lassen, das Sie noch nicht zu Gladys
+  der Weg, ein Gerät klingeln zu lassen, das du noch nicht zu Gladys
   hinzugefügt haben. Hinzugefügte Geräte tragen dieselbe Taste auf ihrer
   Dashboard-Karte (siehe oben).
 
 ## Fehlerbehebung
 
-**Die Werte werden nicht mehr aktualisiert**: Schauen Sie zuerst in den Tab
+**Die Werte werden nicht mehr aktualisiert**: Schau zuerst in den Tab
 **Konfiguration** der Integration. Wenn die Integration ihre Werte nicht mehr
 aktualisiert, sagt sie das jetzt dort, mit dem Grund: Apple verlangt einen
 neuen Zwei-Faktor-Code (die iCloud-Sitzung ist abgelaufen, ebenso das ihr
 gewährte Vertrauen), „Wo ist?“ antwortet nicht, oder seit Langem wurde nichts
-aktualisiert. Im ersten Fall geben Sie den neuen Code mit der Aktion
+aktualisiert. Im ersten Fall gibst du den neuen Code mit der Aktion
 **Zwei-Faktor-Code übermitteln** ein, und die Werte bewegen sich sofort wieder.
 In den anderen Fällen zeigt die Aktion **iCloud-Verbindung testen**, wo es
 hakt. Das Dashboard behält in der Zwischenzeit die zuletzt bekannten Werte:
 Sie sind nicht falsch, nur alt.
 
 **Ein gelöschtes und neu erstelltes Gerät bleibt leer**: behoben. Die
-Integration veröffentlicht jetzt alle seine Messwerte in dem Moment, in dem Sie
-es neu erstellen, statt das Ereignis für ein Duplikat zu halten und das Gerät
+Integration veröffentlicht jetzt alle seine Messwerte in dem Moment, in dem du
+es neu erstellst, statt das Ereignis für ein Duplikat zu halten und das Gerät
 leer zu lassen, bis sich ein Wert ändert.
 
 **„Verbindung zu iCloud fehlgeschlagen: ...“**: Die Meldung gibt Apples eigene
@@ -257,7 +258,7 @@ vielen Versuchen vorübergehend gesperrter Account oder eine Sitzung, die erneut
 bestätigt werden muss. Liegt die Ursache beim Netzwerk oder einem Ausfall bei
 Apple (der Container startete vor dem Netzwerk, Apple antwortet „503“), endet
 die Meldung mit „Nächster Versuch in N Min.“: Die Integration meldet sich nach
-1, 5, 15 und dann alle 30 Minuten von selbst erneut an, und Sie müssen nur
+1, 5, 15 und dann alle 30 Minuten von selbst erneut an, und du musst nur
 warten. Ein abgelehntes Passwort oder ein Zwei-Faktor-Code wird nie
 automatisch erneut versucht, damit der Account nicht gesperrt wird.
 
@@ -267,14 +268,14 @@ Aktualisierungsintervall), und führt nie mehr als eine vollständige Anmeldung
 alle 15 Minuten durch, wenn Apple die Sitzung weiterhin ablehnt. Die Aktion
 **iCloud-Verbindung testen** versucht es trotzdem sofort.
 
-**Es kommt kein Zwei-Faktor-Code an**: Verwenden Sie **Neuen Zwei-Faktor-Code
+**Es kommt kein Zwei-Faktor-Code an**: Verwende **Neuen Zwei-Faktor-Code
 anfordern**, dann **Code per SMS anfordern**. Die Meldung im Tab
 „Konfiguration“ gibt den Grund wieder, den Apple genannt hat, als es den
-Versand verweigerte. Prüfen Sie dann auf appleid.apple.com, ob der Account
+Versand verweigerte. Prüfe dann auf appleid.apple.com, ob der Account
 wirklich ein vertrauenswürdiges Gerät oder eine vertrauenswürdige
 Telefonnummer hat – ohne eines von beiden kann Apple ihn nirgendwohin senden.
 
-**Die Koordinaten bleiben leer**: Die Integration liest die Position Ihres
+**Die Koordinaten bleiben leer**: Die Integration liest die Position deines
 Zuhauses über die Gladys-API, was die Berechtigung `location` (in ihrem
 Manifest deklariert) und ein Zuhause mit Adresse (Einstellungen → Zuhause)
 erfordert. Die Aktion **Koordinaten meines Gladys-Zuhauses abrufen** zeigt den
@@ -284,19 +285,19 @@ wurde, wird gemeldet und nie als Position 0, 0 genommen.
 **Mein AirTag erscheint nicht**: erwartet, und nichts, was die Integration
 beheben kann (siehe Hinweis oben). Apple gibt die Position von Objekten in
 „Wo ist?“ nur an die App „Wo ist?“ auf einem Apple-Gerät weiter. Um eine Szene
-an einem Gegenstand auszulösen, verfolgen Sie ein Gerät, das seine Position
-meldet (iPhone, Apple Watch), oder verwenden Sie einen Tracker einer anderen
+an einem Gegenstand auszulösen, verfolge ein Gerät, das seine Position
+meldet (iPhone, Apple Watch), oder verwende einen Tracker einer anderen
 Marke mit eigener Integration.
 
-**Kein Gerät erscheint**: Prüfen Sie, ob **Mein iPhone suchen** auf diesen
-Geräten aktiviert ist (Einstellungen → Ihr Name → „Wo ist?“). Ein Gerät, das
+**Kein Gerät erscheint**: Prüfe, ob **Mein iPhone suchen** auf diesen
+Geräten aktiviert ist (Einstellungen → dein Name → „Wo ist?“). Ein Gerät, das
 lange ausgeschaltet oder offline war, meldet möglicherweise überhaupt keine
 Position; es erscheint in Gladys, aber ohne Anwesenheit, bis Apple etwas
 Aktuelles hat.
 
 **Das gerade hinzugefügte Gerät bleibt leer**: Seine Werte werden veröffentlicht,
 sobald es erstellt ist, und dann bei jeder Aktualisierung. Bleibt es leer,
-prüfen Sie den Tab „Konfiguration“ (die Integration muss mit iCloud verbunden
+prüfe den Tab „Konfiguration“ (die Integration muss mit iCloud verbunden
 sein) und den Messwert _Genauigkeit_: Ein Gerät, für das Apple keine Position
 hat, bekommt weder Anwesenheit noch Entfernung.
 
@@ -304,15 +305,15 @@ hat, bekommt weder Anwesenheit noch Entfernung.
 veraltet, wenn eine Weile nichts für ihn veröffentlicht wurde (standardmäßig 48
 Stunden). Die Integration veröffentlicht jeden Wert mindestens alle 30 Minuten
 erneut, daher sollte das nur auftreten, wenn die Integration gestoppt ist, sich
-nicht mehr bei iCloud anmelden kann (prüfen Sie den Tab „Konfiguration“) oder
+nicht mehr bei iCloud anmelden kann (prüfe den Tab „Konfiguration“) oder
 wenn das Gerät überhaupt keine Position meldet.
 
 **Ich bekam früher jeden Tag „Akkustand unter 10 % (aktuell: 0 %)“ für ein
 iPhone**: Das war der alte Messwert „Wird geladen“, abgelegt in der
 Akku-Kategorie, der 0 ist, wann immer das Telefon nicht angeschlossen ist. Der
 neue Messwert „Wird geladen“ ist ein binärer Eingang und speist den alten nie
-mehr. Der alte bleibt auf den zuvor erstellten Geräten gespeichert: Öffnen Sie
-den Tab **Entdecken** der Integration und klicken Sie bei diesem Gerät auf
+mehr. Der alte bleibt auf den zuvor erstellten Geräten gespeichert: Öffne
+den Tab **Entdecken** der Integration und klicke bei diesem Gerät auf
 **Aktualisieren** – Gladys löscht die Messwerte, die nicht mehr veröffentlicht
 werden, und die Warnung hört auf.
 
@@ -321,8 +322,8 @@ Ursachen, und die Protokolle sagen, welche.
 
 1. _Das Gerät wurde in Gladys erstellt, bevor es diesen Messwert gab_ (der
    aktuelle Messwert „Wird geladen“ kam mit 1.0.8). Gladys fügt einem bereits
-   erstellten Gerät nie von selbst einen neuen Messwert hinzu: Öffnen Sie den
-   Tab **Entdecken** der Integration und klicken Sie bei diesem Gerät auf
+   erstellten Gerät nie von selbst einen neuen Messwert hinzu: Öffne den
+   Tab **Entdecken** der Integration und klicke bei diesem Gerät auf
    **Aktualisieren** – die Werte werden direkt nach diesem Klick
    veröffentlicht. Solange der Messwert fehlt, sagt die Integration das jetzt
    in ihren Protokollen: `Gladys has no feature ...:charging-state`.
@@ -337,7 +338,7 @@ Ursachen, und die Protokolle sagen, welche.
    zurück, sobald Apple ihn wieder meldet.
 
 **Die Taste „Klingeln“ fehlt**: Das Gerät wurde erstellt, bevor es die Funktion
-gab. Öffnen Sie den Tab **Entdecken** der Integration und klicken Sie bei
+gab. Öffne den Tab **Entdecken** der Integration und klicke bei
 diesem Gerät auf **Aktualisieren**.
 
 **Das Gerät klingelt nicht**: Der Ton wird von Apple abgespielt, nicht von
@@ -346,16 +347,16 @@ klingelt erst, wenn es das nächste Mal online kommt. Die Fehlermeldung gibt
 Apples eigene Antwort wieder; `LOG_LEVEL=debug` liefert alle Details in den
 Protokollen.
 
-**Die Anwesenheit ändert sich nie**: Schauen Sie sich den Messwert
-_Positionsgenauigkeit_ an. Liegt er nahe an oder über Ihrer Einstellung
-„Maximaler Genauigkeitsradius“, werden Positionen ignoriert – erhöhen Sie den
+**Die Anwesenheit ändert sich nie**: Schau dir den Messwert
+_Positionsgenauigkeit_ an. Liegt er nahe an oder über deiner Einstellung
+„Maximaler Genauigkeitsradius“, werden Positionen ignoriert – erhöhe den
 Schwellenwert oder den Radius des Zuhauses.
 
 **Der Zwei-Faktor-Code wird oft verlangt**: Apple entscheidet, wie lange eine
-Sitzung vertrauenswürdig bleibt. Vermeiden Sie es, das Passwort zu ändern oder
+Sitzung vertrauenswürdig bleibt. Vermeide es, das Passwort zu ändern oder
 Sitzungen auf appleid.apple.com zu widerrufen.
 
-Die Integration protokolliert alles, was sie tut: Lesen Sie ihre Protokolle in
+Die Integration protokolliert alles, was sie tut: Lies ihre Protokolle in
 der Gladys-Oberfläche (oder mit `docker logs` auf dem Host), mit
 `LOG_LEVEL=debug` für alle Details.
 
@@ -363,10 +364,10 @@ der Gladys-Oberfläche (oder mit `docker logs` auf dem Host), mit
 
 Apple veröffentlicht **keine offizielle API** für „Wo ist?“. Diese Integration
 nutzt dieselbe Schnittstelle wie die Website icloud.com, mit demselben sicheren
-Anmeldeverfahren (SRP: Ihr Passwort verlässt nie Ihren Rechner, nur ein
+Anmeldeverfahren (SRP: Dein Passwort verlässt nie deinen Rechner, nur ein
 kryptografischer Nachweis wird gesendet). Apple kann diese Schnittstelle ohne
 Vorankündigung ändern: Funktioniert die Integration über Nacht nicht mehr, ist
 das die wahrscheinlichste Ursache.
 
-Ihre Zugangsdaten bleiben bei Ihnen, in Ihrer Gladys-Instanz, und laufen nie
+Deine Zugangsdaten bleiben bei dir, in deiner Gladys-Instanz, und laufen nie
 über einen Drittanbieterdienst.

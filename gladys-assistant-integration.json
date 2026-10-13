@@ -5,7 +5,7 @@
   "description": {
     "en": "Track your Apple devices with Find My and use them as presence sensors in Gladys.",
     "fr": "Suivez vos appareils Apple via Localiser et utilisez-les comme capteurs de présence.",
-    "de": "Orten Sie Ihre Apple-Geräte mit „Wo ist?“ und nutzen Sie sie als Anwesenheitssensoren.",
+    "de": "Orte deine Apple-Geräte mit „Wo ist?“ und nutze sie als Anwesenheitssensoren.",
     "es": "Localice sus dispositivos Apple con Buscar y úselos como sensores de presencia en Gladys."
   },
   "version": "2.3.0",
@@ -22,13 +22,13 @@
       "label": {
         "en": "Your iCloud account",
         "fr": "Votre compte iCloud",
-        "de": "Ihr iCloud-Account",
+        "de": "Dein iCloud-Account",
         "es": "Su cuenta de iCloud"
       },
       "description": {
         "en": "This integration signs in to iCloud with your Apple ID and reads the position of the devices visible in Find My. Your credentials stay in Gladys, on your machine. Two-factor authentication is supported: after saving, use the action below to enter the 6-digit code Apple sends you, and the \"Send me a new two-factor code\" action if nothing arrives.",
         "fr": "Cette integration se connecte a iCloud avec votre identifiant Apple et lit la position des appareils visibles dans Localiser. Vos identifiants restent dans Gladys, chez vous. La double authentification est geree : apres avoir enregistre, utilisez l'action ci-dessous pour saisir le code a 6 chiffres envoye par Apple, et l'action \"M'envoyer un nouveau code\" si rien n'arrive.",
-        "de": "Diese Integration meldet sich mit Ihrer Apple-ID bei iCloud an und liest die Position der Geräte, die in „Wo ist?“ sichtbar sind. Ihre Zugangsdaten bleiben in Gladys, auf Ihrem Rechner. Die Zwei-Faktor-Authentifizierung wird unterstützt: Verwenden Sie nach dem Speichern die Aktion unten, um den 6-stelligen Code einzugeben, den Apple Ihnen sendet, und die Aktion „Neuen Zwei-Faktor-Code anfordern“, falls nichts ankommt.",
+        "de": "Diese Integration meldet sich mit deiner Apple-ID bei iCloud an und liest die Position der Geräte, die in „Wo ist?“ sichtbar sind. Deine Zugangsdaten bleiben in Gladys, auf deinem Rechner. Die Zwei-Faktor-Authentifizierung wird unterstützt: Verwende nach dem Speichern die Aktion unten, um den 6-stelligen Code einzugeben, den Apple dir sendet, und die Aktion „Neuen Zwei-Faktor-Code anfordern“, falls nichts ankommt.",
         "es": "Esta integración inicia sesión en iCloud con su ID de Apple y lee la posición de los dispositivos visibles en Buscar. Sus credenciales se quedan en Gladys, en su equipo. Se admite la autenticación de doble factor: después de guardar, use la acción de abajo para introducir el código de 6 dígitos que le envía Apple, y la acción \"Enviarme un nuevo código de doble factor\" si no llega nada."
       },
       "links": [
@@ -89,13 +89,13 @@
       "label": {
         "en": "Your home",
         "fr": "Votre domicile",
-        "de": "Ihr Zuhause",
+        "de": "Dein Zuhause",
         "es": "Su hogar"
       },
       "description": {
         "en": "A device is considered present when it is inside the radius below, around the Gladys house you pick. Without a house picked, the coordinates below are used: they are pre-filled with the position of your Gladys house, correct them only if you want another reference point.",
         "fr": "Un appareil est considere present quand il se trouve dans le rayon ci-dessous, autour de la maison Gladys choisie. Sans maison choisie, les coordonnees ci-dessous sont utilisees : elles sont pre-remplies avec la position de votre maison Gladys, corrigez-les seulement si vous voulez un autre point de reference.",
-        "de": "Ein Gerät gilt als anwesend, wenn es sich innerhalb des unten angegebenen Radius um das gewählte Gladys-Zuhause befindet. Ohne gewähltes Zuhause werden die Koordinaten unten verwendet: Sie sind mit der Position Ihres Gladys-Zuhauses vorausgefüllt; ändern Sie sie nur, wenn Sie einen anderen Bezugspunkt möchten.",
+        "de": "Ein Gerät gilt als anwesend, wenn es sich innerhalb des unten angegebenen Radius um das gewählte Gladys-Zuhause befindet. Ohne gewähltes Zuhause werden die Koordinaten unten verwendet: Sie sind mit der Position deines Gladys-Zuhauses vorausgefüllt; ändere sie nur, wenn du einen anderen Bezugspunkt möchtest.",
         "es": "Un dispositivo se considera presente cuando está dentro del radio indicado abajo, alrededor de la vivienda de Gladys que elija. Si no elige ninguna vivienda, se usan las coordenadas de abajo: vienen rellenadas con la posición de su vivienda de Gladys; corríjalas solo si quiere otro punto de referencia."
       }
     },
@@ -112,7 +112,7 @@
       "description": {
         "en": "One of your Gladys houses: its position wins over the coordinates below. It must be placed on the map in Settings > Houses. Leave empty to use the coordinates below.",
         "fr": "Une de vos maisons Gladys : sa position l'emporte sur les coordonnees ci-dessous. Elle doit etre placee sur la carte dans Parametres > Maisons. Laisser vide pour utiliser les coordonnees ci-dessous.",
-        "de": "Eines Ihrer Gladys-Zuhause: Seine Position hat Vorrang vor den Koordinaten unten. Es muss unter Einstellungen > Zuhause auf der Karte platziert sein. Leer lassen, um die Koordinaten unten zu verwenden.",
+        "de": "Eines deiner Gladys-Zuhause: Seine Position hat Vorrang vor den Koordinaten unten. Es muss unter Einstellungen > Zuhause auf der Karte platziert sein. Leer lassen, um die Koordinaten unten zu verwenden.",
         "es": "Una de sus viviendas de Gladys: su posición prevalece sobre las coordenadas de abajo. Debe estar colocada en el mapa en Configuración > Viviendas. Déjelo vacío para usar las coordenadas de abajo."
       },
       "required": false
@@ -136,7 +136,7 @@
       "description": {
         "en": "Decimal degrees between -90 and 90 (example: 48.8566). Pre-filled from your Gladys house when left empty. A text field, so the decimals are never rounded.",
         "fr": "Degres decimaux entre -90 et 90 (exemple : 48.8566). Pre-remplie depuis votre maison Gladys si le champ est vide. Un champ texte, pour que les decimales ne soient jamais arrondies.",
-        "de": "Dezimalgrad zwischen -90 und 90 (Beispiel: 48.8566). Wird aus Ihrem Gladys-Zuhause vorausgefüllt, wenn das Feld leer ist. Ein Textfeld, damit die Nachkommastellen nie gerundet werden.",
+        "de": "Dezimalgrad zwischen -90 und 90 (Beispiel: 48.8566). Wird aus deinem Gladys-Zuhause vorausgefüllt, wenn das Feld leer ist. Ein Textfeld, damit die Nachkommastellen nie gerundet werden.",
         "es": "Grados decimales entre -90 y 90 (ejemplo: 48.8566). Se rellena desde su vivienda de Gladys si se deja vacío. Es un campo de texto, para que los decimales nunca se redondeen."
       }
     },
@@ -159,7 +159,7 @@
       "description": {
         "en": "Decimal degrees between -180 and 180 (example: 2.3522). Pre-filled from your Gladys house when left empty. A text field, so the decimals are never rounded.",
         "fr": "Degres decimaux entre -180 et 180 (exemple : 2.3522). Pre-remplie depuis votre maison Gladys si le champ est vide. Un champ texte, pour que les decimales ne soient jamais arrondies.",
-        "de": "Dezimalgrad zwischen -180 und 180 (Beispiel: 2.3522). Wird aus Ihrem Gladys-Zuhause vorausgefüllt, wenn das Feld leer ist. Ein Textfeld, damit die Nachkommastellen nie gerundet werden.",
+        "de": "Dezimalgrad zwischen -180 und 180 (Beispiel: 2.3522). Wird aus deinem Gladys-Zuhause vorausgefüllt, wenn das Feld leer ist. Ein Textfeld, damit die Nachkommastellen nie gerundet werden.",
         "es": "Grados decimales entre -180 y 180 (ejemplo: 2.3522). Se rellena desde su vivienda de Gladys si se deja vacío. Es un campo de texto, para que los decimales nunca se redondeen."
       }
     },
@@ -175,7 +175,7 @@
       "description": {
         "en": "Radius around your home marking a device as present. A device leaves only once it is 25% beyond it, to avoid flapping.",
         "fr": "Rayon autour du domicile marquant un appareil comme present. Un appareil n'est absent qu'au dela de 25% de ce rayon, pour eviter les allers-retours.",
-        "de": "Radius um Ihr Zuhause, innerhalb dessen ein Gerät als anwesend gilt. Ein Gerät gilt erst 25 % jenseits davon als abwesend, um ständiges Hin- und Herspringen zu vermeiden.",
+        "de": "Radius um dein Zuhause, innerhalb dessen ein Gerät als anwesend gilt. Ein Gerät gilt erst 25 % jenseits davon als abwesend, um ständiges Hin- und Herspringen zu vermeiden.",
         "es": "Radio alrededor de su hogar dentro del cual un dispositivo se considera presente. Un dispositivo solo pasa a ausente al superarlo en un 25 %, para evitar cambios constantes."
       },
       "required": false,
@@ -195,7 +195,7 @@
       "description": {
         "en": "Apple rate-limits Find My: keep the refresh interval reasonable. Positions less accurate than the threshold below are ignored instead of moving your presence around.",
         "fr": "Apple limite les appels a Localiser : gardez un intervalle de rafraichissement raisonnable. Les positions moins precises que le seuil ci-dessous sont ignorees plutot que de faire bouger votre presence.",
-        "de": "Apple begrenzt die Anfragen an „Wo ist?“: Wählen Sie ein vernünftiges Aktualisierungsintervall. Positionen, die ungenauer als der Schwellenwert unten sind, werden ignoriert, statt Ihre Anwesenheit hin- und herspringen zu lassen.",
+        "de": "Apple begrenzt die Anfragen an „Wo ist?“: Wähle ein vernünftiges Aktualisierungsintervall. Positionen, die ungenauer als der Schwellenwert unten sind, werden ignoriert, statt deine Anwesenheit hin- und herspringen zu lassen.",
         "es": "Apple limita las consultas a Buscar: mantenga un intervalo de actualización razonable. Las posiciones menos precisas que el umbral de abajo se ignoran en lugar de hacer cambiar su presencia."
       }
     },
@@ -251,7 +251,7 @@
       "description": {
         "en": "Also expose the devices shared with you through Family Sharing.",
         "fr": "Exposer aussi les appareils partages via le partage familial.",
-        "de": "Auch die Geräte bereitstellen, die über die Familienfreigabe mit Ihnen geteilt werden.",
+        "de": "Auch die Geräte bereitstellen, die über die Familienfreigabe mit dir geteilt werden.",
         "es": "Mostrar también los dispositivos compartidos con usted mediante En familia."
       },
       "required": false,
@@ -375,7 +375,7 @@
       "description": {
         "en": "Your Apple devices, at home or how far away.",
         "fr": "Vos appareils Apple, a la maison ou a quelle distance.",
-        "de": "Ihre Apple-Geräte: zu Hause oder wie weit entfernt.",
+        "de": "Deine Apple-Geräte: zu Hause oder wie weit entfernt.",
         "es": "Sus dispositivos Apple: en casa o a qué distancia."
       },
       "icon": "users",

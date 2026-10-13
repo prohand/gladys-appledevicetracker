@@ -68,8 +68,8 @@ dispositivo que aún no ha añadido a Gladys.
 
 ## Widgets del panel (Gladys 5.1+)
 
-Se pueden añadir dos widgets desde el editor del panel, dentro de la
-integración:
+Se pueden añadir dos widgets desde **Panel → Editar → Nuevo widget**, en
+**Widgets de integraciones**:
 
 - **Quién está en casa** — una línea por dispositivo: "En casa" o
   "Fuera · 5,6 km". Arriba, cuántos dispositivos están en casa. Ajuste: los
@@ -87,8 +87,9 @@ rápida reutiliza la última lectura.
 
 ## Escenas (Gladys 5.1+)
 
-La **Presencia** sigue siendo el activador más sencillo ("la presencia de mi
-iPhone pasa a 1"). Gladys 5.1 añade tarjetas propias al editor de escenas.
+La **Presencia** sigue siendo el activador más sencillo (un activador **Cambio
+de estado del dispositivo**: "la presencia de mi iPhone pasa a 1"). Gladys 5.1
+añade tarjetas propias al editor de escenas, en **Integraciones**.
 
 **Activadores**
 
@@ -140,7 +141,7 @@ como mucho una llamada a Apple cada 30 s.
    —un piso en la ciudad, una casa de vacaciones— así es como indica cuál es
    "el hogar". Si mueve la vivienda en Gladys, se tiene en cuenta al guardar de
    nuevo la configuración o al reiniciar la integración. Si la vivienda elegida
-   se elimina o no tiene posición, la pantalla de configuración lo indica y
+   se elimina o no tiene posición, la pestaña «Configuración» lo indica y
    mientras tanto se usan las coordenadas introducidas. Déjelo vacío para
    seguir usando las coordenadas introducidas.
 

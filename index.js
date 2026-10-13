@@ -57,13 +57,13 @@ const MESSAGES = {
   missingCredentials: {
     en: 'Fill in your Apple ID and password to connect.',
     fr: 'Renseignez votre identifiant Apple et votre mot de passe pour vous connecter.',
-    de: 'Geben Sie Ihre Apple-ID und Ihr Passwort ein, um sich zu verbinden.',
+    de: 'Gib deine Apple-ID und dein Passwort ein, um dich zu verbinden.',
     es: 'Introduzca su ID de Apple y su contraseña para conectarse.',
   },
   twoFactorRequired: {
     en: 'Apple sent a code to your devices: enter it with the "Send the two-factor code" action.',
     fr: 'Apple a envoye un code sur vos appareils : saisissez-le avec l\'action "Envoyer le code de double authentification".',
-    de: 'Apple hat einen Code an Ihre Geräte gesendet: Geben Sie ihn mit der Aktion „Zwei-Faktor-Code übermitteln“ ein.',
+    de: 'Apple hat einen Code an deine Geräte gesendet: Gib ihn mit der Aktion „Zwei-Faktor-Code übermitteln“ ein.',
     es: 'Apple ha enviado un código a sus dispositivos: introdúzcalo con la acción "Enviar el código de doble factor".',
   },
   unreachable: {
@@ -75,7 +75,7 @@ const MESSAGES = {
   stale: {
     en: 'The values have not been refreshed for a while: check the connection with "Test the iCloud connection".',
     fr: 'Les valeurs ne sont plus rafraichies depuis un moment : verifiez avec "Tester la connexion iCloud".',
-    de: 'Die Werte wurden seit einer Weile nicht aktualisiert: Prüfen Sie die Verbindung mit „iCloud-Verbindung testen“.',
+    de: 'Die Werte wurden seit einer Weile nicht aktualisiert: Prüfe die Verbindung mit „iCloud-Verbindung testen“.',
     es: 'Los valores no se actualizan desde hace un rato: compruebe la conexión con "Probar la conexión con iCloud".',
   },
 };
@@ -95,7 +95,7 @@ function twoFactorMessage(target, error = null) {
     return {
       en: `Apple did not send a code: ${error}. Try the "Send me the code by SMS" action.`,
       fr: `Apple n'a pas envoye de code : ${error}. Essayez l'action "M'envoyer le code par SMS".`,
-      de: `Apple hat keinen Code gesendet: ${error}. Versuchen Sie die Aktion „Code per SMS anfordern“.`,
+      de: `Apple hat keinen Code gesendet: ${error}. Versuche die Aktion „Code per SMS anfordern“.`,
       es: `Apple no ha enviado ningún código: ${error}. Pruebe la acción "Enviarme el código por SMS".`,
     };
   }
@@ -105,7 +105,7 @@ function twoFactorMessage(target, error = null) {
   return {
     en: `Apple sent a code to ${target.en}: enter it with the "Send the two-factor code" action.`,
     fr: `Apple a envoye un code sur ${target.fr} : saisissez-le avec l'action "Envoyer le code de double authentification".`,
-    de: `Apple hat einen Code ${target.de ?? target.en} gesendet: Geben Sie ihn mit der Aktion „Zwei-Faktor-Code übermitteln“ ein.`,
+    de: `Apple hat einen Code ${target.de ?? target.en} gesendet: Gib ihn mit der Aktion „Zwei-Faktor-Code übermitteln“ ein.`,
     es: `Apple ha enviado un código ${target.es ?? target.en}: introdúzcalo con la acción "Enviar el código de doble factor".`,
   };
 }
@@ -406,7 +406,7 @@ gladys.onAction('resend_2fa_code', async () => {
   return {
     en: `A new code was sent to ${target?.en ?? 'your trusted Apple devices'}.`,
     fr: `Un nouveau code a ete envoye sur ${target?.fr ?? 'vos appareils Apple de confiance'}.`,
-    de: `Ein neuer Code wurde ${target?.de ?? 'an Ihre vertrauenswürdigen Apple-Geräte'} gesendet.`,
+    de: `Ein neuer Code wurde ${target?.de ?? 'an deine vertrauenswürdigen Apple-Geräte'} gesendet.`,
     es: `Se ha enviado un nuevo código ${target?.es ?? 'a sus dispositivos Apple de confianza'}.`,
   };
 });
@@ -432,7 +432,7 @@ gladys.onAction('send_2fa_code_by_sms', async () => {
   return {
     en: `A code was sent to ${target?.en ?? 'your trusted phone number'}.`,
     fr: `Un code a ete envoye par ${target?.fr ?? 'SMS sur votre numero de confiance'}.`,
-    de: `Ein Code wurde ${target?.de ?? 'per SMS an Ihre vertrauenswürdige Telefonnummer'} gesendet.`,
+    de: `Ein Code wurde ${target?.de ?? 'per SMS an deine vertrauenswürdige Telefonnummer'} gesendet.`,
     es: `Se ha enviado un código ${target?.es ?? 'por SMS a su número de teléfono de confianza'}.`,
   };
 });
@@ -454,13 +454,13 @@ gladys.onAction('refresh_home_location', async () => {
     }
     throw new Error(
       `Gladys did not give the position of your house (${err.message}). ` +
-        'Check that your house has an address in Settings > House.',
+        'Check that your house has an address in Settings > Houses.',
       { cause: err },
     );
   }
   if (!coordinates) {
     throw new Error(
-      'Your Gladys house has no position yet: set its address in Settings > House, then try again.',
+      'Your Gladys house has no position yet: set its address in Settings > Houses, then try again.',
     );
   }
 
@@ -472,7 +472,7 @@ gladys.onAction('refresh_home_location', async () => {
   return {
     en: `Home coordinates updated: ${filled.home_latitude}, ${filled.home_longitude}. Reload the page to see them.`,
     fr: `Coordonnees du domicile mises a jour : ${filled.home_latitude}, ${filled.home_longitude}. Rechargez la page pour les voir.`,
-    de: `Koordinaten des Zuhauses aktualisiert: ${filled.home_latitude}, ${filled.home_longitude}. Laden Sie die Seite neu, um sie zu sehen.`,
+    de: `Koordinaten des Zuhauses aktualisiert: ${filled.home_latitude}, ${filled.home_longitude}. Lade die Seite neu, um sie zu sehen.`,
     es: `Coordenadas del hogar actualizadas: ${filled.home_latitude}, ${filled.home_longitude}. Recargue la página para verlas.`,
   };
 });
@@ -515,7 +515,7 @@ gladys.onAction('forget_session', async () => {
   return {
     en: 'Saved session deleted. Use "Test the iCloud connection" to sign in again.',
     fr: 'Session enregistree supprimee. Utilisez "Tester la connexion iCloud" pour vous reconnecter.',
-    de: 'Gespeicherte Sitzung gelöscht. Verwenden Sie „iCloud-Verbindung testen“, um sich erneut anzumelden.',
+    de: 'Gespeicherte Sitzung gelöscht. Verwende „iCloud-Verbindung testen“, um dich erneut anzumelden.',
     es: 'Sesión guardada eliminada. Use "Probar la conexión con iCloud" para volver a iniciar sesión.',
   };
 });

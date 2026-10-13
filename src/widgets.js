@@ -64,7 +64,7 @@ const TEXTS = {
     notSignedIn: 'Not signed in to iCloud: open the Configuration tab of the integration.',
     twoFactor:
       'iCloud is asking for a new two-factor code: enter it from the Configuration tab of the integration.',
-    noDevice: 'No device yet: add your Apple devices from the Discovery tab of the integration.',
+    noDevice: 'No device yet: add your Apple devices from the Discover tab of the integration.',
     deviceGone: 'This device is not in the Find My list any more.',
     others: 'Others',
   },
@@ -120,11 +120,11 @@ const TEXTS = {
     hoursAgo: (n) => `vor ${n} Std.`,
     daysAgo: (n) => `vor ${n} Tg.`,
     updated: (age) => `„Wo ist?“ abgefragt ${age}`,
-    notSignedIn: 'Nicht bei iCloud angemeldet: Öffnen Sie den Tab „Konfiguration“ der Integration.',
+    notSignedIn: 'Nicht bei iCloud angemeldet: Öffne den Tab „Konfiguration“ der Integration.',
     twoFactor:
-      'iCloud verlangt einen neuen Zwei-Faktor-Code: Geben Sie ihn im Tab „Konfiguration“ der Integration ein.',
+      'iCloud verlangt einen neuen Zwei-Faktor-Code: Gib ihn im Tab „Konfiguration“ der Integration ein.',
     noDevice:
-      'Noch kein Gerät: Fügen Sie Ihre Apple-Geräte über den Tab „Entdecken“ der Integration hinzu.',
+      'Noch kein Gerät: Füge deine Apple-Geräte über den Tab „Entdecken“ der Integration hinzu.',
     deviceGone: 'Dieses Gerät ist nicht mehr in der Liste von „Wo ist?“.',
     others: 'Weitere',
   },
