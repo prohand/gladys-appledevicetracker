@@ -26,6 +26,7 @@ import { applyHomeHouse, fetchGladysHomeCoordinates } from './src/homeLocation.j
 import { AppleDeviceTracker, TRACKER_HEALTH, TRACKER_STATUS } from './src/tracker.js';
 import { normalizeMessage, positionOutputs } from './src/scenes.js';
 import { WIDGET_ACTION, buildDeviceWidget, buildPresenceWidget, widgetTtl } from './src/widgets.js';
+import { localize } from './src/i18n.js';
 
 // Last-resort net: a promise rejected with nobody listening (a handler the SDK
 // emits without awaiting, a timer callback) makes Node stop the whole container
@@ -56,18 +57,26 @@ const MESSAGES = {
   missingCredentials: {
     en: 'Fill in your Apple ID and password to connect.',
     fr: 'Renseignez votre identifiant Apple et votre mot de passe pour vous connecter.',
+    de: 'Geben Sie Ihre Apple-ID und Ihr Passwort ein, um sich zu verbinden.',
+    es: 'Introduzca su ID de Apple y su contraseña para conectarse.',
   },
   twoFactorRequired: {
     en: 'Apple sent a code to your devices: enter it with the "Send the two-factor code" action.',
     fr: 'Apple a envoye un code sur vos appareils : saisissez-le avec l\'action "Envoyer le code de double authentification".',
+    de: 'Apple hat einen Code an Ihre Geräte gesendet: Geben Sie ihn mit der Aktion „Zwei-Faktor-Code übermitteln“ ein.',
+    es: 'Apple ha enviado un código a sus dispositivos: introdúzcalo con la acción "Enviar el código de doble factor".',
   },
   unreachable: {
     en: 'Find My is not answering: the values shown are the last ones received.',
     fr: 'Localiser ne repond pas : les valeurs affichees sont les dernieres recues.',
+    de: '„Wo ist?“ antwortet nicht: Die angezeigten Werte sind die zuletzt empfangenen.',
+    es: 'Buscar no responde: los valores mostrados son los últimos recibidos.',
   },
   stale: {
     en: 'The values have not been refreshed for a while: check the connection with "Test the iCloud connection".',
     fr: 'Les valeurs ne sont plus rafraichies depuis un moment : verifiez avec "Tester la connexion iCloud".',
+    de: 'Die Werte wurden seit einer Weile nicht aktualisiert: Prüfen Sie die Verbindung mit „iCloud-Verbindung testen“.',
+    es: 'Los valores no se actualizan desde hace un rato: compruebe la conexión con "Probar la conexión con iCloud".',
   },
 };
 
@@ -76,7 +85,8 @@ const MESSAGES = {
  * (trusted devices or SMS) so the user knows where to look — and so that "I
  * received nothing" becomes a readable state instead of a guess.
  *
- * @param {{en: string, fr: string}|null} target where Apple says it sent it
+ * @param {{en: string, fr: string, de?: string, es?: string}|null} target where
+ * Apple says it sent it (the German and Spanish texts carry their preposition)
  */
 function twoFactorMessage(target, error = null) {
   // Apple refused to send anything: say so, instead of asking for a code that
@@ -85,6 +95,8 @@ function twoFactorMessage(target, error = null) {
     return {
       en: `Apple did not send a code: ${error}. Try the "Send me the code by SMS" action.`,
       fr: `Apple n'a pas envoye de code : ${error}. Essayez l'action "M'envoyer le code par SMS".`,
+      de: `Apple hat keinen Code gesendet: ${error}. Versuchen Sie die Aktion „Code per SMS anfordern“.`,
+      es: `Apple no ha enviado ningún código: ${error}. Pruebe la acción "Enviarme el código por SMS".`,
     };
   }
   if (!target) {
@@ -93,8 +105,34 @@ function twoFactorMessage(target, error = null) {
   return {
     en: `Apple sent a code to ${target.en}: enter it with the "Send the two-factor code" action.`,
     fr: `Apple a envoye un code sur ${target.fr} : saisissez-le avec l'action "Envoyer le code de double authentification".`,
+    de: `Apple hat einen Code ${target.de ?? target.en} gesendet: Geben Sie ihn mit der Aktion „Zwei-Faktor-Code übermitteln“ ein.`,
+    es: `Apple ha enviado un código ${target.es ?? target.en}: introdúzcalo con la acción "Enviar el código de doble factor".`,
   };
 }
+
+// How the "Test the iCloud connection" action words the charging state.
+const CHARGING_WORDS = {
+  en: {
+    charging: 'charging',
+    notCharging: 'not charging',
+    unknown: (status) => `charging state unknown (batteryStatus: ${status ?? 'none'})`,
+  },
+  fr: {
+    charging: 'en charge',
+    notCharging: 'pas en charge',
+    unknown: (status) => `charge inconnue (batteryStatus : ${status ?? 'absent'})`,
+  },
+  de: {
+    charging: 'wird geladen',
+    notCharging: 'wird nicht geladen',
+    unknown: (status) => `Ladezustand unbekannt (batteryStatus: ${status ?? 'keiner'})`,
+  },
+  es: {
+    charging: 'cargando',
+    notCharging: 'no está cargando',
+    unknown: (status) => `estado de carga desconocido (batteryStatus: ${status ?? 'ninguno'})`,
+  },
+};
 
 /**
  * One device, as the "Test the iCloud connection" action names it: its name,
@@ -105,23 +143,20 @@ function twoFactorMessage(target, error = null) {
  * feature empty in Gladys, so it is said out loud rather than left blank.
  *
  * @param {object} device a device normalized by the tracker
- * @param {'en'|'fr'} lang
+ * @param {string} lang one of LANGUAGES (English for any other)
  */
 function describeDevice(device, lang) {
+  const words = CHARGING_WORDS[lang] ?? CHARGING_WORDS.en;
   const parts = [];
   if (device.batteryLevel !== null) {
     parts.push(`${device.batteryLevel}%`);
   }
   if (device.charging === true) {
-    parts.push(lang === 'fr' ? 'en charge' : 'charging');
+    parts.push(words.charging);
   } else if (device.charging === false) {
-    parts.push(lang === 'fr' ? 'pas en charge' : 'not charging');
+    parts.push(words.notCharging);
   } else {
-    parts.push(
-      lang === 'fr'
-        ? `charge inconnue (batteryStatus : ${device.batteryStatus ?? 'absent'})`
-        : `charging state unknown (batteryStatus: ${device.batteryStatus ?? 'none'})`,
-    );
+    parts.push(words.unknown(device.batteryStatus));
   }
   return `${device.name} (${parts.join(', ')})`;
 }
@@ -258,6 +293,12 @@ async function initialize() {
         fr:
           `Connexion a iCloud impossible : ${err.message}` +
           (minutes ? `. Nouvel essai dans ${minutes} min.` : ''),
+        de:
+          `Verbindung zu iCloud fehlgeschlagen: ${err.message}` +
+          (minutes ? `. Nächster Versuch in ${minutes} Min.` : ''),
+        es:
+          `No se ha podido conectar con iCloud: ${err.message}` +
+          (minutes ? `. Próximo intento en ${minutes} min.` : ''),
       },
       err,
     );
@@ -337,6 +378,8 @@ gladys.onAction('submit_2fa_code', async (fields) => {
   return {
     en: `Code accepted: ${count} device(s) found. This session is now trusted by Apple.`,
     fr: `Code accepte : ${count} appareil(s) trouve(s). Cette session est maintenant approuvee par Apple.`,
+    de: `Code akzeptiert: ${count} Gerät(e) gefunden. Apple stuft diese Sitzung jetzt als vertrauenswürdig ein.`,
+    es: `Código aceptado: ${count} dispositivo(s) encontrado(s). Apple considera ahora esta sesión de confianza.`,
   };
 });
 
@@ -363,6 +406,8 @@ gladys.onAction('resend_2fa_code', async () => {
   return {
     en: `A new code was sent to ${target?.en ?? 'your trusted Apple devices'}.`,
     fr: `Un nouveau code a ete envoye sur ${target?.fr ?? 'vos appareils Apple de confiance'}.`,
+    de: `Ein neuer Code wurde ${target?.de ?? 'an Ihre vertrauenswürdigen Apple-Geräte'} gesendet.`,
+    es: `Se ha enviado un nuevo código ${target?.es ?? 'a sus dispositivos Apple de confianza'}.`,
   };
 });
 
@@ -387,6 +432,8 @@ gladys.onAction('send_2fa_code_by_sms', async () => {
   return {
     en: `A code was sent to ${target?.en ?? 'your trusted phone number'}.`,
     fr: `Un code a ete envoye par ${target?.fr ?? 'SMS sur votre numero de confiance'}.`,
+    de: `Ein Code wurde ${target?.de ?? 'per SMS an Ihre vertrauenswürdige Telefonnummer'} gesendet.`,
+    es: `Se ha enviado un código ${target?.es ?? 'por SMS a su número de teléfono de confianza'}.`,
   };
 });
 
@@ -425,6 +472,8 @@ gladys.onAction('refresh_home_location', async () => {
   return {
     en: `Home coordinates updated: ${filled.home_latitude}, ${filled.home_longitude}. Reload the page to see them.`,
     fr: `Coordonnees du domicile mises a jour : ${filled.home_latitude}, ${filled.home_longitude}. Rechargez la page pour les voir.`,
+    de: `Koordinaten des Zuhauses aktualisiert: ${filled.home_latitude}, ${filled.home_longitude}. Laden Sie die Seite neu, um sie zu sehen.`,
+    es: `Coordenadas del hogar actualizadas: ${filled.home_latitude}, ${filled.home_longitude}. Recargue la página para verlas.`,
   };
 });
 
@@ -447,12 +496,17 @@ gladys.onAction('check_connection', async () => {
   // Named with what Apple says about their battery: "the Charging feature is
   // empty" is otherwise impossible to tell from "Apple sends no charging state
   // for this device" without reading the logs.
-  const names = tracker.devices.map((device) => describeDevice(device, 'en')).join(', ');
-  const nomsFr = tracker.devices.map((device) => describeDevice(device, 'fr')).join(', ');
-  return {
-    en: `iCloud OK: ${tracker.devices.length} device(s) — ${names}`,
-    fr: `iCloud OK : ${tracker.devices.length} appareil(s) — ${nomsFr}`,
+  const count = tracker.devices.length;
+  const header = {
+    en: `iCloud OK: ${count} device(s)`,
+    fr: `iCloud OK : ${count} appareil(s)`,
+    de: `iCloud OK: ${count} Gerät(e)`,
+    es: `iCloud OK: ${count} dispositivo(s)`,
   };
+  return localize(
+    (lang) =>
+      `${header[lang]} — ${tracker.devices.map((device) => describeDevice(device, lang)).join(', ')}`,
+  );
 });
 
 gladys.onAction('forget_session', async () => {
@@ -461,6 +515,8 @@ gladys.onAction('forget_session', async () => {
   return {
     en: 'Saved session deleted. Use "Test the iCloud connection" to sign in again.',
     fr: 'Session enregistree supprimee. Utilisez "Tester la connexion iCloud" pour vous reconnecter.',
+    de: 'Gespeicherte Sitzung gelöscht. Verwenden Sie „iCloud-Verbindung testen“, um sich erneut anzumelden.',
+    es: 'Sesión guardada eliminada. Use "Probar la conexión con iCloud" para volver a iniciar sesión.',
   };
 });
 
@@ -474,6 +530,8 @@ gladys.onAction('identify', async (fields) => {
   return {
     en: `${device.name} is ringing.`,
     fr: `${device.name} sonne.`,
+    de: `${device.name} klingelt.`,
+    es: `${device.name} está sonando.`,
   };
 });
 
@@ -561,7 +619,12 @@ async function refreshFromWidget(actionKey) {
     throw new Error(`Unknown widget action: ${actionKey}`);
   }
   await tracker.refreshNow();
-  return { en: 'Positions updated', fr: 'Positions mises a jour' };
+  return {
+    en: 'Positions updated',
+    fr: 'Positions mises a jour',
+    de: 'Positionen aktualisiert',
+    es: 'Posiciones actualizadas',
+  };
 }
 gladys.onWidgetAction('presence', refreshFromWidget);
 gladys.onWidgetAction('device', refreshFromWidget);
@@ -619,6 +682,8 @@ gladys.on('connected', async () => {
       {
         en: `Initialization failed: ${err.message}`,
         fr: `L'initialisation a échoué : ${err.message}`,
+        de: `Die Initialisierung ist fehlgeschlagen: ${err.message}`,
+        es: `La inicialización ha fallado: ${err.message}`,
       },
       err,
     );

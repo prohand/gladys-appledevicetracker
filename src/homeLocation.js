@@ -24,6 +24,7 @@
 // -----------------------------------------------------------------------------
 
 import { createLogger } from '@gladysassistant/integration-sdk';
+import { localize } from './i18n.js';
 
 const logger = createLogger({ name: 'home-location' });
 
@@ -137,7 +138,7 @@ export async function resolveHomeHouse(gladys, selector) {
  * @param {object|null} house the picked house, when it was found
  * @param {{ meanwhile?: boolean }} [options] `meanwhile: false` leaves out the
  * fallback sentence (an action answering the user has nothing in force to tell)
- * @returns {{ en: string, fr: string }}
+ * @returns {{ en: string, fr: string, de: string, es: string }}
  */
 export function homeHouseWarning(problem, house = null, { meanwhile = true } = {}) {
   const name = house?.name ? ` "${house.name}"` : '';
@@ -145,28 +146,38 @@ export function homeHouseWarning(problem, house = null, { meanwhile = true } = {
     ? {
         en: ' Meanwhile, presence is measured from the home coordinates typed below.',
         fr: ' En attendant, la presence est mesuree depuis les coordonnees saisies plus bas.',
+        de: ' In der Zwischenzeit wird die Anwesenheit anhand der unten eingegebenen Koordinaten gemessen.',
+        es: ' Mientras tanto, la presencia se mide desde las coordenadas introducidas abajo.',
       }
-    : { en: '', fr: '' };
+    : localize(() => '');
   const messages = {
     [HOME_HOUSE_PROBLEM.DENIED]: {
       en: 'Gladys refused to give the position of your houses: reinstall the integration to grant it the location permission.',
       fr: "Gladys a refuse de donner la position de vos maisons : reinstallez l'integration pour lui accorder l'autorisation de localisation.",
+      de: 'Gladys hat verweigert, die Position Ihrer Zuhause herauszugeben: Installieren Sie die Integration neu, um ihr die Standortberechtigung zu erteilen.',
+      es: 'Gladys se ha negado a dar la posición de sus viviendas: reinstale la integración para concederle el permiso de ubicación.',
     },
     [HOME_HOUSE_PROBLEM.UNAVAILABLE]: {
       en: 'The Gladys houses could not be read.',
       fr: 'Les maisons de Gladys sont illisibles pour le moment.',
+      de: 'Die Gladys-Zuhause konnten nicht gelesen werden.',
+      es: 'No se han podido leer las viviendas de Gladys.',
     },
     [HOME_HOUSE_PROBLEM.NOT_FOUND]: {
       en: 'The house picked in "House to measure presence from" no longer exists in Gladys: pick another one.',
       fr: 'La maison choisie dans "Maison de reference" n\'existe plus dans Gladys : choisissez-en une autre.',
+      de: 'Das unter „Referenz-Zuhause für die Anwesenheit“ gewählte Zuhause existiert in Gladys nicht mehr: Wählen Sie ein anderes.',
+      es: 'La vivienda elegida en "Vivienda de referencia" ya no existe en Gladys: elija otra.',
     },
     [HOME_HOUSE_PROBLEM.NOT_LOCATED]: {
       en: `Your house${name} has no position in Gladys: place it on the map in Settings > Houses, or pick another one.`,
       fr: `Votre maison${name} n'a pas de position dans Gladys : placez-la sur la carte dans Parametres > Maisons, ou choisissez-en une autre.`,
+      de: `Ihr Zuhause${name} hat keine Position in Gladys: Platzieren Sie es unter Einstellungen > Zuhause auf der Karte oder wählen Sie ein anderes.`,
+      es: `Su vivienda${name} no tiene posición en Gladys: colóquela en el mapa en Configuración > Viviendas, o elija otra.`,
     },
   };
   const message = messages[problem] ?? messages[HOME_HOUSE_PROBLEM.UNAVAILABLE];
-  return { en: message.en + fallback.en, fr: message.fr + fallback.fr };
+  return localize((lang) => message[lang] + fallback[lang]);
 }
 
 /**
@@ -177,7 +188,7 @@ export function homeHouseWarning(problem, house = null, { meanwhile = true } = {
  *
  * @param {object} gladys the SDK instance
  * @param {Record<string, unknown>} raw the config as returned by the SDK
- * @returns {Promise<{ config: Record<string, unknown>, warning: {en: string, fr: string}|null }>}
+ * @returns {Promise<{ config: Record<string, unknown>, warning: Record<string, string>|null }>}
  */
 export async function applyHomeHouse(gladys, raw = {}) {
   const selector = String(raw.home_house ?? '').trim();

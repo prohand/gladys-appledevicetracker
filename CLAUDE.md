@@ -88,5 +88,6 @@ No network: the iCloud endpoints are stubbed; SRP is checked against known vecto
 ## Conventions
 
 Prettier formats, ESLint catches mistakes. Comments explain **why** (many document real Apple
-behaviours). User-facing messages are bilingual `{ en, fr }`; user docs in `docs/en.md` and
-`docs/fr.md`, kept in sync. The container rootfs is read-only: write nothing.
+behaviours). User-facing text is `{ en, fr, de, es }` (`LANGUAGES` / `localize` in
+`src/i18n.js`, English as the fallback); `docs/en.md`, `docs/fr.md`, `docs/de.md`, `docs/es.md`
+stay in sync. The container rootfs is read-only: write nothing.
