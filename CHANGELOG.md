@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-13
+
 ### Added
 
 - German and Spanish translations (configuration screen, messages, widgets, documentation).
@@ -160,7 +162,8 @@ First public release.
 - Publish the values of a device as soon as it is created
 - Publish the location features again, and refresh on time
 
-[Unreleased]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.3...v2.3.0
 [2.2.3]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.2...v2.2.3
 [2.2.2]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.2.1...v2.2.2
