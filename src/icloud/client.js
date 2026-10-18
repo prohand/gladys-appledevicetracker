@@ -11,7 +11,8 @@
 //      service URLs — the one we need is `findme`
 //
 // Then `fetchDevices()` calls the same `refreshClient` endpoint the Find My web
-// app calls, and returns the raw device list.
+// app calls (sending back the `serverContext` of the previous answer, as the
+// web app does), and returns the raw device list.
 //
 // Apple documents none of this: it is a private API and it can change without
 // notice. Everything here is therefore defensive — no field is assumed present,
@@ -47,6 +48,14 @@ const REQUEST_TIMEOUT_MS = 20_000;
 // publishes a battery level and nothing else.
 const LOCATE_RETRIES = 2;
 const LOCATE_RETRY_DELAY_MS = 5_000;
+
+// The devices shared through Family Sharing load the same way, member by
+// member: Apple lists each member in `userInfo.membersInfo` with a
+// `deviceFetchStatus` of "LOADING" until it has their devices, and leaves them
+// out of `content` meanwhile. Some members never leave "LOADING" (a Mac with
+// location sharing off), so asking again stops as soon as nothing progresses.
+const FAMILY_RETRIES = 5;
+const FAMILY_RETRY_DELAY_MS = 2_000;
 
 /** Sign-in outcomes returned by `login()`. */
 export const LOGIN_STATUS = {
@@ -136,6 +145,34 @@ function collectEntries(body) {
   return entries;
 }
 
+/**
+ * The context Apple hands back with every Find My answer, to be sent with the
+ * next call. Without it each call starts from scratch on Apple's side, and the
+ * family members it was still loading on the previous call are "LOADING" again.
+ */
+function readServerContext(body) {
+  const context = body?.serverContext;
+  if (!context || typeof context !== 'object') {
+    return null;
+  }
+  // Same as the maintained pyicloud: the theft-and-loss block is not sent back.
+  return { ...context, theftLoss: null };
+}
+
+/** The Family Sharing members Apple lists, and those still loading. */
+function readFamily(body) {
+  const info = body?.userInfo;
+  if (!info || typeof info !== 'object') {
+    return { members: null, loading: [] };
+  }
+  const members = info.membersInfo && typeof info.membersInfo === 'object' ? info.membersInfo : {};
+  const ids = info.hasMembers === false ? [] : Object.keys(members);
+  return {
+    members: ids.length,
+    loading: ids.filter((id) => members[id]?.deviceFetchStatus === 'LOADING').sort(),
+  };
+}
+
 /** Did Apple manage to locate this device on this call? */
 function hasLocation(raw) {
   const location = raw && raw.location;
@@ -176,6 +213,10 @@ export class ICloudClient {
     this.scnt = session.scnt || null;
     this.cookies = new Map(Object.entries(session.cookies || {}));
     this.webservices = session.webservices || {};
+    // In memory only: it belongs to the Find My session, not the iCloud one.
+    this.findMyServerContext = null;
+    this.family = { members: null, loading: [] };
+    this.familySummary = null;
 
     this.awaiting2FA = false;
     // How (and where) Apple sends the code for THIS sign-in. Persisted: the
@@ -741,6 +782,8 @@ export class ICloudClient {
     }
 
     this.webservices = response.body.webservices || {};
+    // A new iCloud session: the Find My context of the old one means nothing.
+    this.findMyServerContext = null;
     if (!this.findMyUrl()) {
       throw new AuthenticationError(
         'This Apple account has no Find My service: enable Find My in your iCloud settings',
@@ -832,18 +875,26 @@ export class ICloudClient {
 
   /** One `refreshClient` round-trip: the device list Apple currently holds. */
   async refreshClient(includeFamily) {
-    const response = await this.findMyRequest('refreshClient', {
-      clientContext: this.clientContext(includeFamily),
-    });
+    const body = { clientContext: this.clientContext(includeFamily) };
+    if (this.findMyServerContext) {
+      body.serverContext = this.findMyServerContext;
+    }
+    const response = await this.findMyRequest('refreshClient', body);
 
     if (response.status === 401 || response.status === 421 || response.status === 450) {
+      this.findMyServerContext = null;
       throw new SessionExpiredError('The iCloud session expired while reading Find My');
     }
     if (response.status < 200 || response.status >= 300 || !response.body) {
+      // A context Apple no longer accepts must not fail every next call too.
+      this.findMyServerContext = null;
       throw new Error(
         `Find My refused the request: ${readErrorMessage(response.body, response.status)}`,
       );
     }
+
+    this.findMyServerContext = readServerContext(response.body);
+    this.family = readFamily(response.body);
 
     const entries = collectEntries(response.body);
     // Apple's answer is undocumented and changes without notice: knowing which
@@ -885,7 +936,49 @@ export class ICloudClient {
       content = await this.refreshClient(includeFamily);
     }
 
+    if (includeFamily) {
+      let loading = this.family.loading;
+      for (let attempt = 0; attempt < FAMILY_RETRIES && loading.length > 0; attempt += 1) {
+        logger.debug(`Find My is still loading ${loading.length} family member(s), asking again`);
+        await this.sleepImpl(FAMILY_RETRY_DELAY_MS);
+        content = await this.refreshClient(includeFamily);
+        const still = this.family.loading;
+        if (still.join() === loading.join()) {
+          break;
+        }
+        loading = still;
+      }
+      this.reportFamily();
+    }
+
     return content;
+  }
+
+  /**
+   * Say once (and again when it changes) what Apple reports about the family.
+   * A family device that never shows up is otherwise silent: the log is the
+   * only way to tell "Apple lists no member" from "a member never loads".
+   * Counts only, no names: they are personal data.
+   */
+  reportFamily() {
+    const { members, loading } = this.family;
+    let summary;
+    if (members === null) {
+      summary = 'Family Sharing: Find My sent no family information';
+    } else if (members === 0) {
+      summary = 'Family Sharing: Apple lists no family member for this account';
+    } else if (loading.length > 0) {
+      summary =
+        `Family Sharing: Apple lists ${members} member(s), ${loading.length} of them still ` +
+        'loading (their devices show up once loaded, a member who does not share their ' +
+        'location never does)';
+    } else {
+      summary = `Family Sharing: Apple lists ${members} member(s), all loaded`;
+    }
+    if (summary !== this.familySummary) {
+      this.familySummary = summary;
+      logger.info(summary);
+    }
   }
 
   /** Make one device play the Find My sound. */

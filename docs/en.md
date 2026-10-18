@@ -263,6 +263,14 @@ Find My app on an Apple device. To trigger a scene on an object, track a device
 that does report its position (iPhone, Apple Watch), or use a tracker from
 another brand with its own integration.
 
+**My family's devices do not show up**: _Include family devices_ must be
+checked, and each member must **share their location** with you (Settings →
+your name → Family → Location Sharing). Apple loads the family's devices after
+yours: they can take a few minutes to arrive. The log says what Apple returns,
+for example "Family Sharing: Apple lists 3 member(s), 1 of them still loading".
+A member who stays "loading" does not share their location; "no family member"
+means Apple sees no member for this account.
+
 **No device shows up**: check that **Find My iPhone** is enabled on those
 devices (Settings → your name → Find My). A device that has been off or offline
 for a long time may report no position at all; it appears in Gladys but without
