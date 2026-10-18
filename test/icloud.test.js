@@ -366,6 +366,123 @@ test('submitting the code trusts the session and saves the trust token', async (
   assert.equal(saved.at(-1).trustToken, 'trust-token');
 });
 
+test('a right code Apple answers with a 409 is accepted', async () => {
+  // Since mid-2026: 409 + `X-Apple-Edp`, the verdict in `securityCode.valid`.
+  const { client, apple } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    '/securitycode': {
+      status: 409,
+      headers: { 'X-Apple-Edp': 'true', 'X-Apple-Session-Token': 'session-token' },
+      body: { securityCode: { code: '123456', valid: true } },
+    },
+    ...TRUSTED_DEVICE_ROUTES,
+    '/2sv/trust': { status: 204, headers: { 'X-Apple-Twosv-Trust-Token': 'trust-token' } },
+    '/accountLogin': ACCOUNT_LOGIN_OK,
+  });
+
+  await client.login();
+  await client.submitSecurityCode('123456');
+
+  assert.equal(apple.find('/2sv/trust').length, 1);
+  assert.equal(client.isAuthenticated(), true);
+  assert.equal(client.trustToken, 'trust-token');
+});
+
+test('a 409 that only carries a new session token is an accepted code too', async () => {
+  const { client } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    '/securitycode': { status: 409, headers: { 'X-Apple-Session-Token': 'session-token' } },
+    ...TRUSTED_DEVICE_ROUTES,
+    '/2sv/trust': { status: 204 },
+    '/accountLogin': ACCOUNT_LOGIN_OK,
+  });
+
+  await client.login();
+  await client.submitSecurityCode('123456');
+
+  assert.equal(client.isAuthenticated(), true);
+});
+
+test('a 409 saying the code is not valid is still a refusal', async () => {
+  const { client, apple } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    '/securitycode': {
+      status: 409,
+      headers: { 'X-Apple-Session-Token': 'session-token' },
+      body: { securityCode: { code: '123456', valid: false } },
+    },
+    ...TRUSTED_DEVICE_ROUTES,
+  });
+
+  await client.login();
+  await assert.rejects(() => client.submitSecurityCode('123456'), AuthenticationError);
+  assert.equal(apple.find('/2sv/trust').length, 0);
+});
+
+test('a bare 409 on the code is still a refusal', async () => {
+  const { client } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    '/securitycode': { status: 409 },
+    ...TRUSTED_DEVICE_ROUTES,
+  });
+
+  await client.login();
+  await assert.rejects(() => client.submitSecurityCode('123456'), /rejected the code: HTTP 409/);
+});
+
+test('a new code refused on the GET is asked again with the PUT of icloud.com', async () => {
+  // The GET serves the push of the sign-in; the "new code" action got a 409.
+  const { client, apple } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    [AUTH_INFO_URL]: { status: 200, body: { hasTrustedDevices: true } },
+    'https://idmsa.apple.com/appleauth/auth/verify/trusteddevice/securitycode': { status: 202 },
+    'https://idmsa.apple.com/appleauth/auth/verify/trusteddevice': { status: 409 },
+  });
+
+  await client.login();
+  const target = await client.requestSecurityCode();
+
+  const pushes = apple.find('/verify/trusteddevice');
+  assert.deepEqual(
+    pushes.map((call) => call.method),
+    ['GET', 'PUT', 'GET', 'PUT'],
+    'sign-in push, then the new code',
+  );
+  assert.ok(pushes[1].url.endsWith('/verify/trusteddevice/securitycode'));
+  assert.match(target.fr, /appareils Apple/);
+  assert.equal(client.twoFactorError, null);
+});
+
+test('the trusted numbers listed under phoneNumberVerification are used', async () => {
+  const { client, apple } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    [AUTH_INFO_URL]: {
+      status: 200,
+      body: {
+        hasTrustedDevices: true,
+        phoneNumberVerification: {
+          trustedPhoneNumber: { id: 2, numberWithDialCode: '+49 ••••• ••• 17' },
+          trustedPhoneNumbers: [{ id: 2, numberWithDialCode: '+49 ••••• ••• 17' }],
+        },
+      },
+    },
+    '/verify/trusteddevice': { status: 202 },
+    '/verify/phone': { status: 200 },
+  });
+
+  await client.login();
+  await client.requestSecurityCode({ preferSms: true });
+
+  assert.equal(apple.find('/verify/phone').length, 1, 'one SMS, the number is not doubled');
+  assert.equal(client.twoFactorPhoneId, 2);
+});
+
 test('a code that is not 6 digits is refused before calling Apple', async () => {
   const { client, apple } = createClient({
     '/signin/init': SIGNIN_INIT,
