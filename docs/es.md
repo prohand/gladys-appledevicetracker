@@ -280,6 +280,15 @@ de Buscar a la app Buscar en un dispositivo Apple. Para activar una escena con
 un objeto, siga un dispositivo que sí informe de su posición (iPhone, Apple
 Watch), o use un localizador de otra marca con su propia integración.
 
+**Los dispositivos de mi familia no aparecen**: la opción _Incluir los
+dispositivos de la familia_ debe estar marcada, y cada miembro debe **compartir
+su ubicación** con usted (Ajustes → su nombre → Familia → Compartir ubicación).
+Apple carga los dispositivos de la familia después de los suyos: pueden tardar
+unos minutos en llegar. El registro indica lo que devuelve Apple, por ejemplo
+«Family Sharing: Apple lists 3 member(s), 1 of them still loading». Un miembro
+que sigue en «loading» no comparte su ubicación; «no family member» significa
+que Apple no ve ningún miembro en esta cuenta.
+
 **No aparece ningún dispositivo**: compruebe que **Buscar mi iPhone** está
 activado en esos dispositivos (Ajustes → su nombre → Buscar). Un dispositivo
 que lleva mucho tiempo apagado o sin conexión puede no informar de ninguna

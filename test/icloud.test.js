@@ -701,6 +701,138 @@ test('fetchDevices stops asking as soon as one device is located', async () => {
   assert.equal(apple.find('/refreshClient').length, 1);
 });
 
+test('fetchDevices sends back the server context of the previous answer', async () => {
+  let call = 0;
+  const { client, apple } = createClient(
+    {
+      '/accountLogin': ACCOUNT_LOGIN_OK,
+      get '/refreshClient'() {
+        call += 1;
+        return {
+          status: 200,
+          body: {
+            serverContext: { callId: `ctx-${call}`, theftLoss: { big: true } },
+            content: [{ id: 'A', location: { latitude: 48.8566, longitude: 2.3522 } }],
+          },
+        };
+      },
+    },
+    { sessionToken: 'session-token' },
+  );
+
+  await client.login();
+  await client.fetchDevices();
+  await client.fetchDevices();
+
+  const [first, second] = apple.find('/refreshClient');
+  assert.equal(first.body.serverContext, undefined, 'nothing to send back on the first call');
+  assert.deepEqual(second.body.serverContext, { callId: 'ctx-1', theftLoss: null });
+});
+
+test('a refused Find My call drops the server context', async () => {
+  let call = 0;
+  const { client, apple } = createClient(
+    {
+      '/accountLogin': ACCOUNT_LOGIN_OK,
+      get '/refreshClient'() {
+        call += 1;
+        return call === 2
+          ? { status: 500 }
+          : { status: 200, body: { serverContext: { callId: 'ctx' }, content: [] } };
+      },
+    },
+    { sessionToken: 'session-token' },
+  );
+
+  await client.login();
+  await client.fetchDevices();
+  await assert.rejects(() => client.fetchDevices());
+  await client.fetchDevices();
+
+  const calls = apple.find('/refreshClient');
+  assert.ok(calls[1].body.serverContext);
+  assert.equal(calls[2].body.serverContext, undefined);
+});
+
+test('fetchDevices asks again while a family member is still loading', async () => {
+  const own = { id: 'A', location: { latitude: 48.8566, longitude: 2.3522 } };
+  const shared = { id: 'B', location: { latitude: 48.8566, longitude: 2.3522 } };
+  let call = 0;
+  const { client, apple } = createClient(
+    {
+      '/accountLogin': ACCOUNT_LOGIN_OK,
+      // Apple loads the family member by member: their devices are missing from
+      // `content` until the member is no longer "LOADING".
+      get '/refreshClient'() {
+        call += 1;
+        const loaded = call >= 2;
+        return {
+          status: 200,
+          body: {
+            userInfo: {
+              hasMembers: true,
+              membersInfo: { 111: { deviceFetchStatus: loaded ? 'DONE' : 'LOADING' } },
+            },
+            content: loaded ? [own, shared] : [own],
+          },
+        };
+      },
+    },
+    { sessionToken: 'session-token' },
+  );
+
+  await client.login();
+  const devices = await client.fetchDevices();
+
+  assert.deepEqual(
+    devices.map((device) => device.id),
+    ['A', 'B'],
+  );
+  assert.equal(apple.find('/refreshClient').length, 2);
+});
+
+test('fetchDevices stops asking when a family member never loads', async () => {
+  const { client, apple } = createClient(
+    {
+      '/accountLogin': ACCOUNT_LOGIN_OK,
+      '/refreshClient': {
+        status: 200,
+        body: {
+          userInfo: { hasMembers: true, membersInfo: { 111: { deviceFetchStatus: 'LOADING' } } },
+          content: [{ id: 'A', location: { latitude: 48.8566, longitude: 2.3522 } }],
+        },
+      },
+    },
+    { sessionToken: 'session-token' },
+  );
+
+  await client.login();
+  await client.fetchDevices();
+
+  assert.equal(apple.find('/refreshClient').length, 2, 'one more try, then no progress');
+});
+
+test('fetchDevices does not wait for the family when it is not wanted', async () => {
+  const { client, apple } = createClient(
+    {
+      '/accountLogin': ACCOUNT_LOGIN_OK,
+      '/refreshClient': {
+        status: 200,
+        body: {
+          userInfo: { hasMembers: true, membersInfo: { 111: { deviceFetchStatus: 'LOADING' } } },
+          content: [{ id: 'A', location: { latitude: 48.8566, longitude: 2.3522 } }],
+        },
+      },
+    },
+    { sessionToken: 'session-token' },
+  );
+
+  await client.login();
+  await client.fetchDevices({ includeFamily: false });
+
+  assert.equal(apple.find('/refreshClient').length, 1);
+});
+
 test('an expired session while reading Find My is reported as such', async () => {
   const { client } = createClient(
     {

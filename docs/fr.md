@@ -272,6 +272,15 @@ sur un objet, la solution est de suivre un appareil qui, lui, remonte sa
 position (iPhone, Apple Watch), ou un traqueur d'une autre marque avec sa
 propre intégration.
 
+**Les appareils de ma famille n'apparaissent pas** : l'option _Inclure les
+appareils de la famille_ doit être cochée, et chaque membre doit **partager sa
+position** avec vous (Réglages → votre nom → Famille → Partage de position).
+Apple charge les appareils de la famille après les vôtres : ils peuvent mettre
+quelques minutes à arriver. Le journal indique ce qu'Apple renvoie, par exemple
+« Family Sharing: Apple lists 3 member(s), 1 of them still loading ». Un membre
+qui reste « loading » ne partage pas sa position ; « no family member » veut
+dire qu'Apple ne voit aucun membre pour ce compte.
+
 **Aucun appareil n'apparaît** : vérifiez que **Localiser mon iPhone** est
 activé sur les appareils concernés (Réglages → votre nom → Localiser). Un
 appareil éteint ou hors ligne depuis longtemps peut aussi ne remonter aucune

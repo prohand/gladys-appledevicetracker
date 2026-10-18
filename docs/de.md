@@ -289,6 +289,15 @@ an einem Gegenstand auszulösen, verfolge ein Gerät, das seine Position
 meldet (iPhone, Apple Watch), oder verwende einen Tracker einer anderen
 Marke mit eigener Integration.
 
+**Die Geräte meiner Familie erscheinen nicht**: _Geräte der Familie einbeziehen_
+muss aktiviert sein, und jedes Mitglied muss **seinen Standort teilen**
+(Einstellungen → dein Name → Familie → Standortfreigabe). Apple lädt die Geräte
+der Familie nach deinen: Es kann ein paar Minuten dauern. Das Protokoll zeigt,
+was Apple liefert, zum Beispiel „Family Sharing: Apple lists 3 member(s), 1 of
+them still loading". Ein Mitglied, das „loading" bleibt, teilt seinen Standort
+nicht; „no family member" heißt, dass Apple für dieses Konto kein Mitglied
+sieht.
+
 **Kein Gerät erscheint**: Prüfe, ob **Mein iPhone suchen** auf diesen
 Geräten aktiviert ist (Einstellungen → dein Name → „Wo ist?“). Ein Gerät, das
 lange ausgeschaltet oder offline war, meldet möglicherweise überhaupt keine
