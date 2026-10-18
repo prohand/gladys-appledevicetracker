@@ -99,6 +99,25 @@ function readErrorMessage(body, status) {
   return `HTTP ${status}`;
 }
 
+/**
+ * True when a 409 on a `securitycode` endpoint is in fact an ACCEPTED code.
+ *
+ * Since mid-2026 Apple answers 409 to a right code (with `X-Apple-Edp: true`)
+ * and only says the truth in the body, `securityCode.valid`, and by handing out
+ * a new session token. Read as a refusal, the user typed fresh codes in a loop
+ * and each one came back "rejected: HTTP 409".
+ */
+function codeAcceptedDespiteConflict(response) {
+  if (response.status !== 409) {
+    return false;
+  }
+  const valid = response.body?.securityCode?.valid;
+  if (valid !== undefined) {
+    return valid === true;
+  }
+  return Boolean(response.headers.get('x-apple-session-token'));
+}
+
 // Where Apple can put the entries of a Find My answer. `content` is the device
 // list every account gets; the others only ever show up on accounts (and Apple
 // builds) that serve the "Items" of Find My through the web API. They are read
@@ -455,17 +474,31 @@ export class ICloudClient {
    * Push a new code on the trusted Apple devices.
    *
    * GET, not PUT: `idmsa.apple.com` answers `405 Method Not Allowed` with
-   * `Allow: GET, POST, OPTIONS` on every `/appleauth/auth/*` endpoint. A PUT
-   * here is exactly how you end up waiting for a code Apple never sent.
+   * `Allow: GET, POST, OPTIONS` on a PUT of `/verify/trusteddevice`. A PUT
+   * there is exactly how you end up waiting for a code Apple never sent.
+   *
+   * That GET serves the push of the sign-in, but a second one (the "new code"
+   * action) is answered 409. The icloud.com page of 2026 asks with a PUT on
+   * `/verify/trusteddevice/securitycode` (202) instead: tried when the GET is
+   * refused, so each account gets whichever route Apple serves it.
    *
    * @returns {Promise<boolean>}
    */
   async pushCodeToTrustedDevices() {
-    const response = await this.request(`${AUTH_ENDPOINT}/verify/trusteddevice`, {
+    let response = await this.request(`${AUTH_ENDPOINT}/verify/trusteddevice`, {
       method: 'GET',
       headers: this.authHeaders(),
     });
     this.rememberAuthHeaders(response.headers);
+
+    if (response.status < 200 || response.status >= 300) {
+      logger.debug(`The trusted-device push was refused (HTTP ${response.status}), trying again`);
+      response = await this.request(`${AUTH_ENDPOINT}/verify/trusteddevice/securitycode`, {
+        method: 'PUT',
+        headers: this.authHeaders(),
+      });
+      this.rememberAuthHeaders(response.headers);
+    }
 
     if (response.status < 200 || response.status >= 300) {
       this.twoFactorError =
@@ -537,10 +570,19 @@ export class ICloudClient {
     this.twoFactorError = null;
 
     const info = await this.fetchAuthInfo();
-    const phones = [
-      ...(info?.trustedPhoneNumber ? [info.trustedPhoneNumber] : []),
-      ...(Array.isArray(info?.trustedPhoneNumbers) ? info.trustedPhoneNumbers : []),
-    ].filter((phone) => phone && phone.id !== undefined);
+    // The numbers sit at the top level, or under `phoneNumberVerification` on
+    // newer accounts; the same number can be in both lists.
+    const phones = [];
+    for (const source of [info, info?.phoneNumberVerification]) {
+      for (const phone of [
+        source?.trustedPhoneNumber,
+        ...(Array.isArray(source?.trustedPhoneNumbers) ? source.trustedPhoneNumbers : []),
+      ]) {
+        if (phone && phone.id !== undefined && !phones.some((known) => known.id === phone.id)) {
+          phones.push(phone);
+        }
+      }
+    }
 
     // Apple describes the trusted devices in two different ways depending on
     // the account (`trustedDeviceCount` on the older two-step accounts,
@@ -558,7 +600,8 @@ export class ICloudClient {
       }, ${phones.length} trusted phone number(s)`,
     );
 
-    if (info?.securityCode?.securityCodeLocked || info?.securityCode?.tooManyCodesSent) {
+    const securityCode = info?.securityCode ?? info?.phoneNumberVerification?.securityCode;
+    if (securityCode?.securityCodeLocked || securityCode?.tooManyCodesSent) {
       throw new AuthenticationError(
         'Apple is blocking new codes for this account (too many attempts): ' +
           'wait a few hours, or sign in once on icloud.com to unlock it',
@@ -629,7 +672,9 @@ export class ICloudClient {
     );
     this.rememberAuthHeaders(response.headers);
 
-    if (response.status < 200 || response.status >= 300) {
+    const accepted =
+      (response.status >= 200 && response.status < 300) || codeAcceptedDespiteConflict(response);
+    if (!accepted) {
       throw new AuthenticationError(
         `iCloud rejected the code: ${readErrorMessage(response.body, response.status)}`,
       );
