@@ -6,6 +6,13 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A device just created in Gladys is published once instead of twice (first poll, then the
+  creation event): fewer writes on the Gladys database while devices are being added.
+- The troubleshooting section explains "SQLITE_BUSY: database is locked" when adding a device
+  (a Gladys database error: click Create again).
+
 ## [2.4.2] - 2026-10-18
 
 - Maintenance release, no functional change.

@@ -68,6 +68,14 @@ const FAILURE_BACKOFF_MAX_MS = 30 * 60 * 1000;
 // forced sign-in per this window, whatever the refresh loop and the buttons ask.
 const MIN_FULL_SIGN_IN_INTERVAL_MS = 15 * 60 * 1000;
 
+// Gladys polls a device it just created (should_poll) BEFORE it announces the
+// creation, so the first poll already gave the new device all its values. The
+// `device-created` event that follows within this window would publish the
+// same values a second time: one more burst of writes on the SQLite database
+// of Gladys, while the user is adding the next device from the Discover tab
+// (where "SQLITE_BUSY: database is locked" was reported).
+const FIRST_POLL_COVERS_CREATION_MS = 60_000;
+
 // When the sign-in at startup fails for a reason that is not the account's
 // (network not up yet when the container starts, Apple answering 503), the
 // integration tries again on its own after these delays — the last one repeats.
@@ -154,6 +162,8 @@ export class AppleDeviceTracker {
     this.pendingFullPublish = new Set();
     /** Gladys external_ids already polled, to spot a device the user just created. */
     this.polledDevices = new Set();
+    /** When the first poll of a device published it in full, per Gladys external_id. */
+    this.servedByFirstPoll = new Map();
     /** Feature external_ids Gladys does not hold, already reported (see publishStates). */
     this.missingFeatures = new Set();
     /** Apple device ids whose missing charging state was already reported. */
@@ -506,6 +516,10 @@ export class AppleDeviceTracker {
     if (!externalId || (!force && this.polledDevices.has(externalId))) {
       return;
     }
+    if (force && this.firstPollCoversCreation(externalId)) {
+      logger.debug(`Device ${externalId} already got its values from its first poll`);
+      return;
+    }
     this.polledDevices.add(externalId);
 
     let device = this.findByExternalId(externalId);
@@ -521,6 +535,21 @@ export class AppleDeviceTracker {
 
     this.pendingFullPublish.add(device.id);
     await this.publishStates();
+    if (!force) {
+      this.servedByFirstPoll.set(externalId, this.now());
+    }
+  }
+
+  /**
+   * Did the first poll of this device just publish it in full? Asked once per
+   * creation event: a later one (deleted then added again) publishes as usual.
+   *
+   * @param {string} externalId the Gladys external_id of the created device
+   */
+  firstPollCoversCreation(externalId) {
+    const servedAt = this.servedByFirstPoll.get(externalId);
+    this.servedByFirstPoll.delete(externalId);
+    return servedAt !== undefined && this.now() - servedAt < FIRST_POLL_COVERS_CREATION_MS;
   }
 
   /**
@@ -540,6 +569,7 @@ export class AppleDeviceTracker {
       return;
     }
     this.polledDevices.delete(externalId);
+    this.servedByFirstPoll.delete(externalId);
     // Feature external_ids are the device one, plus the feature key.
     this.gladys.forgetPublishedStates(externalId);
   }

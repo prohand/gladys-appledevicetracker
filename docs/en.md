@@ -281,6 +281,13 @@ it is created, then on every refresh. If it stays empty, check the Configuration
 tab (the integration must be connected to iCloud) and the _Accuracy_ reading: a
 device Apple has no position for gets neither presence nor distance.
 
+**"SQLITE_BUSY: database is locked" when adding a device**: the error comes
+from the Gladys database, not from the integration. Gladys could not write the
+new device because another write was running at the same moment (the values
+sent by the integrations, for instance). Nothing is lost: click **Create**
+again. If it happens often, report it on the Gladys forum with the full error
+message.
+
 **"No recent value" on the dashboard**: Gladys considers a value outdated when
 nothing has been published for it for a while (48 hours by default). The
 integration re-publishes every value at least every 30 minutes, so this should
