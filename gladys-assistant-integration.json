@@ -8,8 +8,8 @@
     "de": "Orte deine Apple-Geräte mit „Wo ist?“ und nutze sie als Anwesenheitssensoren.",
     "es": "Localice sus dispositivos Apple con Buscar y úselos como sensores de presencia en Gladys."
   },
-  "version": "2.4.3",
-  "docker_image": "ghcr.io/prohand/gladys-appledevicetracker:2.4.3",
+  "version": "2.5.0",
+  "docker_image": "ghcr.io/prohand/gladys-appledevicetracker:2.5.0",
   "gladys_version": ">=5.2.0",
   "cover_image": "https://raw.githubusercontent.com/prohand/gladys-appledevicetracker/main/cover.png",
   "categories": ["security", "services"],
