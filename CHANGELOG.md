@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.4.3] - 2026-10-19
+
 ### Fixed
 
 - A device just created in Gladys is published once instead of twice (first poll, then the
@@ -177,7 +179,8 @@ First public release.
 - Publish the values of a device as soon as it is created
 - Publish the location features again, and refresh on time
 
-[Unreleased]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.4.2...HEAD
+[Unreleased]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.4.3...HEAD
+[2.4.3]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.4.2...v2.4.3
 [2.4.2]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.4.1...v2.4.2
 [2.4.1]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.3.0...v2.4.0
