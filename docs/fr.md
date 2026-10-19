@@ -293,6 +293,13 @@ l'onglet Configuration (l'intégration doit être connectée à iCloud) et le ch
 _Précision_ : un appareil dont Apple ne donne aucune position n'a ni présence,
 ni distance.
 
+**« SQLITE_BUSY: database is locked » en ajoutant un appareil** : l'erreur
+vient de la base de données de Gladys, pas de l'intégration. Gladys n'a pas pu
+écrire le nouvel appareil parce qu'une autre écriture était en cours au même
+moment (les valeurs envoyées par les intégrations, par exemple). Rien n'est
+perdu : cliquez de nouveau sur **Créer**. Si ça arrive souvent, signalez-le sur
+le forum de Gladys avec le message d'erreur complet.
+
 **« Pas de valeur récente » sur le tableau de bord** : Gladys considère une
 valeur comme périmée quand plus rien n'a été publié dessus depuis un moment
 (48 heures par défaut). L'intégration republie chaque valeur au moins toutes les

@@ -301,6 +301,13 @@ compruebe la pestaña Configuración (la integración debe estar conectada a
 iCloud) y la lectura de _Precisión_: un dispositivo del que Apple no tiene
 posición no recibe ni presencia ni distancia.
 
+**"SQLITE_BUSY: database is locked" al añadir un dispositivo**: el error viene
+de la base de datos de Gladys, no de la integración. Gladys no pudo guardar el
+nuevo dispositivo porque otra escritura estaba en curso en ese mismo momento
+(los valores que envían las integraciones, por ejemplo). No se pierde nada:
+pulse de nuevo **Crear**. Si ocurre a menudo, avíselo en el foro de Gladys con
+el mensaje de error completo.
+
 **"Sin valor reciente" en el panel**: Gladys considera que un valor está
 desactualizado cuando no se ha publicado nada para él desde hace un tiempo (48
 horas por defecto). La integración vuelve a publicar cada valor al menos cada

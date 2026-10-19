@@ -603,6 +603,43 @@ test('a device deleted then created again gets its values back straight away', a
   assert.ok(republished.some((id) => id.endsWith(':battery')));
 });
 
+test('the creation event does not publish again what the first poll just did', async () => {
+  const { gladys, tracker, advance } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+  const externalId = tracker.externalIdOf(tracker.devices[0]);
+
+  // Gladys polls a device it just created before announcing the creation: the
+  // poll already gave it all its values, a second burst would only add writes
+  // to the database of Gladys while the user adds the next device.
+  const before = gladys.published.length;
+  await tracker.pollDevice(externalId);
+  const afterPoll = gladys.published.length;
+  assert.ok(afterPoll > before, 'the first poll publishes the device');
+  await tracker.deviceCreated(externalId, { force: true });
+  assert.equal(gladys.published.length, afterPoll, 'nothing published twice');
+
+  // A later creation (deleted then added again) is a real one.
+  advance(10_000);
+  await tracker.deviceCreated(externalId, { force: true });
+  assert.ok(gladys.published.length > afterPoll);
+});
+
+test('a creation event long after the first poll still publishes the device', async () => {
+  const { gladys, tracker, advance } = createTracker({ devices: [fakeFindMyDevice()] });
+  await tracker.start(CONFIG);
+  const externalId = tracker.externalIdOf(tracker.devices[0]);
+
+  // First poll after a restart (the catch-up path), then the user deletes and
+  // creates the device again much later, the delete event missed.
+  await tracker.pollDevice(externalId);
+  advance(5 * 60_000);
+  const before = gladys.published.length;
+  await tracker.deviceCreated(externalId, { force: true });
+
+  const republished = gladys.published.slice(before).map((s) => s.featureExternalId);
+  assert.ok(republished.some((id) => id.endsWith(':presence')));
+});
+
 test('forgetDevice() drops what was remembered for the deleted device only', async () => {
   const devices = [fakeFindMyDevice({ id: 'A' }), fakeFindMyDevice({ id: 'B', name: 'iPad' })];
   const { gladys, tracker } = createTracker({ devices });

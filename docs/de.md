@@ -310,6 +310,13 @@ prüfe den Tab „Konfiguration“ (die Integration muss mit iCloud verbunden
 sein) und den Messwert _Genauigkeit_: Ein Gerät, für das Apple keine Position
 hat, bekommt weder Anwesenheit noch Entfernung.
 
+**„SQLITE_BUSY: database is locked“ beim Hinzufügen eines Geräts**: Der Fehler
+kommt aus der Datenbank von Gladys, nicht aus der Integration. Gladys konnte
+das neue Gerät nicht speichern, weil im selben Moment ein anderer
+Schreibvorgang lief (zum Beispiel die Werte, die die Integrationen senden).
+Nichts geht verloren: Klicke erneut auf **Erstellen**. Passiert es oft, melde
+es im Gladys-Forum mit der vollständigen Fehlermeldung.
+
 **„Kein aktueller Wert“ auf dem Dashboard**: Gladys betrachtet einen Wert als
 veraltet, wenn eine Weile nichts für ihn veröffentlicht wurde (standardmäßig 48
 Stunden). Die Integration veröffentlicht jeden Wert mindestens alle 30 Minuten
