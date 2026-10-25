@@ -6,6 +6,19 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Search keywords in the Gladys catalog (iCloud, iPhone, iPad, MacBook, Apple Watch, AirPods,
+  GPS, geofencing…), so the integration is found by what users type.
+
+### Changed
+
+- **Gladys 5.3.0 or later is now required** (the catalog keywords are a Gladys 5.3 manifest
+  field).
+- Gladys integration SDK 0.16.
+- The pull-request CI runs the store checks without the image check, and the Release workflow
+  runs the full store check once the image is published.
+
 ## [2.5.1] - 2026-10-23
 
 - Maintenance release, no functional change.
