@@ -5,6 +5,8 @@ der Geräte, die in **„Wo ist?“** sichtbar sind, und stellt sie in Gladys al
 **Anwesenheitssensoren** bereit. Damit kannst du Szenen auslösen wie „mein
 iPhone kommt nach Hause“ oder „niemand ist mehr da“.
 
+> **Gladys 5.3 oder neuer ist erforderlich.**
+
 ## Was du bekommst
 
 Ein Gladys-Gerät pro Gerät, das in **„Wo ist?“** auf iCloud.com sichtbar ist
@@ -127,9 +129,9 @@ Szenen-Editor eigene Karten hinzu, unter **Integrationen**.
 Die Aktualisierungsaktionen folgen derselben Regel wie die Widget-Taste:
 höchstens ein Aufruf bei Apple alle 30 s.
 
-> **Gladys 5.1 oder neuer ist erforderlich** für diese Widgets und
-> Szenenkarten, und **Gladys 5.2 oder neuer**, um das Zuhause zu wählen, von
-> dem aus die Anwesenheit gemessen wird.
+> Diese Widgets und Szenenkarten kamen mit Gladys 5.1, die Auswahl des
+> Zuhauses mit Gladys 5.2: Die Integration benötigt jetzt **Gladys 5.3 oder
+> neuer**, das beides enthält.
 
 ## Konfiguration
 

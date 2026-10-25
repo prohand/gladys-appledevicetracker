@@ -308,10 +308,11 @@ export function buildDevice(gladys, config, device) {
   return {
     name: device.name,
     external_id: ids.device,
-    // Gladys only schedules a poll for a device that ASKS for it: `poll_frequency`
-    // alone is just a number stored on the row, the scheduler picks the devices
-    // on `should_poll`. Without this flag onPoll was never called and a freshly
-    // created device stayed empty on the dashboard.
+    // Gladys only schedules a poll for a device flagged `should_poll`. Since
+    // Gladys 5.3 the core sets the flag itself when `poll_frequency` is present,
+    // but a core before 5.3 kept `poll_frequency` as a bare number: onPoll was
+    // never called and a freshly created device stayed empty on the dashboard.
+    // Redundant now, harmless, and kept explicit (a boolean, as the core wants).
     should_poll: true,
     // Gladys calls onPoll on this device at this interval, in MILLISECONDS and
     // only among the values it accepts (see gladysPollFrequency): the user

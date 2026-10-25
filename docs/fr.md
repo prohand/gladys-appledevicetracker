@@ -5,6 +5,8 @@ appareils visibles dans **Localiser** (Find My) et les expose dans Gladys comme
 des **capteurs de présence**. Vous pouvez ensuite déclencher vos scènes sur
 « mon iPhone arrive à la maison » ou « plus personne n'est là ».
 
+> **Gladys 5.3 ou plus est nécessaire.**
+
 ## Ce que vous obtenez
 
 Un appareil Gladys par appareil visible dans **Localiser** sur iCloud.com
@@ -128,9 +130,9 @@ scènes.
 Les actions « Rafraîchir » suivent la même règle que le bouton des widgets :
 un appel à Apple toutes les 30 s au plus.
 
-> **Gladys 5.1 ou plus est nécessaire** pour ces widgets et ces cartes de
-> scène, et **Gladys 5.2 ou plus** pour choisir la maison depuis laquelle la
-> présence est mesurée.
+> Ces widgets et ces cartes de scène sont arrivés avec Gladys 5.1, et le choix
+> de la maison avec Gladys 5.2 : l'intégration demande désormais **Gladys 5.3
+> ou plus**, qui a les deux.
 
 ## Configuration
 

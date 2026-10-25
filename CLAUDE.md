@@ -56,7 +56,8 @@ src/widgets.js           dashboard widgets
   (account lock risk), and failed refreshes back off exponentially.
 - **A startup sign-in that fails on an outage** (network, Apple 5xx = `ICloudUnavailableError`)
   is retried by the tracker (1, 5, 15, 30 min); refused credentials and 2FA never are.
-- **Polling**: devices carry `should_poll: true` (Gladys never polls without it) and the slowest
+- **Polling**: devices carry `should_poll: true` (a core before 5.3 never polls without it; 5.3
+  sets it from `poll_frequency`, the flag stays explicit) and the slowest
   Gladys tick not above the configured interval (Gladys only accepts 1 s–60 s in ms, any other
   value rejects the whole discovery). The configured interval (60–3600 s) is enforced by the
   tracker.
@@ -78,7 +79,9 @@ src/widgets.js           dashboard widgets
 ### Manifest
 
 `test/manifest.test.js` keeps `gladys-assistant-integration.json` in sync with `DEFAULT_CONFIG`,
-the bounds and the handlers (`gladys_version >=5.2.0`, for the `houses` select).
+the bounds and the handlers, and pins the catalog fields (`categories`, `keywords`, no
+`countries`: Find My works everywhere) with `gladys_version >=5.3.0` (5.2 for the `houses` select,
+5.3 for `keywords`).
 
 ## Testing
 

@@ -199,6 +199,63 @@ test('a "houses" select requires Gladys >= 5.2.0', () => {
   assert.ok(major > 5 || (major === 5 && minor >= 2), `got "${manifest.gladys_version}"`);
 });
 
+// The shelves of the catalog: the store keeps the keys of this vocabulary and
+// drops any other one with a mere warning, so a typo silently costs a shelf.
+// `transport`, `vehicles`, `servers` and `leisure` joined it in 2026-10.
+const CATALOG_CATEGORIES = [
+  'climate',
+  'lighting',
+  'energy',
+  'security',
+  'multimedia',
+  'appliances',
+  'environment',
+  'protocols',
+  'network',
+  'notifications',
+  'assistants',
+  'services',
+  'transport',
+  'vehicles',
+  'servers',
+  'leisure',
+];
+
+test('the catalog categories are 1 to 3 known shelves', () => {
+  const { categories } = manifest;
+  assert.ok(Array.isArray(categories) && categories.length >= 1 && categories.length <= 3);
+  assert.equal(new Set(categories).size, categories.length, 'a shelf is listed twice');
+  for (const category of categories) {
+    assert.ok(CATALOG_CATEGORIES.includes(category), `unknown shelf "${category}"`);
+  }
+});
+
+test('the catalog keywords are 1 to 10 unique search terms of 2 to 30 characters', () => {
+  const { keywords } = manifest;
+  assert.ok(Array.isArray(keywords) && keywords.length >= 1 && keywords.length <= 10);
+  const normalized = keywords.map((keyword) => keyword.trim().toLowerCase());
+  assert.equal(new Set(normalized).size, keywords.length, 'the store compares them lowercased');
+  for (const keyword of normalized) {
+    assert.ok(keyword.length >= 2 && keyword.length <= 30, `"${keyword}" is out of bounds`);
+  }
+});
+
+test('no countries are declared: Find My works in every country', () => {
+  // Declared, the catalog of an instance located elsewhere would hide the
+  // integration. Absent means worldwide, which is what an Apple ID is.
+  assert.equal(manifest.countries, undefined);
+});
+
+test('the catalog keywords, countries and music require Gladys >= 5.3.0', () => {
+  // An older core rejects the whole manifest over a field it does not know,
+  // and the store indexer refuses the pair.
+  if (!['keywords', 'countries', 'music'].some((field) => field in manifest)) {
+    return;
+  }
+  const [major, minor] = gladysFloor();
+  assert.ok(major > 5 || (major === 5 && minor >= 3), `got "${manifest.gladys_version}"`);
+});
+
 const keysOf = (list) => (list ?? []).map((entry) => entry.key).sort();
 
 test('every scene action of the manifest has its handler, and only those', () => {

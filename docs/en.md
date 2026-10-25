@@ -5,6 +5,8 @@ devices visible in **Find My** and exposes them in Gladys as **presence
 sensors**. You can then trigger scenes on "my iPhone arrives home" or "nobody
 is here any more".
 
+> **Gladys 5.3 or later is required.**
+
 ## What you get
 
 One Gladys device per device visible in **Find My** on iCloud.com (iPhone,
@@ -119,8 +121,9 @@ scene editor, under **Integrations**.
 The "Refresh" actions follow the same rule as the widget button: one call to
 Apple every 30 s at most.
 
-> **Gladys 5.1 or later is required** for these widgets and scene cards, and
-> **Gladys 5.2 or later** to pick the house presence is measured from.
+> These widgets and scene cards came with Gladys 5.1 and the house picker with
+> Gladys 5.2: the integration now requires **Gladys 5.3 or later**, which has
+> both.
 
 ## Configuration
 

@@ -59,7 +59,8 @@ the "Make a device ring" action of the Configuration screen.
 
 Declared in the manifest (`widgets`, `scene_triggers`, `scene_actions`), drawn
 by Gladys itself — hence a `gladys_version` of at least 5.1.0 (an older Gladys
-refuses the unknown manifest fields; 5.2.0 today, for the house select).
+refuses the unknown manifest fields; 5.3.0 today, for the house select and the
+catalog `keywords`).
 
 | Kind          | Key                   | What it does                                                   |
 | ------------- | --------------------- | -------------------------------------------------------------- |
@@ -174,7 +175,7 @@ code.
 | `include_family` | true    | Include the Family Sharing devices          |
 
 `home_house` is a select over the Gladys houses (`source: "houses"`, Gladys
-5.2+, hence `gladys_version: ">=5.2.0"`): the integration receives the house
+5.2+; the manifest asks for 5.3.0): the integration receives the house
 selector and reads its position with `gladys.getHouses()`. When set, that
 position wins over the typed coordinates; a deleted or unlocated house is
 reported in the Configuration screen and the typed coordinates stay in force.

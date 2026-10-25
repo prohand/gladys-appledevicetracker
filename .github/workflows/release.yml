@@ -10,6 +10,7 @@
 #      `docker_image` tag, so the indexer and the image stay in lockstep);
 #   3. commits the bump and pushes the `vX.Y.Z` tag;
 #   4. calls build.yml to publish the multi-arch image (`:X.Y.Z` + `:latest`).
+#   5. runs the store admission checks, image included, once it is pushed.
 #
 # Why call build.yml instead of relying on the tag push: a tag pushed with the
 # default GITHUB_TOKEN does NOT trigger other workflows, so we invoke the build
@@ -118,3 +119,25 @@ jobs:
     uses: ./.github/workflows/github-release.yml
     permissions:
       contents: write
+
+  # The full store check, image included, now that build.yml has pushed it: a
+  # missing or private image (a new GHCR package is private until made public
+  # in its settings) would keep the integration out of the catalog.
+  store:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the release tag
+        uses: actions/checkout@v7
+        with:
+          ref: v${{ needs.prepare.outputs.version }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Validate like the store indexer
+        run: npx --yes github:GladysAssistant/integration-store .

@@ -5,6 +5,8 @@ dispositivos visibles en **Buscar** y los expone en Gladys como **sensores de
 presencia**. Así puede activar escenas con "mi iPhone llega a casa" o "ya no
 queda nadie".
 
+> **Se necesita Gladys 5.3 o posterior.**
+
 ## Qué obtiene
 
 Un dispositivo de Gladys por cada dispositivo visible en **Buscar** en
@@ -126,9 +128,9 @@ añade tarjetas propias al editor de escenas, en **Integraciones**.
 Las acciones de actualización siguen la misma regla que el botón del widget:
 como mucho una llamada a Apple cada 30 s.
 
-> **Se necesita Gladys 5.1 o posterior** para estos widgets y tarjetas de
-> escena, y **Gladys 5.2 o posterior** para elegir la vivienda desde la que se
-> mide la presencia.
+> Estos widgets y tarjetas de escena llegaron con Gladys 5.1, y la elección de
+> la vivienda con Gladys 5.2: la integración necesita ahora **Gladys 5.3 o
+> posterior**, que incluye ambos.
 
 ## Configuración
 
