@@ -134,6 +134,25 @@ un appel à Apple toutes les 30 s au plus.
 > de la maison avec Gladys 5.2 : l'intégration demande désormais **Gladys 5.3
 > ou plus**, qui a les deux.
 
+### Le widget « Utilisateurs présents »
+
+Ce widget de Gladys n'affiche pas les capteurs : il affiche la présence des
+**utilisateurs**, que seules les scènes changent. Pour qu'il suive un iPhone,
+créez deux scènes par personne :
+
+1. Déclencheur **Un appareil Apple arrive à la maison** (choisissez l'iPhone
+   de Marie) → action **Utilisateur vu à la maison** (Marie, votre maison).
+2. Déclencheur **Un appareil Apple quitte la maison** (le même iPhone) →
+   action **Utilisateur parti de la maison** (Marie, votre maison).
+
+- Le widget affiche alors « A la maison » ou « Absent », et les déclencheurs
+  de Gladys **Départ de la maison**, **La maison est vide** et **La maison
+  n'est plus vide** marchent aussi.
+- Choisissez le téléphone : c'est l'appareil qui suit vraiment la personne.
+- N'utilisez pas l'action **Vérifier la présence** : elle regarde seulement si
+  l'appareil a envoyé une valeur récemment. L'intégration envoie aussi la
+  valeur « absent » (0), donc l'utilisateur ne serait jamais marqué absent.
+
 ## Configuration
 
 1. Ouvrez l'onglet **Configuration** de l'intégration.
