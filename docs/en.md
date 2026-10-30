@@ -125,6 +125,24 @@ Apple every 30 s at most.
 > Gladys 5.2: the integration now requires **Gladys 5.3 or later**, which has
 > both.
 
+### The "User presence" widget
+
+This Gladys widget does not show sensors: it shows the presence of **users**,
+which only scenes change. To make it follow an iPhone, create two scenes per
+person:
+
+1. Trigger **An Apple device arrives home** (pick Mary's iPhone) → action
+   **User seen at home** (Mary, your house).
+2. Trigger **An Apple device leaves home** (the same iPhone) → action **User
+   left home** (Mary, your house).
+
+- The widget then shows "At home" or "Away", and the Gladys triggers **Left
+  home**, **House is empty** and **House is no longer empty** work too.
+- Pick the phone: it is the device that really follows the person.
+- Do not use the **Check user presence** action: it only looks at whether the
+  device sent a value recently. The integration also sends the "away" value
+  (0), so the user would never be marked away.
+
 ## Configuration
 
 1. Open the **Configuration** tab of the integration.

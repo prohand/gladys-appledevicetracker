@@ -133,6 +133,25 @@ höchstens ein Aufruf bei Apple alle 30 s.
 > Zuhauses mit Gladys 5.2: Die Integration benötigt jetzt **Gladys 5.3 oder
 > neuer**, das beides enthält.
 
+### Das Widget „Anwesenheit von Benutzern“
+
+Dieses Gladys-Widget zeigt keine Sensoren: Es zeigt die Anwesenheit der
+**Benutzer**, die nur Szenen ändern. Damit es einem iPhone folgt, lege pro
+Person zwei Szenen an:
+
+1. Auslöser **Ein Apple-Gerät kommt nach Hause** (wähle Marias iPhone) →
+   Aktion **Benutzer zu Hause gesehen** (Maria, dein Zuhause).
+2. Auslöser **Ein Apple-Gerät verlässt das Zuhause** (dasselbe iPhone) →
+   Aktion **Benutzer hat das Zuhause verlassen** (Maria, dein Zuhause).
+
+- Das Widget zeigt dann „zu Hause“ oder „abwesend“, und die Gladys-Auslöser
+  für das Verlassen des Zuhauses und das leere Zuhause funktionieren ebenfalls.
+- Wähle das Telefon: Es ist das Gerät, das der Person wirklich folgt.
+- Verwende nicht die Aktion **Anwesenheit von Benutzern überprüfen**: Sie
+  prüft nur, ob das Gerät kürzlich einen Wert gesendet hat. Die Integration
+  sendet auch den Wert „abwesend“ (0), der Benutzer würde also nie als
+  abwesend markiert.
+
 ## Konfiguration
 
 1. Öffne den Tab **Konfiguration** der Integration.
