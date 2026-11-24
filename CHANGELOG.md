@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-11-24
+
 ### Added
 
 - An optional **second iCloud account**. Apple lets a person belong to one family only: someone
@@ -234,7 +236,8 @@ First public release.
 - Publish the values of a device as soon as it is created
 - Publish the location features again, and refresh on time
 
-[Unreleased]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.6.4...HEAD
+[Unreleased]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.7.0...HEAD
+[2.7.0]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.6.4...v2.7.0
 [2.6.4]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.6.3...v2.6.4
 [2.6.3]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.6.2...v2.6.3
 [2.6.2]: https://github.com/prohand/gladys-appledevicetracker/compare/v2.6.1...v2.6.2
