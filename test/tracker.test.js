@@ -62,10 +62,18 @@ function createFakeClient({ loginStatus = LOGIN_STATUS.CONNECTED, devices = [] }
     },
     async submitSecurityCode() {},
     twoFactorTarget: null,
-    async requestSecurityCode() {
+    /** What the next resend does: null = a new sign-in that needed no code. */
+    resendAnswer: undefined,
+    async resendSecurityCode() {
       client.calls.requestCode += 1;
+      if (client.resendAnswer === null) {
+        return null;
+      }
       client.twoFactorTarget = { en: 'your trusted Apple devices', fr: 'vos appareils' };
       return client.twoFactorTarget;
+    },
+    isAuthenticated() {
+      return client.resendAnswer === null;
     },
     async saveSession() {
       client.calls.saveSession += 1;
@@ -112,6 +120,24 @@ test('requestSecurityCode() asks Apple again and persists the mode', async () =>
   assert.equal(client.calls.requestCode, 1);
   assert.equal(client.calls.saveSession, 1, 'the SMS mode must survive a restart');
   assert.equal(tracker.twoFactorTarget, target);
+});
+
+test('a new code that ends in a sign-in without code connects the tracker', async () => {
+  const { client, tracker } = createTracker({
+    loginStatus: LOGIN_STATUS.TWO_FACTOR_REQUIRED,
+    devices: [fakeFindMyDevice()],
+  });
+  await tracker.start(CONFIG);
+  client.resendAnswer = null;
+
+  try {
+    assert.equal(await tracker.requestSecurityCode(), null);
+    assert.equal(tracker.isConnected(), true);
+    assert.equal(client.calls.fetchDevices, 1, 'Find My is read right away');
+    assert.equal(tracker.devices.length, 1);
+  } finally {
+    tracker.stop();
+  }
 });
 
 test('start() stops at the two-factor step without calling Find My', async () => {

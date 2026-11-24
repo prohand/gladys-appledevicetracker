@@ -440,17 +440,28 @@ export class AppleDeviceTracker {
   }
 
   /**
-   * Ask Apple to send the two-factor code again.
+   * Ask Apple to send the two-factor code again (a new sign-in attempt when
+   * Apple refuses: see `ICloudClient.resendSecurityCode`).
+   *
    * @param {{ preferSms?: boolean }} [options] force the SMS route
+   * @returns {Promise<object|null>} where the code was sent, or null when the
+   *   new sign-in attempt needed no code: the tracker is then connected
    */
   async requestSecurityCode(options = {}) {
     if (!this.client) {
       throw new Error('Not signed in to iCloud yet');
     }
-    const target = await this.client.requestSecurityCode(options);
+    const target = await this.client.resendSecurityCode(options);
     // The mode (and the phone id) drive the endpoint validating the code: keep
     // them across a restart of the container.
     await this.client.saveSession();
+    if (target === null && this.client.isAuthenticated()) {
+      this.lastFullSignInAt = this.now();
+      this.retryNotBefore = 0;
+      await this.setStatus(TRACKER_STATUS.CONNECTED);
+      await this.refresh({ force: true });
+      this.startPolling();
+    }
     return target;
   }
 

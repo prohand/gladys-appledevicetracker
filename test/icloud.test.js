@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import {
   AuthenticationError,
+  CodeNotSentError,
   ICloudClient,
   ICloudUnavailableError,
   LOGIN_STATUS,
@@ -41,7 +42,12 @@ function createFakeApple(routes) {
     if (!route) {
       throw new Error(`Unexpected call to ${url}`);
     }
-    const { status = 200, body = null, headers = {} } = route;
+    // A function route answers per call (Apple changing its mind mid-flow).
+    const {
+      status = 200,
+      body = null,
+      headers = {},
+    } = typeof route === 'function' ? route(calls) : route;
     return new Response(body === null ? null : JSON.stringify(body), {
       status: status === 204 ? 204 : status,
       headers: { 'Content-Type': 'application/json', ...headers },
@@ -456,6 +462,107 @@ test('a new code refused on the GET is asked again with the PUT of icloud.com', 
   assert.ok(pushes[1].url.endsWith('/verify/trusteddevice/securitycode'));
   assert.match(target.fr, /appareils Apple/);
   assert.equal(client.twoFactorError, null);
+});
+
+test('a new code Apple refuses with 412 starts a new sign-in, which pushes one', async () => {
+  // Community thread, post #32: the sign-in push worked; 52 s later the state
+  // read came back empty and both push routes answered 412.
+  let signIns = 0;
+  const { client, apple } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': () => {
+      signIns += 1;
+      return { status: 409 };
+    },
+    [AUTH_INFO_URL]: () =>
+      signIns === 1 && apple.find('/verify/trusteddevice').length > 0
+        ? { status: 412 }
+        : { status: 200, body: { hasTrustedDevices: true } },
+    '/verify/trusteddevice': (calls) => {
+      const pushes = calls.filter((c) => c.url.includes('/verify/trusteddevice'));
+      // The push of each sign-in is answered; the "new code" ones are not.
+      return signIns === 1 && pushes.length > 1 ? { status: 412 } : { status: 202 };
+    },
+  });
+
+  await client.login();
+  const target = await client.resendSecurityCode();
+
+  assert.equal(signIns, 2, 'a new sign-in attempt');
+  assert.match(target.fr, /appareils Apple/);
+  assert.equal(client.twoFactorError, null);
+  assert.equal(client.awaiting2FA, true);
+});
+
+test('a new sign-in that Apple still refuses a code to reports why', async () => {
+  const { client, apple } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    [AUTH_INFO_URL]: { status: 200, body: { hasTrustedDevices: true } },
+    '/verify/trusteddevice': {
+      status: 412,
+      headers: { 'X-Apple-Repair-Session-Token': 'repair-token' },
+    },
+  });
+
+  await client.login();
+  await assert.rejects(() => client.resendSecurityCode(), CodeNotSentError);
+
+  assert.equal(apple.find('/signin/complete').length, 2, 'one new attempt, not a loop');
+  assert.match(client.twoFactorError, /HTTP 412.*icloud\.com/);
+});
+
+test('a code lock does not start a new sign-in', async () => {
+  const { client, apple } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    [AUTH_INFO_URL]: (calls) =>
+      calls.filter((c) => c.url === AUTH_INFO_URL).length > 1
+        ? { status: 200, body: { securityCode: { tooManyCodesSent: true } } }
+        : { status: 200, body: { hasTrustedDevices: true } },
+    '/verify/trusteddevice': { status: 202 },
+  });
+
+  await client.login();
+  await assert.rejects(() => client.resendSecurityCode(), /too many attempts/);
+  assert.equal(apple.find('/signin/complete').length, 1);
+});
+
+test('a right code answered 412 with a repair session token is accepted', async () => {
+  const { client, apple } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    '/securitycode': {
+      status: 412,
+      headers: {
+        'X-Apple-Repair-Session-Token': 'repair-token',
+        'X-Apple-Session-Token': 'session-token',
+      },
+      body: { securityCode: { securityCodeLocked: false } },
+    },
+    ...TRUSTED_DEVICE_ROUTES,
+    '/2sv/trust': { status: 204, headers: { 'X-Apple-Twosv-Trust-Token': 'trust-token' } },
+    '/accountLogin': ACCOUNT_LOGIN_OK,
+  });
+
+  await client.login();
+  await client.submitSecurityCode('123456');
+
+  assert.equal(apple.find('/2sv/trust').length, 1);
+  assert.equal(client.isAuthenticated(), true);
+});
+
+test('a bare 412 on the code is still a refusal', async () => {
+  const { client, apple } = createClient({
+    '/signin/init': SIGNIN_INIT,
+    '/signin/complete': { status: 409 },
+    '/securitycode': { status: 412 },
+    ...TRUSTED_DEVICE_ROUTES,
+  });
+
+  await client.login();
+  await assert.rejects(() => client.submitSecurityCode('123456'), /rejected the code: HTTP 412/);
+  assert.equal(apple.find('/2sv/trust').length, 0);
 });
 
 test('the trusted numbers listed under phoneNumberVerification are used', async () => {

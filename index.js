@@ -575,6 +575,23 @@ function accountAskingForCode(choice) {
   return account;
 }
 
+/**
+ * The answer of a "send me a code" action whose new sign-in attempt needed no
+ * code after all (Apple honoured the trust token): the account is connected.
+ */
+async function connectedWithoutCode(account, tracker) {
+  problems[account] = null;
+  await fleet.publishDiscoveredDevices();
+  await reportStatus();
+  await tracker.resync();
+  return aboutAccount(account, {
+    en: `Signed in again, no code was needed: ${tracker.devices.length} device(s) found.`,
+    fr: `Reconnecte, aucun code n'etait necessaire : ${tracker.devices.length} appareil(s) trouve(s).`,
+    de: `Erneut angemeldet, kein Code nötig: ${tracker.devices.length} Gerät(e) gefunden.`,
+    es: `Sesión iniciada de nuevo, no hacía falta código: ${tracker.devices.length} dispositivo(s) encontrado(s).`,
+  });
+}
+
 // Nothing received? Apple only pushes the code when it is asked to: this button
 // asks again (and falls back to an SMS for an account with no trusted device).
 gladys.onAction('resend_2fa_code', async (fields = {}) => {
@@ -583,6 +600,9 @@ gladys.onAction('resend_2fa_code', async (fields = {}) => {
 
   if (tracker.hasClient()) {
     await tracker.requestSecurityCode();
+    if (tracker.isConnected()) {
+      return connectedWithoutCode(account, tracker);
+    }
   } else {
     // No sign-in attempt yet (fresh start of the container): signing in asks
     // Apple for a code on its own.
@@ -612,6 +632,9 @@ gladys.onAction('send_2fa_code_by_sms', async (fields = {}) => {
   }
 
   const target = await tracker.requestSecurityCode({ preferSms: true });
+  if (tracker.isConnected()) {
+    return connectedWithoutCode(account, tracker);
+  }
   await setProblem(account, twoFactorMessage(target, tracker.twoFactorError));
   return aboutAccount(account, {
     en: `A code was sent to ${target?.en ?? 'your trusted phone number'}.`,

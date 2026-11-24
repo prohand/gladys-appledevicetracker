@@ -6,6 +6,17 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- "Send me a new two-factor code" (and "by SMS") failed with **HTTP 412** when Apple had dropped
+  the pending sign-in attempt: the push of the sign-in worked, the new code a minute later did not
+  (community thread, post #32). Apple now gets a new sign-in attempt in that case, which sends a
+  fresh code. The "too many codes" lock still stops there.
+- A right two-factor code that Apple answers with **HTTP 412** and a repair session token (an
+  Apple ID with pending steps, such as new terms) is accepted, as Apple then trusts the session.
+- When Apple refuses to send a code because the Apple ID needs attention, the Configuration
+  screen says to sign in once on icloud.com with it.
+
 ## [2.7.0] - 2026-11-24
 
 ### Added

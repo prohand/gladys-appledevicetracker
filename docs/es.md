@@ -194,9 +194,11 @@ por **SMS**.
    confianza unos 30 días, a veces menos).
 
 Si no llega nada, pulse **Enviarme un nuevo código de doble factor**: Apple
-envía otro (primero por notificación, por SMS como alternativa) sin empezar de
-cero. Y si la notificación sigue sin aparecer en sus dispositivos, **Enviarme
-el código por SMS** lo fuerza a un número de teléfono de confianza.
+envía otro (primero por notificación, por SMS como alternativa). Si Apple
+rechaza un nuevo código para el inicio de sesión en curso (error «HTTP 412»), la
+integración vuelve a iniciar sesión, lo que envía un código nuevo. Y si la
+notificación sigue sin aparecer en sus dispositivos, **Enviarme el código por
+SMS** lo fuerza a un número de teléfono de confianza.
 
 ### Una segunda cuenta de iCloud (opcional)
 
