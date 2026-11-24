@@ -199,10 +199,11 @@ Telefonnummer) erhält ihn per **SMS**.
    dieses Vertrauen etwa 30 Tage, manchmal weniger).
 
 Kommt nichts an, klicke auf **Neuen Zwei-Faktor-Code anfordern**: Apple
-sendet einen weiteren (zuerst per Push, ersatzweise per SMS), ohne dass du von
-vorne beginnen musst. Und wenn die Benachrichtigung auf deinen Geräten immer
-noch nicht erscheint, erzwingt **Code per SMS anfordern** den Versand an eine
-vertrauenswürdige Telefonnummer.
+sendet einen weiteren (zuerst per Push, ersatzweise per SMS). Lehnt Apple einen
+neuen Code für die laufende Anmeldung ab (Fehler „HTTP 412“), meldet sich die
+Integration erneut an, was einen frischen Code auslöst. Und wenn die
+Benachrichtigung auf deinen Geräten immer noch nicht erscheint, erzwingt **Code
+per SMS anfordern** den Versand an eine vertrauenswürdige Telefonnummer.
 
 ### Ein zweiter iCloud-Account (optional)
 

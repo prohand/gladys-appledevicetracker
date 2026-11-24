@@ -185,9 +185,10 @@ phone number) receives it by **SMS**.
    days, sometimes less).
 
 If nothing arrives, click **Send me a new two-factor code**: Apple sends
-another one (push first, SMS as a fallback) without starting over. And when the
-notification still does not show up on your devices, **Send me the code by SMS**
-forces it to a trusted phone number.
+another one (push first, SMS as a fallback). When Apple refuses a new code for
+the pending sign-in (an "HTTP 412" error), the integration signs in again, which
+sends a fresh code. And when the notification still does not show up on your
+devices, **Send me the code by SMS** forces it to a trusted phone number.
 
 ### A second iCloud account (optional)
 

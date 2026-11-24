@@ -80,6 +80,15 @@ export class SessionExpiredError extends Error {}
 export class AuthenticationError extends Error {}
 
 /**
+ * Thrown when Apple sent no two-factor code (push and SMS both refused).
+ *
+ * Not a verdict on the account: the sign-in attempt the code belongs to can be
+ * the problem (see `resendSecurityCode`). The "too many codes" lock is NOT one
+ * of these: asking again there only extends the lock.
+ */
+export class CodeNotSentError extends AuthenticationError {}
+
+/**
  * Thrown when Apple's sign-in servers answer with a server error (5xx).
  *
  * That is an outage, not a verdict on the account: the caller should try again
@@ -109,14 +118,37 @@ function readErrorMessage(body, status) {
 }
 
 /**
- * True when a 409 on a `securitycode` endpoint is in fact an ACCEPTED code.
+ * Apple's "this account needs a repair" mark: pending steps on the Apple ID
+ * (new terms to accept, most often), answered as HTTP 412 with this header.
+ */
+function asksForRepair(response) {
+  return response.status === 412 && Boolean(response.headers.get('x-apple-repair-session-token'));
+}
+
+/** What the user can do about a repair mark, appended to Apple's refusal. */
+function repairHint(response) {
+  return asksForRepair(response)
+    ? ': Apple says this Apple ID needs attention (new terms to accept, most often), ' +
+        'sign in once on icloud.com with it'
+    : '';
+}
+
+/**
+ * True when a refusal on a `securitycode` endpoint is in fact an ACCEPTED code.
  *
  * Since mid-2026 Apple answers 409 to a right code (with `X-Apple-Edp: true`)
  * and only says the truth in the body, `securityCode.valid`, and by handing out
  * a new session token. Read as a refusal, the user typed fresh codes in a loop
  * and each one came back "rejected: HTTP 409".
+ *
+ * An Apple ID with pending repair steps gets a 412 carrying a repair session
+ * token for a right code instead; the trust and `accountLogin` steps then
+ * succeed (same finding as timlaing/pyicloud #465).
  */
-function codeAcceptedDespiteConflict(response) {
+function codeAcceptedDespiteRefusal(response) {
+  if (asksForRepair(response)) {
+    return response.body?.securityCode?.valid !== false;
+  }
   if (response.status !== 409) {
     return false;
   }
@@ -359,10 +391,11 @@ export class ICloudClient {
    *   the session is dead — Find My answered 401/421/450 — because Apple keeps
    *   accepting that session on `accountLogin` for a while after Find My stopped
    *   serving it. Reusing it there was an endless loop: sign in "successfully",
-   *   ask Find My again, get the same rejection.
+   *   ask Find My again, get the same rejection. `preferSms` asks for the
+   *   two-factor code by SMS when the sign-in needs one.
    * @returns {Promise<string>} one of LOGIN_STATUS
    */
-  async login({ force = false } = {}) {
+  async login({ force = false, preferSms = false } = {}) {
     if (force) {
       await this.dropSessionKeepingTrust();
     }
@@ -393,7 +426,7 @@ export class ICloudClient {
       // push, and an account whose only second factor is a phone number gets
       // nothing at all until an SMS is explicitly requested.
       try {
-        await this.requestSecurityCode();
+        await this.requestSecurityCode({ preferSms });
       } catch (err) {
         this.twoFactorError = err.message;
         logger.warn(`Could not ask Apple to send the two-factor code: ${err.message}`);
@@ -505,7 +538,9 @@ export class ICloudClient {
     const response = await this.request(AUTH_ENDPOINT, { headers: this.authHeaders() });
     this.rememberAuthHeaders(response.headers);
     if (response.status < 200 || response.status >= 300 || !response.body) {
-      logger.debug(`No two-factor details from Apple (HTTP ${response.status})`);
+      // Info, not debug: an unreadable state is the first sign that Apple
+      // dropped this sign-in attempt (the push and SMS that follow fail too).
+      logger.info(`No two-factor details from Apple (HTTP ${response.status})`);
       return null;
     }
     return response.body;
@@ -533,7 +568,7 @@ export class ICloudClient {
     this.rememberAuthHeaders(response.headers);
 
     if (response.status < 200 || response.status >= 300) {
-      logger.debug(`The trusted-device push was refused (HTTP ${response.status}), trying again`);
+      logger.info(`The trusted-device push was refused (HTTP ${response.status}), trying again`);
       response = await this.request(`${AUTH_ENDPOINT}/verify/trusteddevice/securitycode`, {
         method: 'PUT',
         headers: this.authHeaders(),
@@ -544,7 +579,7 @@ export class ICloudClient {
     if (response.status < 200 || response.status >= 300) {
       this.twoFactorError =
         `Apple did not push the code to the trusted devices ` +
-        `(${readErrorMessage(response.body, response.status)})`;
+        `(${readErrorMessage(response.body, response.status)})${repairHint(response)}`;
       logger.warn(`${this.twoFactorError} [HTTP ${response.status}]`);
       return false;
     }
@@ -580,7 +615,7 @@ export class ICloudClient {
     if (response.status < 200 || response.status >= 300) {
       this.twoFactorError =
         `Apple refused to send the code by SMS ` +
-        `(${readErrorMessage(response.body, response.status)})`;
+        `(${readErrorMessage(response.body, response.status)})${repairHint(response)}`;
       logger.warn(`${this.twoFactorError} [HTTP ${response.status}]`);
       return false;
     }
@@ -663,13 +698,52 @@ export class ICloudClient {
       }
     }
 
-    throw new AuthenticationError(
+    throw new CodeNotSentError(
       this.twoFactorError
         ? `${this.twoFactorError}. Check that your Apple ID has a trusted device or a ` +
             'trusted phone number'
         : 'Apple did not send a two-factor code: check that your Apple ID has a ' +
             'trusted device or a trusted phone number',
     );
+  }
+
+  /**
+   * The "send me a new code" actions: ask Apple again, and when it refuses,
+   * start a new sign-in attempt — which sends a code on its own.
+   *
+   * Apple can drop the two-factor state of a sign-in attempt while the code
+   * of that attempt is still pending: the state read comes back empty, and
+   * every route to send a new code answers 412 (community thread, post #32:
+   * the push of the sign-in worked, the "new code" 52 s later did not). Only
+   * a new attempt gets a code then. One per click: the user asked for it, so
+   * it is not the automatic replay the tracker rate-limits.
+   *
+   * @param {{ preferSms?: boolean }} [options]
+   * @returns {Promise<{en: string, fr: string, de: string, es: string}|null>}
+   *   where the code was sent, or null when the new sign-in needed no code
+   *   (Apple honoured the trust token)
+   */
+  async resendSecurityCode({ preferSms = false } = {}) {
+    try {
+      return await this.requestSecurityCode({ preferSms });
+    } catch (err) {
+      if (!(err instanceof CodeNotSentError)) {
+        throw err;
+      }
+      logger.info('Apple sent no new code for this sign-in attempt, signing in again to get one');
+    }
+
+    const status = await this.login({ force: true, preferSms });
+    if (status === LOGIN_STATUS.CONNECTED) {
+      return null;
+    }
+    if (this.twoFactorError) {
+      throw new CodeNotSentError(
+        `${this.twoFactorError}. Check that your Apple ID has a trusted device or a ` +
+          'trusted phone number',
+      );
+    }
+    return this.twoFactorTarget;
   }
 
   /** Try every trusted phone number in turn. @returns {Promise<boolean>} */
@@ -714,7 +788,7 @@ export class ICloudClient {
     this.rememberAuthHeaders(response.headers);
 
     const accepted =
-      (response.status >= 200 && response.status < 300) || codeAcceptedDespiteConflict(response);
+      (response.status >= 200 && response.status < 300) || codeAcceptedDespiteRefusal(response);
     if (!accepted) {
       throw new AuthenticationError(
         `iCloud rejected the code: ${readErrorMessage(response.body, response.status)}`,

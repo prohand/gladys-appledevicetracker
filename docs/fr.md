@@ -199,9 +199,10 @@ reçoit par **SMS**.
 
 Si rien n'arrive, cliquez sur **M'envoyer un nouveau code de double
 authentification** : Apple renvoie un code (push sur les appareils, puis SMS en
-secours) sans repartir de zéro. Et si la notification n'arrive toujours pas sur
-vos appareils, **M'envoyer le code par SMS** force l'envoi sur un numéro de
-confiance.
+secours). Si Apple refuse un nouveau code pour la connexion en cours (erreur
+« HTTP 412 »), l'intégration se reconnecte, ce qui envoie un code tout neuf. Et
+si la notification n'arrive toujours pas sur vos appareils, **M'envoyer le code
+par SMS** force l'envoi sur un numéro de confiance.
 
 ### Un second compte iCloud (facultatif)
 
