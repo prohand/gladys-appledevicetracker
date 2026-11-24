@@ -35,7 +35,8 @@ src/config.js            defaults, bounds, Gladys poll tick (gladysPollFrequency
 src/homeLocation.js      the picked Gladys house (`home_house`) and the coordinates pre-fill
 src/icloud/srp.js        Apple's SRP-6a sign-in maths
 src/icloud/client.js     iCloud client: sign-in, 2FA (trusted devices / SMS), Find My calls
-src/tracker.js           AppleDeviceTracker: session, refresh, polls, health, ring
+src/tracker.js           AppleDeviceTracker: session, refresh, polls, health, ring (one account)
+src/fleet.js             TrackerFleet: one tracker per iCloud account (main + optional second)
 src/presence.js          distance (great circle) and home/away decision with accuracy
 src/devices/appleDevice.js  discovery payload and states of one device
 src/devices/index.js     device helpers
@@ -44,6 +45,17 @@ src/widgets.js           dashboard widgets
 ```
 
 ### Invariants worth knowing
+
+- **Two iCloud accounts** (Apple allows one family per person, so a person already in another
+  family is read through their own Apple ID): `apple_id_2` / `apple_password_2` /
+  `include_family_2` (off by default) / `icloud_session_2`. Each account is a full, unchanged
+  `AppleDeviceTracker` (`accountConfig()` maps its keys to the usual ones); `TrackerFleet` only
+  spans them: one catalog for both (each `publishDiscoveredDevices` replaces the Discover list),
+  device → account routing, a device both see is kept by the main account, "devices at home"
+  counted across both. External ids do not depend on the account. `index.js` keeps one problem
+  per account and shows them together (connected with a warning while one account works). With
+  the second account empty, every message stays as with a single account. The 2FA actions and
+  `forget_session` take an `account` field (`auto`/`all`, `main`, `second`).
 
 - **The iCloud session is stored in the Gladys config**, outside `config_schema`
   (`icloud_session`, JSON), with `gladys.setConfig()` — so a restart does not ask for a new

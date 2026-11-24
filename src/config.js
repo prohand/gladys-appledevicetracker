@@ -33,7 +33,84 @@ export const DEFAULT_CONFIG = {
   // Internal key, NOT in config_schema: the iCloud session (tokens + cookies)
   // saved with `setConfig` so a restart does not ask for a new 2FA code.
   icloud_session: '',
+  // An optional second iCloud account. Apple lets a person belong to ONE
+  // family only: someone already in another family (shared for Apple Music,
+  // for instance) cannot be added to the main account's family, so their
+  // devices are read through their own Apple ID instead. Left empty, nothing
+  // changes. Its family devices are off by default: the account is usually
+  // added for its own devices, and its family is often someone else's.
+  apple_id_2: '',
+  apple_password_2: '',
+  include_family_2: false,
+  icloud_session_2: '',
 };
+
+/** The iCloud accounts the integration can read, in priority order. */
+export const ACCOUNT = {
+  MAIN: 'main',
+  SECOND: 'second',
+};
+
+export const ACCOUNTS = [ACCOUNT.MAIN, ACCOUNT.SECOND];
+
+// Where each account keeps its values in the config.
+const ACCOUNT_KEYS = {
+  [ACCOUNT.MAIN]: {
+    apple_id: 'apple_id',
+    apple_password: 'apple_password',
+    include_family: 'include_family',
+    icloud_session: 'icloud_session',
+  },
+  [ACCOUNT.SECOND]: {
+    apple_id: 'apple_id_2',
+    apple_password: 'apple_password_2',
+    include_family: 'include_family_2',
+    icloud_session: 'icloud_session_2',
+  },
+};
+
+/** The config key holding the saved iCloud session of an account. */
+export function sessionKeyOf(account) {
+  return ACCOUNT_KEYS[account].icloud_session;
+}
+
+/**
+ * The config ONE account sees: the shared settings (home, radius, interval),
+ * with the credentials, the family flag and the session of that account under
+ * the usual keys. The tracker reads it as if it were the only account.
+ *
+ * @param {object} config a normalized config
+ * @param {string} account one of ACCOUNT
+ */
+export function accountConfig(config, account) {
+  const keys = ACCOUNT_KEYS[account];
+  return {
+    ...config,
+    apple_id: config[keys.apple_id],
+    apple_password: config[keys.apple_password],
+    include_family: config[keys.include_family],
+    icloud_session: config[keys.icloud_session],
+  };
+}
+
+/**
+ * Has the user started filling in the second account? The main one is always
+ * expected; the second one only once something was typed in its fields.
+ */
+export function hasSecondAccount(config) {
+  return config.apple_id_2.length > 0 || config.apple_password_2.length > 0;
+}
+
+/**
+ * The same Apple ID typed twice: two sessions of one account would fight over
+ * the same devices for nothing. Compared without case, as Apple does.
+ */
+export function sameAppleIdTwice(config) {
+  return (
+    config.apple_id_2.length > 0 &&
+    config.apple_id_2.toLowerCase() === config.apple_id.toLowerCase()
+  );
+}
 
 // Bounds mirrored from the manifest, applied here too: the form validates the
 // user input, but a config restored from an older version must not be able to
@@ -110,6 +187,11 @@ export function normalizeConfig(raw = {}) {
     // A checkbox arrives as a boolean; anything but an explicit false is true.
     include_family: raw.include_family !== false,
     icloud_session: String(raw.icloud_session ?? ''),
+    apple_id_2: String(raw.apple_id_2 ?? '').trim(),
+    apple_password_2: String(raw.apple_password_2 ?? ''),
+    // Off unless explicitly ticked (see DEFAULT_CONFIG).
+    include_family_2: raw.include_family_2 === true,
+    icloud_session_2: String(raw.icloud_session_2 ?? ''),
   };
 }
 
@@ -141,14 +223,17 @@ export function hasCredentials(config) {
 /**
  * True when the two configs describe the SAME iCloud account: used on a config
  * update to decide between "just re-publish the devices" and "sign in again".
+ * Compares the main account; pass the configs of one account (accountConfig)
+ * to compare that one.
  */
 export function sameAccount(a, b) {
   return a.apple_id === b.apple_id && a.apple_password === b.apple_password;
 }
 
-// Keys the user actually sets in the Configuration screen. `icloud_session` is
-// deliberately NOT one of them: the integration writes it itself, and that write
-// comes back as a config update — reacting to it would call Apple for nothing.
+// Keys the user actually sets in the Configuration screen, credentials apart
+// (see sameAccount). The sessions are deliberately NOT among them: the
+// integration writes them itself, and that write comes back as a config update
+// — reacting to it would call Apple for nothing.
 const SETTINGS_KEYS = [
   'home_house',
   'home_latitude',
@@ -157,6 +242,7 @@ const SETTINGS_KEYS = [
   'poll_frequency',
   'max_accuracy',
   'include_family',
+  'include_family_2',
 ];
 
 /** True when no user-facing setting changed between the two configs. */

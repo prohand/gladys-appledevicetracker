@@ -198,6 +198,36 @@ envía otro (primero por notificación, por SMS como alternativa) sin empezar de
 cero. Y si la notificación sigue sin aparecer en sus dispositivos, **Enviarme
 el código por SMS** lo fuerza a un número de teléfono de confianza.
 
+### Una segunda cuenta de iCloud (opcional)
+
+Apple solo permite pertenecer a **una familia**. Si alguien de su hogar ya está
+en otra familia — por ejemplo la creada para compartir una suscripción a Apple
+Music —, no puede unirse a la suya, así que sus dispositivos no aparecen con
+_Incluir los dispositivos de la familia_. La sección **Segunda cuenta de
+iCloud** de la Configuración resuelve este caso: introduzca **su propio ID de
+Apple** y su contraseña, y guarde.
+
+- Esta cuenta tiene **su propia autenticación de doble factor**: el código
+  llega a sus dispositivos. Las acciones **Enviar el código de doble factor**,
+  **Enviarme un nuevo código de doble factor** y **Enviarme el código por SMS**
+  tienen un campo **Cuenta**: deje _Automático_ (la cuenta que espera un código)
+  o elija _Segundo ID de Apple_.
+- Sus dispositivos aparecen en la pestaña Descubrir junto a los suyos, con las
+  mismas funciones (presencia, distancia, batería, sonido, escenas, widgets).
+  Los ajustes del hogar, del radio y del intervalo son comunes.
+- _Incluir los dispositivos de la familia de esta cuenta_ está **desactivado**
+  por defecto: esta cuenta se suele añadir por sus propios dispositivos.
+- Un dispositivo que ven las dos cuentas se lee **una sola vez**, con la cuenta
+  principal.
+- Cuando solo una de las dos cuentas tiene un problema (se pide un código,
+  Apple no responde), la integración sigue conectada y la pantalla de
+  Configuración indica la cuenta afectada.
+- **Olvidar la sesión guardada** olvida las dos cuentas, salvo si elige una en
+  su campo **Cuenta**.
+- Para dejar de usarla, vacíe los dos campos de la segunda cuenta y guarde: sus
+  dispositivos salen de la pestaña Descubrir y su sesión se borra. Los
+  dispositivos ya añadidos a Gladys se quedan: bórrelos a mano si hace falta.
+
 ## Ajustes avanzados
 
 - **Intervalo de actualización** (`poll_frequency`, 300 s por defecto): cada
@@ -307,7 +337,9 @@ Apple carga los dispositivos de la familia después de los suyos: pueden tardar
 unos minutos en llegar. El registro indica lo que devuelve Apple, por ejemplo
 «Family Sharing: Apple lists 3 member(s), 1 of them still loading». Un miembro
 que sigue en «loading» no comparte su ubicación; «no family member» significa
-que Apple no ve ningún miembro en esta cuenta.
+que Apple no ve ningún miembro en esta cuenta. Si
+esa persona ya está en otra familia, añada su cuenta como **segunda cuenta de
+iCloud** (vea más arriba).
 
 **No aparece ningún dispositivo**: compruebe que **Buscar mi iPhone** está
 activado en esos dispositivos (Ajustes → su nombre → Buscar). Un dispositivo

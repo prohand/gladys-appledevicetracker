@@ -203,6 +203,36 @@ secours) sans repartir de zéro. Et si la notification n'arrive toujours pas sur
 vos appareils, **M'envoyer le code par SMS** force l'envoi sur un numéro de
 confiance.
 
+### Un second compte iCloud (facultatif)
+
+Apple ne permet d'être que dans **une seule famille**. Si une personne du foyer
+est déjà dans une autre famille — par exemple celle créée pour partager un
+abonnement Apple Music — elle ne peut pas rejoindre la vôtre, et ses appareils
+n'apparaissent donc pas avec _Inclure les appareils de la famille_. La section
+**Second compte iCloud** de la Configuration règle ce cas : saisissez son
+**propre identifiant Apple** et son mot de passe, puis enregistrez.
+
+- Ce compte a **sa propre double authentification** : le code arrive sur ses
+  appareils à elle. Les actions **Envoyer le code de double authentification**,
+  **M'envoyer un nouveau code…** et **M'envoyer le code par SMS** ont un champ
+  **Compte** : laissez _Automatique_ (le compte qui attend un code) ou
+  choisissez _Second identifiant Apple_.
+- Ses appareils apparaissent dans l'onglet Découverte à côté des vôtres, avec
+  les mêmes fonctions (présence, distance, batterie, sonnerie, scènes, widgets).
+  Les réglages du domicile, du rayon et de l'intervalle sont communs.
+- _Inclure les appareils de la famille de ce compte_ est **décoché** par défaut :
+  ce compte est en général ajouté pour ses propres appareils.
+- Un appareil vu par les deux comptes n'est lu qu'**une fois**, par le compte
+  principal.
+- Quand un seul des deux comptes a un problème (code demandé, Apple ne répond
+  pas), l'intégration reste connectée et l'écran Configuration nomme le compte
+  concerné.
+- **Oublier la session enregistrée** oublie les deux comptes, sauf si vous en
+  choisissez un dans le champ **Compte**.
+- Pour arrêter, videz les deux champs du second compte et enregistrez : ses
+  appareils quittent l'onglet Découverte et sa session est effacée. Les
+  appareils déjà ajoutés à Gladys restent : supprimez-les à la main si besoin.
+
 ## Réglages avancés
 
 - **Intervalle de rafraîchissement** (`poll_frequency`, 300 s par défaut) :
@@ -300,7 +330,9 @@ Apple charge les appareils de la famille après les vôtres : ils peuvent mettre
 quelques minutes à arriver. Le journal indique ce qu'Apple renvoie, par exemple
 « Family Sharing: Apple lists 3 member(s), 1 of them still loading ». Un membre
 qui reste « loading » ne partage pas sa position ; « no family member » veut
-dire qu'Apple ne voit aucun membre pour ce compte.
+dire qu'Apple ne voit aucun membre pour ce compte. Si
+la personne est déjà dans une autre famille, ajoutez plutôt son compte comme
+**second compte iCloud** (voir plus haut).
 
 **Aucun appareil n'apparaît** : vérifiez que **Localiser mon iPhone** est
 activé sur les appareils concernés (Réglages → votre nom → Localiser). Un

@@ -204,6 +204,36 @@ vorne beginnen musst. Und wenn die Benachrichtigung auf deinen Geräten immer
 noch nicht erscheint, erzwingt **Code per SMS anfordern** den Versand an eine
 vertrauenswürdige Telefonnummer.
 
+### Ein zweiter iCloud-Account (optional)
+
+Apple erlaubt nur **eine Familie** pro Person. Ist jemand in deinem Haushalt
+schon in einer anderen Familie – zum Beispiel der, die für ein Apple-Music-Abo
+angelegt wurde –, kann er deiner nicht beitreten, und seine Geräte erscheinen
+daher nicht über _Geräte der Familie einbeziehen_. Der Abschnitt **Zweiter
+iCloud-Account** der Konfiguration löst das: Gib **seine eigene Apple-ID** und
+sein Passwort ein und speichere.
+
+- Dieser Account hat **seine eigene Zwei-Faktor-Authentifizierung**: Der Code
+  kommt auf seinen Geräten an. Die Aktionen **Zwei-Faktor-Code übermitteln**,
+  **Neuen Zwei-Faktor-Code anfordern** und **Code per SMS anfordern** haben ein
+  Feld **Account**: Lass _Automatisch_ (der Account, der auf einen Code wartet)
+  oder wähle _Zweite Apple-ID_.
+- Seine Geräte erscheinen im Tab „Entdecken“ neben deinen, mit denselben
+  Funktionen (Anwesenheit, Entfernung, Akku, Klingeln, Szenen, Widgets). Die
+  Einstellungen für Zuhause, Radius und Intervall gelten für beide.
+- _Geräte der Familie dieses Accounts einbeziehen_ ist standardmäßig **aus**:
+  Dieser Account wird meist für seine eigenen Geräte hinzugefügt.
+- Ein Gerät, das beide Accounts sehen, wird nur **einmal** gelesen, über den
+  Haupt-Account.
+- Hat nur einer der beiden Accounts ein Problem (Code nötig, Apple antwortet
+  nicht), bleibt die Integration verbunden, und der Konfigurationsbildschirm
+  nennt den betroffenen Account.
+- **Gespeicherte Sitzung vergessen** vergisst beide Accounts, außer du wählst
+  einen im Feld **Account**.
+- Zum Beenden leere beide Felder des zweiten Accounts und speichere: Seine
+  Geräte verschwinden aus „Entdecken“ und seine Sitzung wird gelöscht. Bereits
+  in Gladys hinzugefügte Geräte bleiben: Lösche sie bei Bedarf von Hand.
+
 ## Erweiterte Einstellungen
 
 - **Aktualisierungsintervall** (`poll_frequency`, standardmäßig 300 s): wie oft
@@ -317,7 +347,9 @@ der Familie nach deinen: Es kann ein paar Minuten dauern. Das Protokoll zeigt,
 was Apple liefert, zum Beispiel „Family Sharing: Apple lists 3 member(s), 1 of
 them still loading". Ein Mitglied, das „loading" bleibt, teilt seinen Standort
 nicht; „no family member" heißt, dass Apple für dieses Konto kein Mitglied
-sieht.
+sieht. Ist
+diese Person schon in einer anderen Familie, füge ihren Account stattdessen als
+**zweiten iCloud-Account** hinzu (siehe oben).
 
 **Kein Gerät erscheint**: Prüfe, ob **Mein iPhone suchen** auf diesen
 Geräten aktiviert ist (Einstellungen → dein Name → „Wo ist?“). Ein Gerät, das
