@@ -1,8 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  ACCOUNT,
   DEFAULT_CONFIG,
   GLADYS_POLL_FREQUENCIES_MS,
+  accountConfig,
+  hasSecondAccount,
+  sameAppleIdTwice,
+  sessionKeyOf,
   gladysPollFrequency,
   hasCredentials,
   normalizeConfig,
@@ -111,4 +116,71 @@ test('picking a home house is a setting change', () => {
 test('the Gladys poll ticks come from the SDK enum', () => {
   assert.deepEqual(GLADYS_POLL_FREQUENCIES_MS, [1000, 2000, 10000, 15000, 30000, 60000]);
   assert.equal(gladysPollFrequency(300), 60000);
+});
+
+test('the second account is optional and off until something is typed in it', () => {
+  const config = normalizeConfig({ apple_id: 'john@example.com', apple_password: 'x' });
+  assert.equal(hasSecondAccount(config), false);
+  assert.equal(config.include_family_2, false, 'its family is not read unless asked');
+  assert.equal(hasSecondAccount(normalizeConfig({ apple_id_2: '  jane@example.com ' })), true);
+  assert.equal(
+    normalizeConfig({ apple_id_2: '  jane@example.com ' }).apple_id_2,
+    'jane@example.com',
+  );
+  assert.equal(normalizeConfig({ include_family_2: true }).include_family_2, true);
+});
+
+test('accountConfig hands each account its own credentials, family flag and session', () => {
+  const config = normalizeConfig({
+    apple_id: 'john@example.com',
+    apple_password: 'a',
+    icloud_session: '{"s":1}',
+    apple_id_2: 'jane@example.com',
+    apple_password_2: 'b',
+    icloud_session_2: '{"s":2}',
+    home_radius: 300,
+  });
+
+  const main = accountConfig(config, ACCOUNT.MAIN);
+  const second = accountConfig(config, ACCOUNT.SECOND);
+
+  assert.deepEqual(
+    [main.apple_id, main.apple_password, main.include_family, main.icloud_session],
+    ['john@example.com', 'a', true, '{"s":1}'],
+  );
+  assert.deepEqual(
+    [second.apple_id, second.apple_password, second.include_family, second.icloud_session],
+    ['jane@example.com', 'b', false, '{"s":2}'],
+  );
+  assert.equal(second.home_radius, 300, 'the home settings are shared');
+  assert.equal(hasCredentials(second), true);
+  assert.equal(sessionKeyOf(ACCOUNT.MAIN), 'icloud_session');
+  assert.equal(sessionKeyOf(ACCOUNT.SECOND), 'icloud_session_2');
+});
+
+test('a change of the second account is told apart from one of the main account', () => {
+  const before = normalizeConfig({ apple_id: 'john@example.com', apple_password: 'a' });
+  const after = normalizeConfig({
+    ...before,
+    apple_id_2: 'jane@example.com',
+    apple_password_2: 'b',
+  });
+
+  assert.equal(
+    sameAccount(accountConfig(before, ACCOUNT.MAIN), accountConfig(after, ACCOUNT.MAIN)),
+    true,
+    'filling in the second account must not sign the main one out',
+  );
+  assert.equal(
+    sameAccount(accountConfig(before, ACCOUNT.SECOND), accountConfig(after, ACCOUNT.SECOND)),
+    false,
+  );
+  assert.equal(sameSettings(after, { ...after, icloud_session_2: '{}' }), true);
+  assert.equal(sameSettings(after, { ...after, include_family_2: true }), false);
+});
+
+test('the same Apple ID typed twice is spotted, whatever its case', () => {
+  const twice = normalizeConfig({ apple_id: 'John@example.com', apple_id_2: 'john@EXAMPLE.com' });
+  assert.equal(sameAppleIdTwice(twice), true);
+  assert.equal(sameAppleIdTwice(normalizeConfig({ apple_id: 'john@example.com' })), false);
 });

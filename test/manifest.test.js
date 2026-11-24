@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
-import { DEFAULT_CONFIG } from '../src/config.js';
+import { ACCOUNTS, DEFAULT_CONFIG } from '../src/config.js';
 import { SCENE_ACTION, SCENE_TRIGGER, positionOutputs, presenceEventData } from '../src/scenes.js';
 import { WIDGET, WIDGET_ACTION } from '../src/widgets.js';
 import { LANGUAGES } from '../src/i18n.js';
@@ -146,8 +146,10 @@ test('the credentials field is a secret, never a plain string', () => {
 
 test('the iCloud session is an internal key, kept out of the config_schema', () => {
   const keys = manifest.config_schema.map((f) => f.key);
-  assert.ok(!keys.includes('icloud_session'), 'the session must never be shown in the UI');
-  assert.ok('icloud_session' in DEFAULT_CONFIG);
+  for (const key of ['icloud_session', 'icloud_session_2']) {
+    assert.ok(!keys.includes(key), 'the session must never be shown in the UI');
+    assert.ok(key in DEFAULT_CONFIG);
+  }
 });
 
 test('dynamic selects declare a source and no static options', () => {
@@ -452,4 +454,31 @@ test('index.js pre-fills the home coordinates from the Gladys house', () => {
   assert.ok(indexSource.includes('fetchGladysHomeCoordinates'));
   const home = manifest.config_schema.find((f) => f.key === 'home');
   assert.match(home.description.en, /pre-filled/i);
+});
+
+test('the second account is optional, with its password as a secret', () => {
+  const field = (key) => manifest.config_schema.find((f) => f.key === key);
+  assert.equal(field('apple_id_2').type, 'string');
+  assert.equal(field('apple_id_2').required, false, 'most users have one account');
+  assert.equal(field('apple_password_2').type, 'secret');
+  assert.equal(field('apple_password_2').required, false);
+  assert.equal(field('include_family_2').default, false);
+});
+
+test('the account picked in an action is one index.js knows', () => {
+  // `auto` and `all` are the defaults (anything that is not an account);
+  // `main` and `second` are the ACCOUNT values the handlers compare against.
+  const known = { auto: true, all: true, ...Object.fromEntries(ACCOUNTS.map((a) => [a, true])) };
+  const actions = ['submit_2fa_code', 'resend_2fa_code', 'send_2fa_code_by_sms', 'forget_session'];
+  for (const key of actions) {
+    const action = manifest.actions.find((a) => a.key === key);
+    const field = action.fields.find((f) => f.key === 'account');
+    assert.ok(field, `${key} lets the user pick the account`);
+    assert.equal(field.required, false, 'an older Gladys sends no value: the default applies');
+    assert.ok(field.options.some((option) => option.value === field.default));
+    for (const option of field.options) {
+      assert.ok(known[option.value], `${key}: unknown account "${option.value}"`);
+    }
+  }
+  assert.ok(indexSource.includes('fields.account'));
 });

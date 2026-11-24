@@ -268,6 +268,80 @@
       },
       "required": false,
       "default": true
+    },
+    {
+      "key": "second_account",
+      "type": "section",
+      "label": {
+        "en": "Second iCloud account (optional)",
+        "fr": "Second compte iCloud (facultatif)",
+        "de": "Zweiter iCloud-Account (optional)",
+        "es": "Segunda cuenta de iCloud (opcional)"
+      },
+      "description": {
+        "en": "Apple lets a person belong to one family only. If someone in your home is already in another family (for Apple Music, for instance), their devices cannot appear through \"Include family devices\": enter their own Apple ID here instead. Leave empty if you do not need it. This account has its own two-factor code: in the actions below, pick \"Second Apple ID\" (or leave \"Automatic\"). A device both accounts see is read through the main one.",
+        "fr": "Apple ne permet d'etre que dans une seule famille. Si une personne du foyer est deja dans une autre famille (pour Apple Music, par exemple), ses appareils ne peuvent pas apparaitre via \"Inclure les appareils de la famille\" : saisissez plutot son propre identifiant Apple ici. Laissez vide si vous n'en avez pas besoin. Ce compte a son propre code de double authentification : dans les actions ci-dessous, choisissez \"Second identifiant Apple\" (ou laissez \"Automatique\"). Un appareil vu par les deux comptes est lu par le compte principal.",
+        "de": "Apple erlaubt nur eine Familie pro Person. Ist jemand in deinem Haushalt schon in einer anderen Familie (zum Beispiel für Apple Music), können seine Geräte nicht über „Geräte der Familie einbeziehen“ erscheinen: Gib stattdessen hier seine eigene Apple-ID ein. Leer lassen, wenn du ihn nicht brauchst. Dieser Account hat seinen eigenen Zwei-Faktor-Code: Wähle in den Aktionen unten „Zweite Apple-ID“ (oder lass „Automatisch“). Ein Gerät, das beide Accounts sehen, wird über den Haupt-Account gelesen.",
+        "es": "Apple solo permite pertenecer a una familia. Si alguien de su hogar ya está en otra familia (para Apple Music, por ejemplo), sus dispositivos no pueden aparecer con \"Incluir los dispositivos de la familia\": introduzca aquí su propio ID de Apple. Déjelo vacío si no lo necesita. Esta cuenta tiene su propio código de doble factor: en las acciones de abajo, elija \"Segundo ID de Apple\" (o deje \"Automático\"). Un dispositivo que ven las dos cuentas se lee con la cuenta principal."
+      }
+    },
+    {
+      "key": "apple_id_2",
+      "type": "string",
+      "label": {
+        "en": "Second Apple ID",
+        "fr": "Second identifiant Apple",
+        "de": "Zweite Apple-ID",
+        "es": "Segundo ID de Apple"
+      },
+      "description": {
+        "en": "The email address of the other iCloud account. Empty: only the main account is read.",
+        "fr": "L'adresse e-mail de l'autre compte iCloud. Vide : seul le compte principal est lu.",
+        "de": "Die E-Mail-Adresse des anderen iCloud-Accounts. Leer: Nur der Haupt-Account wird gelesen.",
+        "es": "La dirección de correo de la otra cuenta de iCloud. Vacío: solo se lee la cuenta principal."
+      },
+      "placeholder": {
+        "en": "jane@example.com",
+        "fr": "marie@exemple.com",
+        "de": "erika@beispiel.de",
+        "es": "maria@ejemplo.com"
+      },
+      "required": false
+    },
+    {
+      "key": "apple_password_2",
+      "type": "secret",
+      "label": {
+        "en": "Second Apple ID password",
+        "fr": "Mot de passe du second identifiant",
+        "de": "Passwort der zweiten Apple-ID",
+        "es": "Contraseña del segundo ID de Apple"
+      },
+      "description": {
+        "en": "Stored encrypted by Gladys and only sent to Apple. Changing it forces a new sign-in of this account only.",
+        "fr": "Stocke chiffre par Gladys et envoye uniquement a Apple. Le modifier force une nouvelle connexion de ce compte seulement.",
+        "de": "Von Gladys verschlüsselt gespeichert und nur an Apple gesendet. Eine Änderung erzwingt nur bei diesem Account eine neue Anmeldung.",
+        "es": "Gladys la guarda cifrada y solo la envía a Apple. Cambiarla obliga a iniciar sesión de nuevo solo en esta cuenta."
+      },
+      "required": false
+    },
+    {
+      "key": "include_family_2",
+      "type": "boolean",
+      "label": {
+        "en": "Include the family devices of this account",
+        "fr": "Inclure les appareils de la famille de ce compte",
+        "de": "Geräte der Familie dieses Accounts einbeziehen",
+        "es": "Incluir los dispositivos de la familia de esta cuenta"
+      },
+      "description": {
+        "en": "Off by default: this account is usually added for its own devices.",
+        "fr": "Desactive par defaut : ce compte est en general ajoute pour ses propres appareils.",
+        "de": "Standardmäßig aus: Dieser Account wird meist für seine eigenen Geräte hinzugefügt.",
+        "es": "Desactivado por defecto: esta cuenta se suele añadir por sus propios dispositivos."
+      },
+      "required": false,
+      "default": false
     }
   ],
   "actions": [
@@ -297,6 +371,47 @@
             "es": "123456"
           },
           "required": true
+        },
+        {
+          "key": "account",
+          "type": "select",
+          "label": {
+            "en": "Account",
+            "fr": "Compte",
+            "de": "Account",
+            "es": "Cuenta"
+          },
+          "options": [
+            {
+              "value": "auto",
+              "label": {
+                "en": "Automatic (the account waiting for a code)",
+                "fr": "Automatique (le compte qui attend un code)",
+                "de": "Automatisch (der Account, der auf einen Code wartet)",
+                "es": "Automático (la cuenta que espera un código)"
+              }
+            },
+            {
+              "value": "main",
+              "label": {
+                "en": "Main Apple ID",
+                "fr": "Identifiant Apple principal",
+                "de": "Haupt-Apple-ID",
+                "es": "ID de Apple principal"
+              }
+            },
+            {
+              "value": "second",
+              "label": {
+                "en": "Second Apple ID",
+                "fr": "Second identifiant Apple",
+                "de": "Zweite Apple-ID",
+                "es": "Segundo ID de Apple"
+              }
+            }
+          ],
+          "required": false,
+          "default": "auto"
         }
       ]
     },
@@ -308,7 +423,50 @@
         "de": "Neuen Zwei-Faktor-Code anfordern",
         "es": "Enviarme un nuevo código de doble factor"
       },
-      "timeout_seconds": 60
+      "timeout_seconds": 60,
+      "fields": [
+        {
+          "key": "account",
+          "type": "select",
+          "label": {
+            "en": "Account",
+            "fr": "Compte",
+            "de": "Account",
+            "es": "Cuenta"
+          },
+          "options": [
+            {
+              "value": "auto",
+              "label": {
+                "en": "Automatic (the account waiting for a code)",
+                "fr": "Automatique (le compte qui attend un code)",
+                "de": "Automatisch (der Account, der auf einen Code wartet)",
+                "es": "Automático (la cuenta que espera un código)"
+              }
+            },
+            {
+              "value": "main",
+              "label": {
+                "en": "Main Apple ID",
+                "fr": "Identifiant Apple principal",
+                "de": "Haupt-Apple-ID",
+                "es": "ID de Apple principal"
+              }
+            },
+            {
+              "value": "second",
+              "label": {
+                "en": "Second Apple ID",
+                "fr": "Second identifiant Apple",
+                "de": "Zweite Apple-ID",
+                "es": "Segundo ID de Apple"
+              }
+            }
+          ],
+          "required": false,
+          "default": "auto"
+        }
+      ]
     },
     {
       "key": "send_2fa_code_by_sms",
@@ -318,7 +476,50 @@
         "de": "Code per SMS anfordern",
         "es": "Enviarme el código por SMS"
       },
-      "timeout_seconds": 60
+      "timeout_seconds": 60,
+      "fields": [
+        {
+          "key": "account",
+          "type": "select",
+          "label": {
+            "en": "Account",
+            "fr": "Compte",
+            "de": "Account",
+            "es": "Cuenta"
+          },
+          "options": [
+            {
+              "value": "auto",
+              "label": {
+                "en": "Automatic (the account waiting for a code)",
+                "fr": "Automatique (le compte qui attend un code)",
+                "de": "Automatisch (der Account, der auf einen Code wartet)",
+                "es": "Automático (la cuenta que espera un código)"
+              }
+            },
+            {
+              "value": "main",
+              "label": {
+                "en": "Main Apple ID",
+                "fr": "Identifiant Apple principal",
+                "de": "Haupt-Apple-ID",
+                "es": "ID de Apple principal"
+              }
+            },
+            {
+              "value": "second",
+              "label": {
+                "en": "Second Apple ID",
+                "fr": "Second identifiant Apple",
+                "de": "Zweite Apple-ID",
+                "es": "Segundo ID de Apple"
+              }
+            }
+          ],
+          "required": false,
+          "default": "auto"
+        }
+      ]
     },
     {
       "key": "refresh_home_location",
@@ -348,7 +549,50 @@
         "de": "Gespeicherte Sitzung vergessen",
         "es": "Olvidar la sesión guardada"
       },
-      "timeout_seconds": 30
+      "timeout_seconds": 30,
+      "fields": [
+        {
+          "key": "account",
+          "type": "select",
+          "label": {
+            "en": "Account",
+            "fr": "Compte",
+            "de": "Account",
+            "es": "Cuenta"
+          },
+          "options": [
+            {
+              "value": "all",
+              "label": {
+                "en": "Both accounts",
+                "fr": "Les deux comptes",
+                "de": "Beide Accounts",
+                "es": "Las dos cuentas"
+              }
+            },
+            {
+              "value": "main",
+              "label": {
+                "en": "Main Apple ID",
+                "fr": "Identifiant Apple principal",
+                "de": "Haupt-Apple-ID",
+                "es": "ID de Apple principal"
+              }
+            },
+            {
+              "value": "second",
+              "label": {
+                "en": "Second Apple ID",
+                "fr": "Second identifiant Apple",
+                "de": "Zweite Apple-ID",
+                "es": "Segundo ID de Apple"
+              }
+            }
+          ],
+          "required": false,
+          "default": "all"
+        }
+      ]
     },
     {
       "key": "identify",

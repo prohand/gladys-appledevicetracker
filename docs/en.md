@@ -189,6 +189,34 @@ another one (push first, SMS as a fallback) without starting over. And when the
 notification still does not show up on your devices, **Send me the code by SMS**
 forces it to a trusted phone number.
 
+### A second iCloud account (optional)
+
+Apple lets a person belong to **one family only**. If someone in your home is
+already in another family — for instance the one set up to share an Apple Music
+subscription — they cannot join yours, so their devices do not show up with
+_Include family devices_. The **Second iCloud account** section of the
+Configuration covers that case: enter **their own Apple ID** and password, then
+save.
+
+- This account has **its own two-factor authentication**: the code arrives on
+  their devices. The **Send the two-factor code**, **Send me a new two-factor
+  code** and **Send me the code by SMS** actions have an **Account** field: leave
+  _Automatic_ (the account waiting for a code) or pick _Second Apple ID_.
+- Its devices show up in the Discover tab next to yours, with the same features
+  (presence, distance, battery, ring, scenes, widgets). The home, radius and
+  interval settings are shared.
+- _Include the family devices of this account_ is **off** by default: this
+  account is usually added for its own devices.
+- A device both accounts see is read **once**, through the main account.
+- When only one of the two accounts has a problem (a code is needed, Apple does
+  not answer), the integration stays connected and the Configuration screen
+  names the account concerned.
+- **Forget the saved session** forgets both accounts, unless you pick one in
+  its **Account** field.
+- To stop, empty both fields of the second account and save: its devices leave
+  the Discover tab and its session is deleted. Devices already added to Gladys
+  stay: delete them by hand if needed.
+
 ## Advanced settings
 
 - **Refresh interval** (`poll_frequency`, 300 s by default): how often the
@@ -290,7 +318,9 @@ your name → Family → Location Sharing). Apple loads the family's devices aft
 yours: they can take a few minutes to arrive. The log says what Apple returns,
 for example "Family Sharing: Apple lists 3 member(s), 1 of them still loading".
 A member who stays "loading" does not share their location; "no family member"
-means Apple sees no member for this account.
+means Apple sees no member for this account. If
+that person is already in another family, add their account as a **second
+iCloud account** instead (see above).
 
 **No device shows up**: check that **Find My iPhone** is enabled on those
 devices (Settings → your name → Find My). A device that has been off or offline

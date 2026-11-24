@@ -31,6 +31,7 @@ import {
 import { SCENE_TRIGGER, presenceEventData } from './scenes.js';
 import { WIDGET } from './widgets.js';
 
+// The logger of a tracker used alone (one account), and of the main account.
 const logger = createLogger({ name: 'tracker' });
 
 // Never call Apple more often than this, whatever Gladys asks: Find My is rate
@@ -129,10 +130,21 @@ export class AppleDeviceTracker {
   /**
    * @param {object} gladys the SDK instance
    * @param {{ createClient?: Function, now?: () => number, setTimeout?: Function,
-   *   clearTimeout?: Function }} [deps] injected in tests
+   *   clearTimeout?: Function, sessionKey?: string, fleet?: object,
+   *   logger?: object }} [deps] injected in tests; `sessionKey`, `fleet` and
+   *   `logger` are set by the TrackerFleet (src/fleet.js) when several iCloud
+   *   accounts are read side by side
    */
   constructor(gladys, deps = {}) {
     this.gladys = gladys;
+    /** The config key the iCloud session of this account is saved under. */
+    this.sessionKey = deps.sessionKey ?? 'icloud_session';
+    /**
+     * The trackers of the other accounts, when there are several: the catalog,
+     * the device ownership and the "devices at home" count span all of them.
+     */
+    this.fleet = deps.fleet ?? null;
+    this.logger = deps.logger ?? logger;
     this.createClient = deps.createClient ?? ((options) => new ICloudClient(options));
     this.now = deps.now ?? (() => Date.now());
     this.setTimeout = deps.setTimeout ?? setTimeout;
@@ -223,7 +235,7 @@ export class AppleDeviceTracker {
       try {
         session = JSON.parse(config.icloud_session);
       } catch {
-        logger.warn('The saved iCloud session is unreadable, signing in from scratch');
+        this.logger.warn('The saved iCloud session is unreadable, signing in from scratch');
       }
     }
 
@@ -277,7 +289,7 @@ export class AppleDeviceTracker {
       START_RETRY_DELAYS_MS[Math.min(this.startRetries, START_RETRY_DELAYS_MS.length - 1)];
     this.startRetries += 1;
     this.startRetryDelay = delay;
-    logger.warn(
+    this.logger.warn(
       `Signing in to iCloud failed (${err.message}): next attempt in ${delay / 60000} min`,
     );
     this.startRetryTimer = this.setTimeout(() => this.runStartRetry(), delay);
@@ -293,7 +305,7 @@ export class AppleDeviceTracker {
       await (this.onStartRetry ? this.onStartRetry() : this.start(this.config));
     } catch (err) {
       // start() has already scheduled the next attempt when it is worth one.
-      logger.error('Signing in to iCloud failed again', err);
+      this.logger.error('Signing in to iCloud failed again', err);
     }
   }
 
@@ -331,7 +343,7 @@ export class AppleDeviceTracker {
     this.stopPolling();
     const interval = Math.max(MIN_REFRESH_INTERVAL_MS, this.config.poll_frequency * 1000);
     this.pollTimer = setInterval(() => {
-      this.tick().catch((err) => logger.error('Scheduled refresh failed', err));
+      this.tick().catch((err) => this.logger.error('Scheduled refresh failed', err));
     }, interval);
     // A timer must never be the reason the process stays alive.
     this.pollTimer.unref?.();
@@ -381,7 +393,7 @@ export class AppleDeviceTracker {
     try {
       await this.onHealth(code, error);
     } catch (err) {
-      logger.error('Reporting the integration health failed', err);
+      this.logger.error('Reporting the integration health failed', err);
     }
   }
 
@@ -399,7 +411,7 @@ export class AppleDeviceTracker {
     if (this.config) {
       this.config.icloud_session = serialized;
     }
-    await this.gladys.setConfig({ icloud_session: serialized });
+    await this.gladys.setConfig({ [this.sessionKey]: serialized });
   }
 
   /** Apply a config change that does not require signing in again. */
@@ -517,7 +529,7 @@ export class AppleDeviceTracker {
       return;
     }
     if (force && this.firstPollCoversCreation(externalId)) {
-      logger.debug(`Device ${externalId} already got its values from its first poll`);
+      this.logger.debug(`Device ${externalId} already got its values from its first poll`);
       return;
     }
     this.polledDevices.add(externalId);
@@ -529,7 +541,7 @@ export class AppleDeviceTracker {
       device = this.findByExternalId(externalId);
     }
     if (!device) {
-      logger.warn(`Device ${externalId} is not in the Find My list: no state to publish`);
+      this.logger.warn(`Device ${externalId} is not in the Find My list: no state to publish`);
       return;
     }
 
@@ -592,7 +604,7 @@ export class AppleDeviceTracker {
     try {
       await this.gladys.getDevices();
     } catch (err) {
-      logger.warn(`Reading the devices created in Gladys failed: ${err.message}`);
+      this.logger.warn(`Reading the devices created in Gladys failed: ${err.message}`);
     }
 
     const known = Array.isArray(this.gladys.devices) ? this.gladys.devices : [];
@@ -735,7 +747,7 @@ export class AppleDeviceTracker {
     }
     this.lastFullSignInAt = this.now();
     this.inflightSignIn = (async () => {
-      logger.info('The iCloud session expired, signing in again');
+      this.logger.info('The iCloud session expired, signing in again');
       const result = await this.client.login({ force: true });
       if (result === LOGIN_STATUS.TWO_FACTOR_REQUIRED) {
         await this.setStatus(TRACKER_STATUS.TWO_FACTOR_REQUIRED);
@@ -761,13 +773,19 @@ export class AppleDeviceTracker {
       this.client.fetchDevices({ includeFamily: this.config.include_family }),
     );
 
-    this.devices = normalizeAppleDevices(rawDevices);
+    // A device another account already reports (the same iPhone seen through
+    // the family of one account and the Apple ID of another) is left to that
+    // account: two trackers publishing on one device would fight over its
+    // presence and fire every arrival twice.
+    this.devices = normalizeAppleDevices(rawDevices).filter(
+      (device) => !this.fleet?.claimedElsewhere(this, device.id),
+    );
     this.keepLastKnownLocations();
     this.keepLastKnownBattery();
     this.reportChargingGaps();
     // Only on success: a failed call must not hold the next tick back.
     this.lastRefreshAt = startedAt;
-    logger.info(`Find My returned ${this.devices.length} device(s)`);
+    this.logger.info(`Find My returned ${this.devices.length} device(s)`);
 
     // A device added to (or removed from) the account shows up here: re-publish
     // the catalog first, so the states below always land on an existing device.
@@ -856,14 +874,14 @@ export class AppleDeviceTracker {
       if (device.charging === null) {
         if (!this.chargingGapsReported.has(device.id)) {
           this.chargingGapsReported.add(device.id);
-          logger.info(
+          this.logger.info(
             `${device.name}: Find My reports no charging state ` +
               `(batteryStatus: ${device.batteryStatus ?? 'absent'}), ` +
               'so the Charging feature stays empty',
           );
         }
       } else if (this.chargingGapsReported.delete(device.id)) {
-        logger.info(`${device.name}: Apple is reporting the charging state again`);
+        this.logger.info(`${device.name}: Apple is reporting the charging state again`);
       }
     }
   }
@@ -906,7 +924,9 @@ export class AppleDeviceTracker {
   featureExists(device, features, featureId) {
     if (!features || features.has(featureId)) {
       if (this.missingFeatures.delete(featureId)) {
-        logger.info(`${device.name}: the feature ${featureId} exists now, publishing it again`);
+        this.logger.info(
+          `${device.name}: the feature ${featureId} exists now, publishing it again`,
+        );
       }
       return true;
     }
@@ -916,7 +936,7 @@ export class AppleDeviceTracker {
     this.gladys.forgetPublishedStates(featureId);
     if (!this.missingFeatures.has(featureId)) {
       this.missingFeatures.add(featureId);
-      logger.warn(
+      this.logger.warn(
         `${device.name}: Gladys has no feature ${featureId}, so its value is dropped. ` +
           'Open the Discover tab of the integration and click Update on this device.',
       );
@@ -955,11 +975,11 @@ export class AppleDeviceTracker {
       const features = this.gladysFeatures(deviceExternalId(this.gladys, device.id));
 
       if (result.ignored) {
-        logger.debug(`${device.name}: position ignored (too vague or missing)`);
+        this.logger.debug(`${device.name}: position ignored (too vague or missing)`);
       }
       if (result.presence !== null) {
         if (result.presence !== wasPresent) {
-          logger.info(`${device.name} is now ${result.presence ? 'at home' : 'away'}`);
+          this.logger.info(`${device.name} is now ${result.presence ? 'at home' : 'away'}`);
           // A first reading is not a move: after a restart, every phone at
           // home would otherwise "arrive" again.
           if (wasPresent !== null) {
@@ -1016,9 +1036,8 @@ export class AppleDeviceTracker {
     if (moves.length === 0) {
       return;
     }
-    const devicesAtHome = this.createdDevices().filter(
-      (device) => this.presence.get(device.id) === true,
-    ).length;
+    // Across every account: "the last one out" is about the whole house.
+    const devicesAtHome = this.fleet ? this.fleet.devicesAtHome() : this.devicesAtHome();
     for (const device of moves) {
       const externalId = deviceExternalId(this.gladys, device.id);
       if (!this.isCreated(externalId)) {
@@ -1051,18 +1070,18 @@ export class AppleDeviceTracker {
     }
     try {
       await this.gladys.publishSceneEvent(key, data);
-      logger.debug(`Scene event ${key} sent`);
+      this.logger.debug(`Scene event ${key} sent`);
     } catch (err) {
       if (err?.status === 404) {
         if (!this.sceneEventsRefused) {
           this.sceneEventsRefused = true;
-          logger.warn(
+          this.logger.warn(
             `Gladys does not know the scene trigger "${key}": scene triggers need Gladys 5.1 or later`,
           );
         }
         return;
       }
-      logger.error(`Sending the scene event ${key} failed`, err);
+      this.logger.error(`Sending the scene event ${key} failed`, err);
     }
   }
 
@@ -1080,7 +1099,7 @@ export class AppleDeviceTracker {
       try {
         this.gladys.requestWidgetRefresh(key);
       } catch (err) {
-        logger.debug(`Widget refresh of ${key} not sent: ${err.message}`);
+        this.logger.debug(`Widget refresh of ${key} not sent: ${err.message}`);
       }
     }
   }
@@ -1090,8 +1109,22 @@ export class AppleDeviceTracker {
     return buildDiscoveredDevices(this.gladys, this.config, this.devices);
   }
 
-  /** Publish the discovered devices to Gladys. */
+  /** How many of the devices created in Gladys this account sees at home. */
+  devicesAtHome() {
+    return this.createdDevices().filter((device) => this.presence.get(device.id) === true).length;
+  }
+
+  /**
+   * Publish the discovered devices to Gladys.
+   *
+   * With several accounts, the catalog is the devices of ALL of them: each
+   * publication replaces the list of the Discover tab, so one account must not
+   * wipe out the devices of the other.
+   */
   async publishDiscoveredDevices() {
+    if (this.fleet) {
+      return this.fleet.publishDiscoveredDevices();
+    }
     if (this.devices.length === 0) {
       return;
     }

@@ -6,6 +6,22 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- An optional **second iCloud account**. Apple lets a person belong to one family only: someone
+  already in another family (shared for Apple Music, for instance) cannot appear through
+  "Include family devices", so their devices are now read through their own Apple ID. Its own
+  two-factor code, its devices next to yours in the Discover tab, a device both accounts see read
+  once (by the main account), and a Configuration screen that names the account with a problem
+  while the other one keeps working.
+- An **Account** field on the two-factor actions ("Automatic" by default: the account waiting for
+  a code) and on "Forget the saved session" (both accounts by default).
+
+### Changed
+
+- After "Forget the saved session", the Configuration screen says the integration is signed out
+  instead of asking for the Apple ID and password.
+
 ## [2.6.4] - 2026-11-16
 
 - Maintenance release, no functional change.

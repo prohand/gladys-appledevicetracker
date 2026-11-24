@@ -16,14 +16,20 @@
 
 import { GladysIntegration, logger } from '@gladysassistant/integration-sdk';
 import {
+  ACCOUNT,
+  ACCOUNTS,
+  accountConfig,
   hasCredentials,
   hasHomeCoordinates,
+  hasSecondAccount,
   normalizeConfig,
   sameAccount,
+  sameAppleIdTwice,
   sameSettings,
 } from './src/config.js';
 import { applyHomeHouse, fetchGladysHomeCoordinates } from './src/homeLocation.js';
-import { AppleDeviceTracker, TRACKER_HEALTH, TRACKER_STATUS } from './src/tracker.js';
+import { TrackerFleet } from './src/fleet.js';
+import { TRACKER_HEALTH, TRACKER_STATUS } from './src/tracker.js';
 import { normalizeMessage, positionOutputs } from './src/scenes.js';
 import { WIDGET_ACTION, buildDeviceWidget, buildPresenceWidget, widgetTtl } from './src/widgets.js';
 import { localize } from './src/i18n.js';
@@ -37,7 +43,8 @@ process.on('unhandledRejection', (reason) => {
 });
 
 const gladys = new GladysIntegration();
-const tracker = new AppleDeviceTracker(gladys);
+// One tracker per iCloud account (the second one is optional): see src/fleet.js.
+const fleet = new TrackerFleet(gladys);
 
 // Current configuration (hot-reloaded via onConfigUpdated).
 let config = normalizeConfig();
@@ -48,10 +55,12 @@ let config = normalizeConfig();
 // the user must know their pick is not the one in force.
 let homeWarning = null;
 
-/** Report the integration as connected, with the home warning when there is one. */
-function reportConnected() {
-  return gladys.setConnectionStatus(true, homeWarning ?? undefined);
-}
+/**
+ * What is wrong with each account, as the message the Configuration screen
+ * shows (null: nothing). Gladys has ONE connection status for the integration,
+ * so the accounts are put together by reportStatus().
+ */
+const problems = { [ACCOUNT.MAIN]: null, [ACCOUNT.SECOND]: null };
 
 const MESSAGES = {
   missingCredentials: {
@@ -78,7 +87,149 @@ const MESSAGES = {
     de: 'Die Werte wurden seit einer Weile nicht aktualisiert: Prüfe die Verbindung mit „iCloud-Verbindung testen“.',
     es: 'Los valores no se actualizan desde hace un rato: compruebe la conexión con "Probar la conexión con iCloud".',
   },
+  sameAppleId: {
+    en: 'It is the same as the main Apple ID: enter another account, or empty these fields.',
+    fr: "C'est le meme que l'identifiant principal : saisissez un autre compte, ou videz ces champs.",
+    de: 'Sie ist dieselbe wie die Haupt-Apple-ID: Gib einen anderen Account ein oder leere diese Felder.',
+    es: 'Es el mismo que el ID de Apple principal: introduzca otra cuenta o vacíe estos campos.',
+  },
+  signedOut: {
+    en: 'Signed out: use "Test the iCloud connection" to sign in again.',
+    fr: 'Deconnecte : utilisez "Tester la connexion iCloud" pour vous reconnecter.',
+    de: 'Abgemeldet: Verwende „iCloud-Verbindung testen“, um dich erneut anzumelden.',
+    es: 'Sesión cerrada: use "Probar la conexión con iCloud" para volver a iniciar sesión.',
+  },
 };
+
+// How the messages name an account, once there are two of them.
+const ACCOUNT_LABELS = {
+  [ACCOUNT.MAIN]: {
+    en: 'Main Apple ID',
+    fr: 'Identifiant Apple principal',
+    de: 'Haupt-Apple-ID',
+    es: 'ID de Apple principal',
+  },
+  [ACCOUNT.SECOND]: {
+    en: 'Second Apple ID',
+    fr: 'Second identifiant Apple',
+    de: 'Zweite Apple-ID',
+    es: 'Segundo ID de Apple',
+  },
+};
+
+/** The accounts in use: the main one, and the second one once filled in. */
+function activeAccounts() {
+  return hasSecondAccount(config) ? ACCOUNTS : [ACCOUNT.MAIN];
+}
+
+/**
+ * A message about one account, prefixed with the account it is about when two
+ * are in use. With one account the messages stay exactly as they always were.
+ *
+ * @param {string} account one of ACCOUNT
+ * @param {Record<string, string>} message a multi-language message
+ */
+function aboutAccount(account, message) {
+  if (activeAccounts().length < 2) {
+    return message;
+  }
+  return localize(
+    (lang) =>
+      `${ACCOUNT_LABELS[account][lang]}${lang === 'fr' ? ' : ' : ': '}${message[lang] ?? message.en}`,
+  );
+}
+
+/** Several multi-language messages as one. */
+function joinMessages(messages) {
+  return localize((lang) => messages.map((message) => message[lang] ?? message.en).join(' '));
+}
+
+/**
+ * Show in the Configuration screen where the accounts stand.
+ *
+ * Connected as long as one account is being read: its values are live, and
+ * what is wrong with the other one is shown as a warning beside it (with the
+ * home warning, when the picked house gives no position). Never rejects:
+ * failing to TELL the user must not become a second problem.
+ */
+async function reportStatus() {
+  const accounts = activeAccounts();
+  const issues = accounts
+    .filter((account) => problems[account])
+    .map((account) => aboutAccount(account, problems[account]));
+  const working = accounts.some(
+    (account) => !problems[account] && fleet.tracker(account).isConnected(),
+  );
+  try {
+    if (issues.length === 0) {
+      await gladys.setConnectionStatus(true, homeWarning ?? undefined);
+    } else if (working) {
+      await gladys.setConnectionStatus(
+        true,
+        joinMessages([...issues, homeWarning].filter(Boolean)),
+      );
+    } else {
+      await gladys.setConnectionStatus(false, joinMessages(issues));
+    }
+  } catch (err) {
+    logger.error('setConnectionStatus failed', err);
+  }
+}
+
+/**
+ * Record what is wrong with one account, log it, and show it.
+ *
+ * @param {string} account one of ACCOUNT
+ * @param {Record<string, string>|null} message null when the account is fine
+ * @param {Error} [err] the error behind it, for the logs
+ */
+async function setProblem(account, message, err) {
+  if (message && err) {
+    logger.error(aboutAccount(account, message).en, err);
+  }
+  problems[account] = message;
+  await reportStatus();
+}
+
+/** "iCloud connection failed", with the next automatic attempt when there is one. */
+function connectionFailedMessage(err, minutes) {
+  return {
+    en:
+      `iCloud connection failed: ${err.message}` +
+      (minutes ? `. Next attempt in ${minutes} min.` : ''),
+    fr:
+      `Connexion a iCloud impossible : ${err.message}` +
+      (minutes ? `. Nouvel essai dans ${minutes} min.` : ''),
+    de:
+      `Verbindung zu iCloud fehlgeschlagen: ${err.message}` +
+      (minutes ? `. Nächster Versuch in ${minutes} Min.` : ''),
+    es:
+      `No se ha podido conectar con iCloud: ${err.message}` +
+      (minutes ? `. Próximo intento en ${minutes} min.` : ''),
+  };
+}
+
+/**
+ * The account an action is about. `main` and `second` are the user's choice;
+ * anything else (the "automatic" default, or an older Gladys that sends no
+ * field) picks the account waiting for a two-factor code, the main one first.
+ *
+ * @param {unknown} choice the `account` field of the action
+ */
+function pickAccount(choice) {
+  const accounts = activeAccounts();
+  if (choice === ACCOUNT.SECOND && !accounts.includes(ACCOUNT.SECOND)) {
+    throw new Error('No second Apple ID is filled in the configuration.');
+  }
+  if (ACCOUNTS.includes(choice)) {
+    return choice;
+  }
+  const waiting =
+    accounts.find(
+      (account) => fleet.tracker(account).status === TRACKER_STATUS.TWO_FACTOR_REQUIRED,
+    ) ?? accounts.find((account) => !fleet.tracker(account).isConnected());
+  return waiting ?? ACCOUNT.MAIN;
+}
 
 /**
  * The "waiting for the code" message, naming the destination Apple confirmed
@@ -161,16 +312,6 @@ function describeDevice(device, lang) {
   return `${device.name} (${parts.join(', ')})`;
 }
 
-/** Report a failure both in the logs and in the Configuration screen. */
-async function reportFailure(message, err) {
-  if (err) {
-    logger.error(message.en, err);
-  }
-  await gladys
-    .setConnectionStatus(false, message)
-    .catch((e) => logger.error('setConnectionStatus failed', e));
-}
-
 /**
  * The tracker stopped (or resumed) updating the values: say it in the
  * Configuration screen.
@@ -180,19 +321,21 @@ async function reportFailure(message, err) {
  * with a screen still saying "connected": the values simply stopped moving, and
  * nothing anywhere said why.
  */
-tracker.onHealth = async (code, error) => {
+fleet.onHealth = async (account, code, error) => {
+  const tracker = fleet.tracker(account);
   if (code === TRACKER_HEALTH.OK) {
-    logger.info('The values are being refreshed again');
-    await reportConnected().catch((err) => logger.error('setConnectionStatus failed', err));
+    logger.info(`The values are being refreshed again (${account} account)`);
+    await setProblem(account, null);
     return;
   }
 
-  logger.warn(`The values are not being refreshed any more (${code})`);
+  logger.warn(`The values are not being refreshed any more (${account} account: ${code})`);
   if (code === TRACKER_HEALTH.TWO_FACTOR_REQUIRED) {
-    await reportFailure(twoFactorMessage(tracker.twoFactorTarget, tracker.twoFactorError));
+    await setProblem(account, twoFactorMessage(tracker.twoFactorTarget, tracker.twoFactorError));
     return;
   }
-  await reportFailure(
+  await setProblem(
+    account,
     MESSAGES[code === TRACKER_HEALTH.UNREACHABLE ? 'unreachable' : 'stale'],
     error,
   );
@@ -244,76 +387,105 @@ async function resolveConfig(raw) {
   return normalizeConfig(resolved);
 }
 
-/** Sign in to iCloud and publish what Find My reports. */
-async function initialize() {
-  const previous = config;
-  config = await resolveConfig(await prefillHomeCoordinates(await gladys.getConfig()));
-  tracker.updateConfig(config);
+/**
+ * Sign in to one iCloud account and publish what Find My reports for it. Never
+ * rejects: what went wrong is recorded in `problems`, for reportStatus().
+ *
+ * @param {string} account one of ACCOUNT
+ * @param {object} previous the config in force before this initialization
+ */
+async function initializeAccount(account, previous) {
+  const tracker = fleet.tracker(account);
+  const own = accountConfig(config, account);
+
+  if (account === ACCOUNT.SECOND && (!hasSecondAccount(config) || sameAppleIdTwice(config))) {
+    // Emptied (or never filled): sign it out and take its devices out of the
+    // Discover tab. The same Apple ID twice is refused rather than read twice.
+    await fleet.removeAccount(account);
+    problems[account] = hasSecondAccount(config) ? MESSAGES.sameAppleId : null;
+    return;
+  }
 
   // This runs on every (re)connection to Gladys, including a WebSocket that
   // dropped for a few seconds. Signing in to Apple again for that would be
   // rude: when the session is still up on the same account, just re-publish.
-  if (tracker.isConnected() && sameAccount(previous, config)) {
-    logger.info('Still signed in to iCloud, re-publishing the devices');
-    await tracker.publishDiscoveredDevices();
-    await reportConnected();
-    await tracker.refresh();
-    // The user may have created a device while we were not listening: its
-    // features exist now, so send them their values.
-    await tracker.resync();
+  if (tracker.isConnected() && sameAccount(accountConfig(previous, account), own)) {
+    logger.info(`Still signed in to iCloud (${account} account), re-publishing the devices`);
+    problems[account] = null;
+    try {
+      await fleet.publishDiscoveredDevices();
+      await tracker.refresh();
+      // The user may have created a device while we were not listening: its
+      // features exist now, so send them their values.
+      await tracker.resync();
+    } catch (err) {
+      logger.error(`Refreshing the ${account} account failed`, err);
+      problems[account] = connectionFailedMessage(err, null);
+    }
     return;
   }
 
-  if (!hasCredentials(config)) {
-    logger.info('Waiting for the Apple ID and password to be filled in');
-    await reportFailure(MESSAGES.missingCredentials);
+  if (!hasCredentials(own)) {
+    logger.info(`Waiting for the Apple ID and password of the ${account} account`);
+    problems[account] = MESSAGES.missingCredentials;
     return;
   }
 
   try {
-    const status = await tracker.start(config);
+    const status = await tracker.start(own);
     if (status === TRACKER_STATUS.TWO_FACTOR_REQUIRED) {
-      logger.info('Two-factor code required');
-      await reportFailure(twoFactorMessage(tracker.twoFactorTarget, tracker.twoFactorError));
+      logger.info(`Two-factor code required (${account} account)`);
+      problems[account] = twoFactorMessage(tracker.twoFactorTarget, tracker.twoFactorError);
       return;
     }
-    await tracker.publishDiscoveredDevices();
-    await reportConnected();
+    problems[account] = null;
+    await fleet.publishDiscoveredDevices();
     await tracker.resync();
-    logger.info(`Connected to iCloud, tracking ${tracker.devices.length} device(s)`);
+    logger.info(
+      `Connected to iCloud (${account} account), tracking ${tracker.devices.length} device(s)`,
+    );
   } catch (err) {
     // An outage (network not up yet, Apple 503) is retried by the tracker on
     // its own: say when, so the user knows there is nothing to do but wait.
-    const minutes = tracker.startRetryMinutes;
-    await reportFailure(
-      {
-        en:
-          `iCloud connection failed: ${err.message}` +
-          (minutes ? `. Next attempt in ${minutes} min.` : ''),
-        fr:
-          `Connexion a iCloud impossible : ${err.message}` +
-          (minutes ? `. Nouvel essai dans ${minutes} min.` : ''),
-        de:
-          `Verbindung zu iCloud fehlgeschlagen: ${err.message}` +
-          (minutes ? `. Nächster Versuch in ${minutes} Min.` : ''),
-        es:
-          `No se ha podido conectar con iCloud: ${err.message}` +
-          (minutes ? `. Próximo intento en ${minutes} min.` : ''),
-      },
-      err,
-    );
+    problems[account] = connectionFailedMessage(err, tracker.startRetryMinutes);
+    logger.error(aboutAccount(account, problems[account]).en, err);
+  }
+}
+
+/** Sign in to every iCloud account and publish what Find My reports. */
+async function initialize() {
+  const previous = config;
+  config = await resolveConfig(await prefillHomeCoordinates(await gladys.getConfig()));
+  updateTrackerConfigs();
+
+  // One after the other, main account first: a device both accounts see is
+  // kept by the main one (see TrackerFleet.claimedElsewhere), which works best
+  // when the main one has read Find My first. The status is shown after each
+  // account, so a slow second sign-in does not hold back the first one's.
+  for (const account of ACCOUNTS) {
+    await initializeAccount(account, previous);
+    await reportStatus();
+  }
+}
+
+/** Hand every tracker the config of its own account. */
+function updateTrackerConfigs() {
+  for (const account of ACCOUNTS) {
+    fleet.tracker(account).updateConfig(accountConfig(config, account));
   }
 }
 
 // A sign-in that failed on an outage is retried through the whole
 // initialization, so the catalog and the connection status follow it.
-tracker.onStartRetry = () => initialize();
+for (const tracker of fleet.all) {
+  tracker.onStartRetry = () => initialize();
+}
 
 // --- Discovery: Gladys asks for the list of devices --------------------------
 gladys.onScanRequest(async () => {
   logger.info('onScanRequest -> refreshing the Find My device list');
-  await tracker.refresh({ force: true });
-  await tracker.publishDiscoveredDevices();
+  await fleet.refresh({ force: true });
+  await fleet.publishDiscoveredDevices();
 });
 
 // --- Device created: the user added a discovered device to Gladys ------------
@@ -325,7 +497,7 @@ gladys.onDeviceCreated(async (device) => {
   // force: this event IS the creation, even for a device we already served
   // before — deleting a device and adding it again is how the user picks up a
   // change in its feature list, and the new features start out empty.
-  await tracker.deviceCreated(device.external_id, { force: true });
+  await fleet.deviceCreated(device.external_id, { force: true });
 });
 
 // --- Device updated: the user clicked "Update" on the Discovery screen --------
@@ -337,7 +509,7 @@ gladys.onDeviceCreated(async (device) => {
 // ever, for a value that never moved. The whole device is re-published instead.
 gladys.onDeviceUpdated(async (device) => {
   logger.info(`onDeviceUpdated <- ${device.external_id}`);
-  await tracker.deviceCreated(device.external_id, { force: true });
+  await fleet.deviceCreated(device.external_id, { force: true });
 });
 
 // --- Device deleted: drop what we remembered about it ------------------------
@@ -346,7 +518,7 @@ gladys.onDeviceUpdated(async (device) => {
 // "already published" and leave it empty on the dashboard.
 gladys.onDeviceDeleted(async (device) => {
   logger.info(`onDeviceDeleted <- ${device.external_id}`);
-  tracker.forgetDevice(device.external_id);
+  fleet.forgetDevice(device.external_id);
 });
 
 // --- Command: the user presses a button on a device --------------------------
@@ -355,7 +527,7 @@ gladys.onDeviceDeleted(async (device) => {
 // handler is acked as a failed command instead of doing nothing in silence.
 gladys.onSetValue(async (device, feature) => {
   logger.info(`onSetValue <- ${feature.external_id}`);
-  const appleDevice = await tracker.setFeatureValue(device.external_id, feature.external_id);
+  const appleDevice = await fleet.setFeatureValue(device.external_id, feature.external_id);
   logger.info(`${appleDevice.name} is ringing`);
 });
 
@@ -366,32 +538,48 @@ gladys.onPoll(async (device) => {
   logger.debug(`onPoll <- ${device.external_id}`);
   // pollDevice, not refresh: the first poll of a device is the catch-up path
   // for a creation we did not hear about (container restarted since).
-  await tracker.pollDevice(device.external_id);
+  await fleet.pollDevice(device.external_id);
 });
 
 // --- Manifest actions: buttons in the Configuration screen -------------------
 gladys.onAction('submit_2fa_code', async (fields) => {
+  const account = pickAccount(fields.account);
+  const tracker = fleet.tracker(account);
   const count = await tracker.submitSecurityCode(fields.code);
-  await tracker.publishDiscoveredDevices();
-  await reportConnected();
+  problems[account] = null;
+  await fleet.publishDiscoveredDevices();
+  await reportStatus();
   await tracker.resync();
-  return {
+  return aboutAccount(account, {
     en: `Code accepted: ${count} device(s) found. This session is now trusted by Apple.`,
     fr: `Code accepte : ${count} appareil(s) trouve(s). Cette session est maintenant approuvee par Apple.`,
     de: `Code akzeptiert: ${count} Gerät(e) gefunden. Apple stuft diese Sitzung jetzt als vertrauenswürdig ein.`,
     es: `Código aceptado: ${count} dispositivo(s) encontrado(s). Apple considera ahora esta sesión de confianza.`,
-  };
+  });
 });
+
+/**
+ * The account a "send me a code" action is about, checked: signed out, with its
+ * credentials filled in.
+ */
+function accountAskingForCode(choice) {
+  const account = pickAccount(choice);
+  if (fleet.tracker(account).isConnected()) {
+    throw new Error(
+      `${aboutAccount(account, { en: 'Already signed in to iCloud' }).en}: no code is needed.`,
+    );
+  }
+  if (!hasCredentials(accountConfig(config, account))) {
+    throw new Error(aboutAccount(account, MESSAGES.missingCredentials).en);
+  }
+  return account;
+}
 
 // Nothing received? Apple only pushes the code when it is asked to: this button
 // asks again (and falls back to an SMS for an account with no trusted device).
-gladys.onAction('resend_2fa_code', async () => {
-  if (tracker.isConnected()) {
-    throw new Error('Already signed in to iCloud: no code is needed.');
-  }
-  if (!hasCredentials(config)) {
-    throw new Error(MESSAGES.missingCredentials.en);
-  }
+gladys.onAction('resend_2fa_code', async (fields = {}) => {
+  const account = accountAskingForCode(fields.account);
+  const tracker = fleet.tracker(account);
 
   if (tracker.hasClient()) {
     await tracker.requestSecurityCode();
@@ -402,25 +590,21 @@ gladys.onAction('resend_2fa_code', async () => {
   }
 
   const target = tracker.twoFactorTarget;
-  await reportFailure(twoFactorMessage(target, tracker.twoFactorError));
-  return {
+  await setProblem(account, twoFactorMessage(target, tracker.twoFactorError));
+  return aboutAccount(account, {
     en: `A new code was sent to ${target?.en ?? 'your trusted Apple devices'}.`,
     fr: `Un nouveau code a ete envoye sur ${target?.fr ?? 'vos appareils Apple de confiance'}.`,
     de: `Ein neuer Code wurde ${target?.de ?? 'an deine vertrauenswürdigen Apple-Geräte'} gesendet.`,
     es: `Se ha enviado un nuevo código ${target?.es ?? 'a sus dispositivos Apple de confianza'}.`,
-  };
+  });
 });
 
 // The push to the Apple devices can stay silent (a device that never comes
 // online, a notification the user cannot see): this button asks Apple for an
 // SMS on a trusted phone number instead.
-gladys.onAction('send_2fa_code_by_sms', async () => {
-  if (tracker.isConnected()) {
-    throw new Error('Already signed in to iCloud: no code is needed.');
-  }
-  if (!hasCredentials(config)) {
-    throw new Error(MESSAGES.missingCredentials.en);
-  }
+gladys.onAction('send_2fa_code_by_sms', async (fields = {}) => {
+  const account = accountAskingForCode(fields.account);
+  const tracker = fleet.tracker(account);
   if (!tracker.hasClient()) {
     // No sign-in attempt yet (fresh start of the container): sign in first, so
     // Apple has a session to attach the SMS to.
@@ -428,13 +612,13 @@ gladys.onAction('send_2fa_code_by_sms', async () => {
   }
 
   const target = await tracker.requestSecurityCode({ preferSms: true });
-  await reportFailure(twoFactorMessage(target, tracker.twoFactorError));
-  return {
+  await setProblem(account, twoFactorMessage(target, tracker.twoFactorError));
+  return aboutAccount(account, {
     en: `A code was sent to ${target?.en ?? 'your trusted phone number'}.`,
     fr: `Un code a ete envoye par ${target?.fr ?? 'SMS sur votre numero de confiance'}.`,
     de: `Ein Code wurde ${target?.de ?? 'per SMS an deine vertrauenswürdige Telefonnummer'} gesendet.`,
     es: `Se ha enviado un código ${target?.es ?? 'por SMS a su número de teléfono de confianza'}.`,
-  };
+  });
 });
 
 // The coordinates are pre-filled at startup, but the fields can stay empty (the
@@ -478,46 +662,64 @@ gladys.onAction('refresh_home_location', async () => {
 });
 
 gladys.onAction('check_connection', async () => {
-  if (!tracker.isConnected()) {
-    // Not connected yet (or session lost): try a full sign-in from the action.
+  const accounts = activeAccounts();
+  if (accounts.some((account) => !fleet.tracker(account).isConnected())) {
+    // An account not connected yet (or session lost): try a full sign-in from
+    // the action. The accounts still signed in are just refreshed by it.
     await initialize();
   } else {
-    await tracker.refresh({ force: true });
+    await fleet.refresh({ force: true });
   }
 
-  if (!tracker.isConnected()) {
-    throw new Error(
-      tracker.status === TRACKER_STATUS.TWO_FACTOR_REQUIRED
-        ? twoFactorMessage(tracker.twoFactorTarget, tracker.twoFactorError).en
-        : MESSAGES.missingCredentials.en,
-    );
+  const connected = accounts.filter((account) => fleet.tracker(account).isConnected());
+  const issues = accounts
+    .filter((account) => problems[account])
+    .map((account) => aboutAccount(account, problems[account]));
+  if (connected.length === 0) {
+    throw new Error(issues.length > 0 ? joinMessages(issues).en : MESSAGES.missingCredentials.en);
   }
 
   // Named with what Apple says about their battery: "the Charging feature is
   // empty" is otherwise impossible to tell from "Apple sends no charging state
   // for this device" without reading the logs.
-  const count = tracker.devices.length;
-  const header = {
-    en: `iCloud OK: ${count} device(s)`,
-    fr: `iCloud OK : ${count} appareil(s)`,
-    de: `iCloud OK: ${count} Gerät(e)`,
-    es: `iCloud OK: ${count} dispositivo(s)`,
-  };
-  return localize(
-    (lang) =>
-      `${header[lang]} — ${tracker.devices.map((device) => describeDevice(device, lang)).join(', ')}`,
-  );
+  const report = connected.map((account) => {
+    const { devices } = fleet.tracker(account);
+    const count = devices.length;
+    const header = {
+      en: `iCloud OK: ${count} device(s)`,
+      fr: `iCloud OK : ${count} appareil(s)`,
+      de: `iCloud OK: ${count} Gerät(e)`,
+      es: `iCloud OK: ${count} dispositivo(s)`,
+    };
+    return aboutAccount(
+      account,
+      localize(
+        (lang) =>
+          `${header[lang]} — ${devices.map((device) => describeDevice(device, lang)).join(', ')}${accounts.length > 1 ? '.' : ''}`,
+      ),
+    );
+  });
+  // The account that does not work is named too: the action answered "OK"
+  // while the second Apple ID was waiting for a code.
+  return joinMessages([...report, ...issues]);
 });
 
-gladys.onAction('forget_session', async () => {
-  await tracker.forgetSession();
-  await gladys.setConnectionStatus(false, MESSAGES.missingCredentials);
-  return {
+gladys.onAction('forget_session', async (fields = {}) => {
+  // "Both" unless one account is picked: the action used to sign out the only
+  // account there was.
+  const accounts = ACCOUNTS.includes(fields.account) ? [pickAccount(fields.account)] : ACCOUNTS;
+  for (const account of accounts) {
+    await fleet.tracker(account).forgetSession();
+    problems[account] = activeAccounts().includes(account) ? MESSAGES.signedOut : null;
+  }
+  await reportStatus();
+  const message = {
     en: 'Saved session deleted. Use "Test the iCloud connection" to sign in again.',
     fr: 'Session enregistree supprimee. Utilisez "Tester la connexion iCloud" pour vous reconnecter.',
     de: 'Gespeicherte Sitzung gelöscht. Verwende „iCloud-Verbindung testen“, um dich erneut anzumelden.',
     es: 'Sesión guardada eliminada. Use "Probar la conexión con iCloud" para volver a iniciar sesión.',
   };
+  return accounts.length === 1 ? aboutAccount(accounts[0], message) : message;
 });
 
 // The `identify` action targets ONE device chosen by the user: its manifest
@@ -526,7 +728,7 @@ gladys.onAction('forget_session', async () => {
 // chosen external_id.
 gladys.onAction('identify', async (fields) => {
   logger.info(`Action identify <- ${fields.device}`);
-  const device = await tracker.ring(fields.device);
+  const device = await fleet.ring(fields.device);
   return {
     en: `${device.name} is ringing.`,
     fr: `${device.name} sonne.`,
@@ -545,7 +747,7 @@ gladys.onAction('identify', async (fields) => {
 // A message on the screen of a device: "Dinner is ready", "Call home".
 gladys.onSceneAction('send_message', async (fields) => {
   const message = normalizeMessage(fields.message);
-  const device = await tracker.sendMessage(fields.device, message, {
+  const device = await fleet.sendMessage(fields.device, message, {
     sound: fields.sound === true,
   });
   logger.info(`Scene action send_message -> message shown on ${device.name}`);
@@ -556,10 +758,10 @@ gladys.onSceneAction('send_message', async (fields) => {
 // ask: this is also what keeps an arrival scene that runs this action from
 // looping on itself.
 gladys.onSceneAction('refresh_positions', async () => {
-  await tracker.refreshNow();
-  const devices = tracker.createdDevices();
+  await fleet.refreshNow();
+  const devices = fleet.createdDevices();
   return {
-    devices_at_home: devices.filter((device) => tracker.summaryOf(device).present === true).length,
+    devices_at_home: devices.filter((device) => fleet.summaryOf(device).present === true).length,
     devices_count: devices.length,
   };
 });
@@ -568,13 +770,13 @@ gladys.onSceneAction('refresh_positions', async () => {
 // straight to the map.
 gladys.onSceneAction('get_device_position', async (fields) => {
   if (fields.refresh === true) {
-    await tracker.refreshNow();
+    await fleet.refreshNow();
   }
-  const device = tracker.findByExternalId(fields.device);
+  const device = fleet.findByExternalId(fields.device);
   if (!device) {
     throw new Error('This device is not in the Find My list any more');
   }
-  return positionOutputs(tracker.summaryOf(device));
+  return positionOutputs(fleet.summaryOf(device));
 });
 
 // --- Dashboard widgets (Gladys 5.1+) -----------------------------------------
@@ -586,13 +788,13 @@ gladys.onSceneAction('get_device_position', async (fields) => {
 // Who is home: the devices picked in the widget settings, or all of them.
 gladys.onWidgetGet('presence', async ({ settings, language, units }) => {
   const picked = Array.isArray(settings?.devices) ? settings.devices : [];
-  const devices = tracker
+  const devices = fleet
     .createdDevices()
-    .filter((device) => picked.length === 0 || picked.includes(tracker.externalIdOf(device)));
+    .filter((device) => picked.length === 0 || picked.includes(fleet.externalIdOf(device)));
   return buildPresenceWidget({
-    status: tracker.status,
-    summaries: devices.map((device) => tracker.summaryOf(device)),
-    refreshedMinutesAgo: tracker.refreshedMinutesAgo(),
+    status: fleet.status,
+    summaries: devices.map((device) => fleet.summaryOf(device)),
+    refreshedMinutesAgo: fleet.refreshedMinutesAgo(),
     language,
     units,
     ttl: widgetTtl(config),
@@ -601,11 +803,11 @@ gladys.onWidgetGet('presence', async ({ settings, language, units }) => {
 
 // One device in detail.
 gladys.onWidgetGet('device', async ({ settings, language, units }) => {
-  const device = tracker.findByExternalId(settings?.device);
+  const device = fleet.findByExternalId(settings?.device);
   return buildDeviceWidget({
-    status: tracker.status,
-    summary: device ? tracker.summaryOf(device) : null,
-    featureId: (feature) => tracker.featureIdOf(device, feature),
+    status: fleet.status,
+    summary: device ? fleet.summaryOf(device) : null,
+    featureId: (feature) => fleet.featureIdOf(device, feature),
     language,
     units,
     ttl: widgetTtl(config),
@@ -618,7 +820,7 @@ async function refreshFromWidget(actionKey) {
   if (actionKey !== WIDGET_ACTION.REFRESH) {
     throw new Error(`Unknown widget action: ${actionKey}`);
   }
-  await tracker.refreshNow();
+  await fleet.refreshNow();
   return {
     en: 'Positions updated',
     fr: 'Positions mises a jour',
@@ -635,35 +837,41 @@ gladys.onConfigUpdated(async (newConfig) => {
   const previousWarning = homeWarning;
   config = await resolveConfig(newConfig);
 
-  // The account changed (or credentials were filled in): sign in again.
-  if (!sameAccount(previous, config)) {
-    logger.info('onConfigUpdated -> the Apple account changed, signing in again');
-    await tracker.forgetSession();
+  // An account changed (or credentials were filled in, or emptied): sign it in
+  // again. The other account is left alone: initialize() only re-publishes it.
+  const changed = ACCOUNTS.filter(
+    (account) => !sameAccount(accountConfig(previous, account), accountConfig(config, account)),
+  );
+  if (changed.length > 0) {
+    for (const account of changed) {
+      logger.info(`onConfigUpdated -> the ${account} Apple account changed, signing in again`);
+      await fleet.tracker(account).forgetSession();
+    }
     await initialize();
     return;
   }
 
   // A house picked, deleted or placed on the map since: the Configuration
   // screen must stop (or start) saying the typed coordinates are in force.
-  if (tracker.isConnected() && JSON.stringify(homeWarning) !== JSON.stringify(previousWarning)) {
-    await reportConnected();
+  if (fleet.isConnected() && JSON.stringify(homeWarning) !== JSON.stringify(previousWarning)) {
+    await reportStatus();
   }
 
   // Nothing the user set changed: this update is the integration saving its own
   // iCloud session (a config key outside the schema). Just keep the new object.
   if (sameSettings(previous, config)) {
-    tracker.updateConfig(config);
+    updateTrackerConfigs();
     return;
   }
 
-  // Same account: the home position, the radius or the poll frequency moved.
+  // Same accounts: the home position, the radius or the poll frequency moved.
   // Re-publish the devices (poll_frequency lives on them) and re-evaluate the
   // presence with the new settings. publishDiscoveredDevices is idempotent.
   logger.info('onConfigUpdated -> new settings applied');
-  tracker.updateConfig(config);
-  await tracker.publishDiscoveredDevices();
-  if (tracker.isConnected()) {
-    await tracker.refresh({ force: true });
+  updateTrackerConfigs();
+  await fleet.publishDiscoveredDevices();
+  if (fleet.isConnected()) {
+    await fleet.refresh({ force: true });
   }
 });
 
@@ -678,22 +886,22 @@ gladys.on('connected', async () => {
   try {
     await initialize();
   } catch (err) {
-    await reportFailure(
-      {
+    logger.error('Initialization failed', err);
+    await gladys
+      .setConnectionStatus(false, {
         en: `Initialization failed: ${err.message}`,
         fr: `L'initialisation a échoué : ${err.message}`,
         de: `Die Initialisierung ist fehlgeschlagen: ${err.message}`,
         es: `La inicialización ha fallado: ${err.message}`,
-      },
-      err,
-    );
+      })
+      .catch((e) => logger.error('setConnectionStatus failed', e));
   }
 });
 
 // --- Graceful shutdown -------------------------------------------------------
 gladys.handleShutdown((signal) => {
   logger.info(`Received ${signal} -> graceful shutdown`);
-  tracker.stop();
+  fleet.stop();
 });
 
 // --- Startup -----------------------------------------------------------------
